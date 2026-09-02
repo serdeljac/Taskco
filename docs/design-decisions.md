@@ -179,6 +179,23 @@ Four values: **Not Started**, **In Progress**, **On Hold**, **Completed**.
 - *On Hold* means the task must wait before being worked on.
 - Task status does **not** cascade to subtasks.
 
+### Priority
+Three values — **Low**, **Med**, **High** — and **no default**. A task has no priority until someone
+sets one.
+
+Three levels rather than five: with five, people cluster on the middle and leave the extremes
+unused, which is three levels with extra steps.
+
+No default because a default is what most items end up as, so whatever it is becomes the meaning of
+"nobody has looked at this yet." Defaulting to Low would mark untriaged work as judged unimportant
+and sink it to the bottom of any priority sort, which is where things get forgotten. Leaving it
+unset keeps *evaluated* distinguishable from *not evaluated* — the same distinction that made Omit
+a flag rather than a status, and TBD different from a date nobody set.
+
+An empty priority reads as a question. "Low" reads as an answer.
+
+Only the Lead can set priority.
+
 *Dropped — Omit:* originally a fifth status, then a flag, now removed. It existed to set a task
 aside without losing it, and soft deletion already provides that recovery path. The only thing lost
 is the distinction between "set aside but visible" and "in the trash," which is presentation rather
@@ -339,23 +356,22 @@ is outstanding, and it is cheaper to settle it against real code than in the abs
 
 1. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
    X," which is a dependency in disguise.
-2. **Priority.** The field exists but its values have never been defined.
-3. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
+2. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
    accept/decline, changes a membership on acceptance. Possibly one concept with a type, rather
    than two features built twice.
-4. **What happens to projects where a departing user is only an associate?** Covered for projects
+3. **What happens to projects where a departing user is only an associate?** Covered for projects
    they lead; not for ones they merely belong to. This is a data-integrity question, not a feature
    gap — assignments and memberships would otherwise point at someone who no longer exists.
-5. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
+4. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
    with different durations. Undecided whether to build it once.
-6. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+5. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
    *(at build time)*
-7. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
+6. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
    to stop the "No email found" response being used to harvest which addresses have accounts.
    *(at build time)*
-8. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
+7. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
    eventually be needed. *(at build time)*
-9. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
+8. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
    non-goal. *(at build time)*
 
 ---
