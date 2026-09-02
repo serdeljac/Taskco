@@ -1,6 +1,6 @@
 # Taskco — Design Decisions
 
-**Status:** in progress. Last updated 2026-09-01 (task ordering).
+**Status:** in progress. Last updated 2026-09-01 (task ordering, daily routines).
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -16,6 +16,9 @@ A task-management web app where multiple people collaborate on shared projects.
 
 Any user can create a project. The creator becomes its **Lead** and can invite others, who join
 as **Associates** with limited control.
+
+Alongside projects, a separate personal surface: **daily routines**, private to one user and
+belonging to no project.
 
 Built primarily as a vehicle for learning how to plan software, so the reasoning behind each
 decision is a deliverable alongside the code.
@@ -33,6 +36,8 @@ Five kinds of record:
 | **Membership** | user + project | One record per person-per-project. Holds the role. |
 | **Task** | one project | |
 | **Subtask** | one task | One level deep only. Max 50 per task. |
+| **Routine** | one user | Outside the project model entirely. See section 8. |
+| **Completion** | one routine | One row per day the routine was done. |
 
 **Membership is a join table.** Users and projects are both top-level; neither is nested inside
 the other. The role lives on the membership because it belongs to neither side — you can be a
@@ -227,7 +232,41 @@ locale rules rather than byte values.
 
 ---
 
-## 8. Notifications
+## 8. Daily routines
+
+A separate surface from projects. Private to one user, never shared, never assignable, not part of
+any project.
+
+**Why separate.** A project task is work that *completes* and then leaves the list. A routine never
+completes — the point is continuing it. They are different objects with different definitions of
+success, and forcing them into one model is what makes recurrence awkward in most task apps.
+
+**Shape: a definition plus a log.**
+
+- **Routine** — belongs to a user. A name and a recurrence rule, e.g. "every weekday."
+- **Completion** — one row per routine per day it was actually done.
+
+No status field, no assignee, no due date, no subtasks.
+
+Whether today's routine is done is **derived**: is there a completion row dated today? Streaks and
+history fall out of the log without being designed for.
+
+**Occurrences are never generated.** The future is computed from the rule; the past is read from the
+log. Completing a routine *adds a fact* rather than mutating one, so nothing has to be reset at
+midnight.
+
+*Rejected — routines as tasks with no project:* would make a task's project reference optional, and
+optional ownership leaks into every list query and permission check as a second case that code can
+silently forget to handle.
+
+**Build order:** after the collaborative core works. Routines share nothing with the project model,
+so they can neither teach nor block the hard part.
+
+*Accepted consequence:* this does not remove recurrence from projects permanently. "Weekly status
+report" is real recurring project work. If it comes up, the materialize-versus-rule question
+returns — and deferring it is only cheap until recurring project data exists.
+
+## 9. Notifications
 
 - In-app floating popup only. **No email.** Deferred deliberately.
 - The project-deletion banner is **derived** from the project's scheduled deletion date. No stored
@@ -237,38 +276,41 @@ locale rules rather than byte values.
 
 ---
 
-## 9. Open questions
+## 10. Open questions
 
 Written down so they are deferred rather than forgotten. Refer to these by name — the numbers are
 not stable, since resolved items are removed.
 
-1. **Recurring tasks.** Never discussed. Note that the choice between "one row with a rule" and
-   "many materialized rows" is very hard to reverse once there is data.
-2. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
+1. **Which timezone defines "today"** for routine completions and streaks. A streak that breaks at
+   the server's midnight rather than the user's is wrong in a way people notice immediately.
+2. **Recurring tasks inside projects.** Deferred, not solved — routines cover personal recurrence
+   only. If project work needs to repeat, the choice between "one row with a rule" and "many
+   materialized rows" returns, and it is hard to reverse once recurring data exists.
+3. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
    X," which is a dependency in disguise.
-3. **Priority.** The field exists but its values have never been defined.
-4. **Can an assigned associate create subtasks?** The current rules contradict each other — they
+4. **Priority.** The field exists but its values have never been defined.
+5. **Can an assigned associate create subtasks?** The current rules contradict each other — they
    have "the same permissions as the Lead" on an assigned task, but are also said not to create
    subtasks.
-5. **Can an assigned associate change a subtask's due date?** Same contradiction: full permission on
+6. **Can an assigned associate change a subtask's due date?** Same contradiction: full permission on
    the parent, status-and-notes-only on the child they are auto-assigned to.
-6. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
+7. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
    accept/decline, changes a membership on acceptance. Possibly one concept with a type, rather
    than two features built twice.
-7. **What happens to projects where a departing user is only an associate?** Covered for projects
+8. **What happens to projects where a departing user is only an associate?** Covered for projects
    they lead; not for ones they merely belong to.
-8. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
-9. **Rate limiting invites.** Proposed but not confirmed: limit how many *distinct* addresses one
-   person can invite in a window, to prevent using the "No email found" response to harvest which
-   addresses have accounts.
-10. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
+9. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+10. **Rate limiting invites.** Proposed but not confirmed: limit how many *distinct* addresses one
+    person can invite in a window, to prevent using the "No email found" response to harvest which
+    addresses have accounts.
+11. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
     with different durations. Undecided whether to build it once.
-11. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
+12. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
     eventually be needed.
 
 ---
 
-## 10. Principles being applied
+## 11. Principles being applied
 
 The reusable part. These outlast this app.
 
