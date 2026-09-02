@@ -1,6 +1,6 @@
 # Taskco — Design Decisions
 
-**Status:** in progress. Last updated 2026-09-01.
+**Status:** in progress. Last updated 2026-09-01 (task ordering).
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -187,9 +187,43 @@ and the bug being the one place that forgot one.
 ### Views
 **List first, board later.** The statuses are board-shaped, and a board is expected eventually.
 
-The thing that makes this cheap is storing an explicit order value per task rather than sorting by
-a field — then the board reuses the same value within each status column. *(Not yet decided — see
-open question 1.)*
+### Ordering
+**Position is stored, not derived from a sort.** Each task carries an integer `position`.
+
+Chosen because the two directions are not symmetrical: a sort by due date or priority can be added
+at any time for free, since it sorts data that already exists. Manual ordering cannot — adding it
+later means inventing positions for every existing task and rebuilding the list around dragging.
+One door stays open forever, the other has a deadline.
+
+- **Integers, widely spaced** — around 65536 apart. Integers are exact, so two tasks can never end
+  up almost-equal, and the midpoint is plain division.
+- **Scoped, not global.** A task's position is meaningful within its project; a subtask's within its
+  parent task. This is what makes the board cheap later: within a status column, show that column's
+  tasks in the same position order. Dragging between columns changes status and leaves position
+  alone.
+- **A move writes one row.** The new position is the midpoint of its two neighbours, so nothing else
+  changes. Cost is independent of list length.
+- **Exhaustion is detected, not predicted.** After computing a candidate position, check that it is
+  strictly between the rows above and below. If it is, write it. If not, there was no room:
+  renumber that one list back to clean spacing and place the task — both in the same transaction,
+  so the list is never half-renumbered.
+- Test the *result*, not the gap. A threshold like "gap below 2" is a proxy for "there is no room,"
+  and proxies drift out of sync with the thing they stand for when the surrounding code changes.
+- **Every move goes through one operation** — "place this task between these two." Drags, inserts,
+  and the board's cross-column moves all call it. Nothing else in the app touches a position value.
+- Rebalancing is scoped to a single project's tasks or a single task's subtasks. Never the table.
+- Dragging is disabled whenever a field sort is active, since "put this here" and "the app decides
+  placement" cannot both be true.
+
+*Rejected — consecutive integers (1, 2, 3):* one drag rewrites every row below the insertion point,
+and two people dragging at once each compute a full renumbering from what they saw, so the second
+save silently overwrites the first.
+
+*Rejected — string / fractional keys, which never exhaust:* they earn their keep when clients must
+generate positions with no server to ask (offline or local-first), when the same list is reordered
+concurrently often enough that whole-list rebalances contend, or when lists are large enough that a
+rebalance is unaffordable. None applies here. They also fail silently if the database sorts text by
+locale rules rather than byte values.
 
 ---
 
@@ -205,32 +239,31 @@ open question 1.)*
 
 ## 9. Open questions
 
-Written down so they are deferred rather than forgotten.
+Written down so they are deferred rather than forgotten. Refer to these by name — the numbers are
+not stable, since resolved items are removed.
 
-1. **Is a task's list position stored, or derived from a sort?** Decides whether the board is cheap
-   or expensive to add later.
-2. **Recurring tasks.** Never discussed. Note that the choice between "one row with a rule" and
+1. **Recurring tasks.** Never discussed. Note that the choice between "one row with a rule" and
    "many materialized rows" is very hard to reverse once there is data.
-3. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
+2. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
    X," which is a dependency in disguise.
-4. **Priority.** The field exists but its values have never been defined.
-5. **Can an assigned associate create subtasks?** The current rules contradict each other — they
+3. **Priority.** The field exists but its values have never been defined.
+4. **Can an assigned associate create subtasks?** The current rules contradict each other — they
    have "the same permissions as the Lead" on an assigned task, but are also said not to create
    subtasks.
-6. **Can an assigned associate change a subtask's due date?** Same contradiction: full permission on
+5. **Can an assigned associate change a subtask's due date?** Same contradiction: full permission on
    the parent, status-and-notes-only on the child they are auto-assigned to.
-7. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
+6. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
    accept/decline, changes a membership on acceptance. Possibly one concept with a type, rather
    than two features built twice.
-8. **What happens to projects where a departing user is only an associate?** Covered for projects
+7. **What happens to projects where a departing user is only an associate?** Covered for projects
    they lead; not for ones they merely belong to.
-9. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
-10. **Rate limiting invites.** Proposed but not confirmed: limit how many *distinct* addresses one
-    person can invite in a window, to prevent using the "No email found" response to harvest which
-    addresses have accounts.
-11. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
+8. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+9. **Rate limiting invites.** Proposed but not confirmed: limit how many *distinct* addresses one
+   person can invite in a window, to prevent using the "No email found" response to harvest which
+   addresses have accounts.
+10. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
     with different durations. Undecided whether to build it once.
-12. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
+11. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
     eventually be needed.
 
 ---
@@ -257,3 +290,9 @@ The reusable part. These outlast this app.
   of the other. A task has exactly one project, so it just carries a reference.
 - **A feature that drags a whole subsystem behind it is not a feature.** Recognizing that early is
   how scope stays honest.
+- **Test the outcome, not a proxy for it.** A threshold that approximates the condition you care
+  about will drift away from it as the surrounding code changes. Check the real thing.
+- **Making a costly operation rare beats engineering it out of existence.** Usually cheaper, usually
+  simpler, and the remaining cost stops mattering.
+- **When two options are asymmetrical, take the one that keeps the door open.** One direction is
+  free forever; the other has a deadline.
