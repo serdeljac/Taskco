@@ -1,6 +1,6 @@
 # Taskco — Design Decisions
 
-**Status:** in progress. Last updated 2026-09-01 (task ordering, daily routines).
+**Status:** in progress. Last updated 2026-09-01 (ordering, routines, permissions, dates).
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -31,7 +31,7 @@ Five kinds of record:
 
 | Record | Belongs to | Notes |
 |---|---|---|
-| **User** | — | A person with an account. |
+| **User** | — | A person with an account. Holds their timezone. |
 | **Project** | — | Created by a user, who becomes Lead. |
 | **Membership** | user + project | One record per person-per-project. Holds the role. |
 | **Task** | one project | |
@@ -62,16 +62,22 @@ Users are referenced by an internal id that never changes. Never by email or nam
 
 ## 4. Permissions
 
-Permission depends on three things: the person's **role**, whether they are the **assignee of that
-specific row**, and the **project's lifecycle state**. It is row-level, not role-level — you cannot
-answer "can this user edit tasks?" without knowing which task.
+Permission depends on two things: the person's **role** in the project, and the **project's
+lifecycle state**. It does not depend on who a task is assigned to.
 
-| Who | On a task | On a subtask |
-|---|---|---|
-| Lead | Full control | Full control |
-| Associate, assigned | Same as Lead *(see open question 5, 6)* | Status and notes only |
-| Associate, not assigned | Read only | Read only |
-| Any member, project pending deletion | No access | No access |
+| Who | Can do |
+|---|---|
+| Lead | Everything in the project |
+| Associate | Change status and edit notes, on any task or subtask in the project |
+| Any member, while the project is pending deletion | Nothing — no read, no write |
+
+**This is role-level, not row-level.** "Can this user change a status?" is answerable from their
+membership alone, without loading the task. Assignment was originally going to gate permissions,
+which would have made every check depend on the specific row being acted on; removing that was the
+largest single simplification in the design.
+
+Associates therefore cannot: create or delete tasks or subtasks, change due dates, change priority,
+change assignment, invite anyone, or alter the project.
 
 All permissions are enforced on the server. Hiding a button in the interface is a courtesy to the
 user, not security.
@@ -156,14 +162,10 @@ Four values: **Not Started**, **In Progress**, **On Hold**, **Completed**.
 - *On Hold* means the task must wait before being worked on.
 - Task status does **not** cascade to subtasks.
 
-### Omit
-**Omit is a flag, not a status.** It sits alongside status rather than replacing it.
-
-Its purpose is to set a task aside without deleting it, in case of a change of mind. Storing it as
-a status would overwrite the status it is meant to preserve — an In Progress task that was omitted
-and later restored would come back as Not Started, which is false.
-
-Omitted tasks are excluded from default lists and progress counts, and are never overdue.
+*Dropped — Omit:* originally a fifth status, then a flag, now removed. It existed to set a task
+aside without losing it, and soft deletion already provides that recovery path. The only thing lost
+is the distinction between "set aside but visible" and "in the trash," which is presentation rather
+than modelling. It can return later as a flag with no rework.
 
 ### Deletion
 Tasks are **soft-deleted**: a deletion date is recorded, the row is not removed. This makes a trash
@@ -174,9 +176,15 @@ through it. Without this discipline, soft deletion turns into every query carryi
 and the bug being the one place that forgot one.
 
 ### Assignee
-- Defaults to the Lead.
-- May be set to **None**.
-- Must be a current member of the project.
+**Assignment is organizational only.** It records who is expected to do the work and has no effect
+on permissions.
+
+- A task defaults to the Lead. The Lead may set it to **None**, meaning nobody specific.
+- A subtask inherits the task's assignee at the moment it is created — including None.
+- That inheritance is a **default at creation, not a live link.** Reassigning a task later does not
+  move its existing subtasks.
+- Only the Lead can change an assignment, since associates are limited to status and notes.
+- An assignee must be a current member of the project.
 
 ### Subtasks
 - One level only. A subtask cannot have subtasks.
@@ -232,7 +240,37 @@ locale rules rather than byte values.
 
 ---
 
-## 8. Daily routines
+## 8. Dates and time
+
+Applies app-wide, not just to tasks.
+
+**A due date is a calendar label, not a moment.** "Due Friday" means the square on the calendar, and
+it has no timezone. It is stored as a plain date and never converted — converting it would turn a
+task due Friday in Zagreb into one due Thursday afternoon in Los Angeles, which is not what anyone
+meant.
+
+**A timestamp is a moment.** Created-at, completed-at, invite expiry, scheduled deletion. Stored in
+UTC, rendered in the timezone of whoever is looking.
+
+**Timezone lives on the user**, defaulted from the browser at signup and changeable in settings. It
+is never copied onto a task or any other record. Copying a mutable attribute of one entity onto a
+different entity — and freezing it there — is the same mistake as keying memberships on an email
+address: it goes stale the moment the original changes, and here it would go stale every time
+someone travelled or a task was reassigned.
+
+**"Today" always means today for the person asking**, resolved through their timezone. This is the
+one rule behind three separate questions:
+
+- The subtask rule that a due date must fall between today and the parent's due date.
+- Whether a task due the 14th is overdue yet.
+- Whether a routine counts as done today, and whether a streak survives.
+
+Streaks are the sensitive one — a streak that resets at the server's midnight instead of the user's
+breaks at 7pm, and users read that as the app being broken.
+
+---
+
+## 9. Daily routines
 
 A separate surface from projects. Private to one user, never shared, never assignable, not part of
 any project.
@@ -266,7 +304,7 @@ so they can neither teach nor block the hard part.
 report" is real recurring project work. If it comes up, the materialize-versus-rule question
 returns — and deferring it is only cheap until recurring project data exists.
 
-## 9. Notifications
+## 10. Notifications
 
 - In-app floating popup only. **No email.** Deferred deliberately.
 - The project-deletion banner is **derived** from the project's scheduled deletion date. No stored
@@ -276,41 +314,34 @@ returns — and deferring it is only cheap until recurring project data exists.
 
 ---
 
-## 10. Open questions
+## 11. Open questions
 
 Written down so they are deferred rather than forgotten. Refer to these by name — the numbers are
 not stable, since resolved items are removed.
 
-1. **Which timezone defines "today"** for routine completions and streaks. A streak that breaks at
-   the server's midnight rather than the user's is wrong in a way people notice immediately.
-2. **Recurring tasks inside projects.** Deferred, not solved — routines cover personal recurrence
+1. **Recurring tasks inside projects.** Deferred, not solved — routines cover personal recurrence
    only. If project work needs to repeat, the choice between "one row with a rule" and "many
    materialized rows" returns, and it is hard to reverse once recurring data exists.
-3. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
+2. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
    X," which is a dependency in disguise.
-4. **Priority.** The field exists but its values have never been defined.
-5. **Can an assigned associate create subtasks?** The current rules contradict each other — they
-   have "the same permissions as the Lead" on an assigned task, but are also said not to create
-   subtasks.
-6. **Can an assigned associate change a subtask's due date?** Same contradiction: full permission on
-   the parent, status-and-notes-only on the child they are auto-assigned to.
-7. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
+3. **Priority.** The field exists but its values have never been defined.
+4. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
    accept/decline, changes a membership on acceptance. Possibly one concept with a type, rather
    than two features built twice.
-8. **What happens to projects where a departing user is only an associate?** Covered for projects
+5. **What happens to projects where a departing user is only an associate?** Covered for projects
    they lead; not for ones they merely belong to.
-9. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
-10. **Rate limiting invites.** Proposed but not confirmed: limit how many *distinct* addresses one
-    person can invite in a window, to prevent using the "No email found" response to harvest which
-    addresses have accounts.
-11. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
-    with different durations. Undecided whether to build it once.
-12. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
-    eventually be needed.
+6. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+7. **Rate limiting invites.** Proposed but not confirmed: limit how many *distinct* addresses one
+   person can invite in a window, to prevent using the "No email found" response to harvest which
+   addresses have accounts.
+8. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
+   with different durations. Undecided whether to build it once.
+9. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
+   eventually be needed.
 
 ---
 
-## 11. Principles being applied
+## 12. Principles being applied
 
 The reusable part. These outlast this app.
 
@@ -338,3 +369,7 @@ The reusable part. These outlast this app.
   simpler, and the remaining cost stops mattering.
 - **When two options are asymmetrical, take the one that keeps the door open.** One direction is
   free forever; the other has a deadline.
+- **A calendar label is not a moment.** Dates and timestamps look alike and behave completely
+  differently; converting one as though it were the other is how "due Friday" becomes Thursday.
+- **Don't freeze one entity's mutable attribute onto another entity.** It goes stale as soon as the
+  original changes, and nothing tells you it has.
