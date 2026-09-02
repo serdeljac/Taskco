@@ -23,6 +23,23 @@ belonging to no project.
 Built primarily as a vehicle for learning how to plan software, so the reasoning behind each
 decision is a deliverable alongside the code.
 
+### Non-goals
+
+Decided against, not deferred. Listed here so they are not relitigated later by someone reading the
+open questions as a backlog.
+
+- **Recurring tasks inside projects.** Repetition belongs to personal routines only. Projects are
+  work that completes; routines are habits that continue. Two surfaces, two rules, no overlap.
+  *Accepted cost:* shared recurring obligations — a weekly status report, a monthly invoice — have
+  nowhere to live. The Lead recreates them by hand, or someone tracks them as a private routine
+  where the team cannot see it and nobody can be assigned.
+- **Subscription tiers and billing.** Would have added a payment provider, asynchronous plan state
+  the app does not control, a second authorization system (entitlements, which answer to billing
+  rather than to role), and the downgrade problem.
+- **Nesting below subtasks.** A subtask cannot have subtasks. Fixing depth at two levels keeps every
+  operation a simple join rather than a recursive query, and keeps deletion, completion, filtering
+  and progress from acquiring recursive semantics.
+
 ---
 
 ## 2. The shape of the data
@@ -316,28 +333,30 @@ returns — and deferring it is only cheap until recurring project data exists.
 
 ## 11. Open questions
 
-Written down so they are deferred rather than forgotten. Refer to these by name — the numbers are
-not stable, since resolved items are removed.
+Things still owed an answer. Refer to these by name — the numbers are not stable, since resolved
+items are removed. Items marked *(at build time)* are already decided in principle; only the detail
+is outstanding, and it is cheaper to settle it against real code than in the abstract.
 
-1. **Recurring tasks inside projects.** Deferred, not solved — routines cover personal recurrence
-   only. If project work needs to repeat, the choice between "one row with a rule" and "many
-   materialized rows" returns, and it is hard to reverse once recurring data exists.
-2. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
+1. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
    X," which is a dependency in disguise.
-3. **Priority.** The field exists but its values have never been defined.
-4. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
+2. **Priority.** The field exists but its values have never been defined.
+3. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
    accept/decline, changes a membership on acceptance. Possibly one concept with a type, rather
    than two features built twice.
-5. **What happens to projects where a departing user is only an associate?** Covered for projects
-   they lead; not for ones they merely belong to.
-6. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
-7. **Rate limiting invites.** Proposed but not confirmed: limit how many *distinct* addresses one
-   person can invite in a window, to prevent using the "No email found" response to harvest which
-   addresses have accounts.
-8. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
+4. **What happens to projects where a departing user is only an associate?** Covered for projects
+   they lead; not for ones they merely belong to. This is a data-integrity question, not a feature
+   gap — assignments and memberships would otherwise point at someone who no longer exists.
+5. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
    with different durations. Undecided whether to build it once.
-9. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
-   eventually be needed.
+6. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+   *(at build time)*
+7. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
+   to stop the "No email found" response being used to harvest which addresses have accounts.
+   *(at build time)*
+8. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
+   eventually be needed. *(at build time)*
+9. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
+   non-goal. *(at build time)*
 
 ---
 
