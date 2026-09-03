@@ -1,6 +1,6 @@
 # Taskco — Design Decisions
 
-**Status:** in progress. Last updated 2026-09-01 (ordering, routines, permissions, dates).
+**Status:** in progress. Last updated 2026-09-01 (lifecycle map: transfer, delete mode, memberships).
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -50,7 +50,7 @@ Five kinds of record:
 |---|---|---|
 | **User** | — | A person with an account. Holds their timezone. |
 | **Project** | — | Created by a user, who becomes Lead. |
-| **Membership** | user + project | One record per person-per-project. Holds the role. |
+| **Membership** | user + project | One per person-per-project. Holds the role. Soft-deleted when it ends, so former members stay recoverable. |
 | **Task** | one project | |
 | **Subtask** | one task | One level deep only. Max 50 per task. |
 | **Routine** | one user | Outside the project model entirely. See section 8. |
@@ -136,30 +136,76 @@ whom.
 
 ## 6. Leaving, transferring, deleting
 
+### One Lead
+A project has exactly one Lead at all times. There is no co-lead and no vacant state.
+
 ### Transfer of leadership
-- The Lead may transfer to any user. The recipient has 3 days to accept.
-- On acceptance the recipient becomes Lead, and the previous Lead is **removed from the project
-  entirely** — they must be re-invited to return.
+- **Only an existing member can be made Lead**, and the change is **immediate** — no acceptance step
+  and no link.
+- The new Lead is notified. This is a notification, not a request; they may not be logged in when it
+  fires, so nothing may depend on it being seen. The durable signal is their role in the members
+  list.
+- Promotion without consent is acceptable here *because an exit exists*: the new Lead can pass
+  leadership to another member, or delete the project if they are alone in it. An obligation you can
+  put down is not a trap. It is also why transfer is restricted to members — they already opted into
+  the project.
+- The outgoing Lead chooses to **stay as an associate** or **leave the project**.
 - Other members' roles are unaffected.
 
 ### Removing a member
-One shared operation, called by every path that removes someone — transfer, account deletion, or a
-Lead removing an associate.
+One shared operation, called by every path that removes someone — a Lead removing an associate, a
+member leaving voluntarily, an outgoing Lead choosing to leave, or account deletion.
 
+- The membership is **soft-deleted**: the row is kept and the date it ended is recorded.
 - Any task or subtask they were assigned to has its assignee set to **None**.
 - This maintains the invariant: *an assignee must be a current member of the project.*
 
-### Deleting a project
-- The Lead is prompted, then a **5-day** countdown begins.
-- **The Lead can cancel at any time during the window.**
-- During the window: the Lead cannot transfer, and associates lose all access — they see only a
-  notice with the project name and its deletion date, telling them to contact the Lead.
-- After 5 days the project and all its data are removed.
+### Membership history
+Because memberships are soft-deleted rather than removed, "everyone who has ever been in this
+project" is just the memberships including ended ones. The Lead can see former members and re-invite
+one in a single click, without having to remember who they were.
+
+This is why the record lives on the membership rather than on invites: invites are destroyed on
+acceptance, so they cannot answer the question.
+
+**A purged user drops out of the history entirely**, and the Lead loses the convenience for that one
+person. "Delete my account" and "re-invite whoever left" want opposite things, and the deletion
+request wins.
+
+### Delete mode
+One mechanism, shared by every deletion. Entered by deleting a project directly, or by deleting an
+account that leads it.
+
+- Requires confirmation first.
+- **30 days**, then the project and all its data are removed.
+- The confirmation also offers **delete permanently now**. This is a per-deletion choice, never a
+  setting — a standing preference would silently remove the safety net from future deletions made in
+  a different frame of mind.
+- **Can be undone** at any point in the window, but only while the Lead's account is active.
+- Members cannot see the project. They get a notification of its status, telling them to contact the
+  Lead.
+- The Lead cannot change tasks or roles, and cannot send invites.
+- Pending invites are rejected on acceptance even if their link is still valid — checked against the
+  project's state at acceptance time, so nothing needs sweeping.
+- The Lead can still export.
 
 ### Deleting an account
-- Same as above, but **30 days**.
-- If the user reopens their account during the window, the countdown is cancelled.
-- This means "delete account" is really deactivation followed by a purge.
+- The user is first shown **a list of every project they lead**, each with a dropdown of that
+  project's members, a change button, and a confirmation.
+- For each project they may **transfer it to a member** or **delete it**. Some projects should die
+  with their owner.
+- If a project has no other members the dropdown is disabled and reads "No members," so that project
+  can only be deleted.
+- Projects not transferred enter **delete mode**.
+- **Memberships in other people's projects are removed immediately**, via the shared remove-member
+  operation.
+- The account is deactivated, not erased. Reopening within 30 days cancels delete mode on the
+  projects they still lead.
+- Personal **routines are purged with the account**. They belong to no other person and no project.
+
+*Accepted asymmetry:* reopening restores the projects they led, but **not** their memberships in
+other people's projects — those were removed at request time and need re-invitation. The membership
+history is what makes that one click rather than an act of memory.
 
 ### Export
 - The Lead can export the project's tasks to **CSV at any time**. The delete confirmation mentions
@@ -359,19 +405,14 @@ is outstanding, and it is cheaper to settle it against real code than in the abs
 2. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
    accept/decline, changes a membership on acceptance. Possibly one concept with a type, rather
    than two features built twice.
-3. **What happens to projects where a departing user is only an associate?** Covered for projects
-   they lead; not for ones they merely belong to. This is a data-integrity question, not a feature
-   gap — assignments and memberships would otherwise point at someone who no longer exists.
-4. **Project, account and task deletion are the same mechanism three times** — mark, wait, purge,
-   with different durations. Undecided whether to build it once.
-5. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+3. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
    *(at build time)*
-6. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
+4. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
    to stop the "No email found" response being used to harvest which addresses have accounts.
    *(at build time)*
-7. **Purging.** Soft deletion means nothing is ever truly gone. A real permanent-delete path will
-   eventually be needed. *(at build time)*
-8. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
+5. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
+   accounts; tasks and ended memberships still accumulate. *(at build time)*
+6. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
    non-goal. *(at build time)*
 
 ---
@@ -408,3 +449,7 @@ The reusable part. These outlast this app.
   differently; converting one as though it were the other is how "due Friday" becomes Thursday.
 - **Don't freeze one entity's mutable attribute onto another entity.** It goes stale as soon as the
   original changes, and nothing tells you it has.
+- **A per-action choice is not a standing preference.** A setting is a decision about every future
+  case, made while thinking about only one of them.
+- **An obligation is only safe to hand over unasked if the recipient can put it down.** Consent
+  matters in proportion to how stuck someone gets without it.
