@@ -402,17 +402,14 @@ is outstanding, and it is cheaper to settle it against real code than in the abs
 
 1. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
    X," which is a dependency in disguise.
-2. **Transfer and invite look like the same shape** — addressed to a person, 3-day expiry,
-   accept/decline, changes a membership on acceptance. Possibly one concept with a type, rather
-   than two features built twice.
-3. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+2. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
    *(at build time)*
-4. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
+3. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
    to stop the "No email found" response being used to harvest which addresses have accounts.
    *(at build time)*
-5. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
+4. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
    accounts; tasks and ended memberships still accumulate. *(at build time)*
-6. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
+5. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
    non-goal. *(at build time)*
 
 ---
