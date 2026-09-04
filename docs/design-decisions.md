@@ -1,12 +1,12 @@
 # Taskco — Design Decisions
 
-**Status:** in progress. Last updated 2026-09-01 (lifecycle map: transfer, delete mode, memberships).
+**Status:** design complete, nothing implemented. Last updated 2026-09-01.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
 moves up into the decided sections.
 
-Nothing here has been implemented. No stack has been chosen.
+No structural questions remain open. No stack has been chosen and no code has been written.
 
 ---
 
@@ -36,6 +36,13 @@ open questions as a backlog.
 - **Subscription tiers and billing.** Would have added a payment provider, asynchronous plan state
   the app does not control, a second authorization system (entitlements, which answer to billing
   rather than to role), and the downgrade problem.
+- **Dependencies between tasks.** No stored links saying one task must finish before another can
+  start. Sequencing is expressed by the *On Hold* status plus a note, which a person reads.
+  *Accepted cost:* the app cannot answer "what is ready to work on," cannot unblock a task
+  automatically when its predecessor completes, and cannot display the order of work anywhere.
+  Deferring is cheap — it is an ordinary join table between tasks and tasks, with no accumulated
+  history lost by waiting — but it would also introduce the first graph in the app, and with it
+  cycle detection, since nothing structurally prevents A waiting on B waiting on C waiting on A.
 - **Nesting below subtasks.** A subtask cannot have subtasks. Fixing depth at two levels keeps every
   operation a simple join rather than a recursive query, and keeps deletion, completion, filtering
   and progress from acquiring recursive semantics.
@@ -396,20 +403,18 @@ returns — and deferring it is only cheap until recurring project data exists.
 
 ## 11. Open questions
 
-Things still owed an answer. Refer to these by name — the numbers are not stable, since resolved
-items are removed. Items marked *(at build time)* are already decided in principle; only the detail
-is outstanding, and it is cheaper to settle it against real code than in the abstract.
+Nothing structural is outstanding. Every remaining item is decided in principle and marked
+*(at build time)* — only the detail is open, and it is cheaper to settle against real code than in
+the abstract. Refer to these by name; the numbers are not stable, since resolved items are removed.
 
-1. **Dependencies between tasks.** Never discussed. Note that *On Hold* is often "waiting for task
-   X," which is a dependency in disguise.
-2. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+1. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
    *(at build time)*
-3. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
+2. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
    to stop the "No email found" response being used to harvest which addresses have accounts.
    *(at build time)*
-4. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
+3. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
    accounts; tasks and ended memberships still accumulate. *(at build time)*
-5. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
+4. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
    non-goal. *(at build time)*
 
 ---
