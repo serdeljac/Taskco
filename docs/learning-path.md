@@ -253,11 +253,31 @@ Deliberately last.
 
 ---
 
-## Open
+## Pace and estimates
 
-**Hours per week is unknown.** Without it there is no way to say whether a slice is one evening or
-three, which makes it hard to distinguish being stuck from going at a reasonable pace. Worth stating
-even roughly.
+**Available:** 4–5 hours on weekday evenings, around 10 across the weekend, alongside full-time work
+elsewhere. Roughly 30 hours a week at the top end.
+
+| Step | Estimate | Notes |
+|---|---|---|
+| 1. Environment | 5–10 h | Wide range because Docker on Windows either works in twenty minutes or eats an afternoon |
+| 2. Slice A | 10–15 h | SQL, joins, constraints and testing all arrive at once. The steepest step |
+| Checkpoint | ~1 h | |
+| 3. Slice B | 12–18 h | Conceptually the hardest data work: positions, transactions, the cascade |
+| 4. Slice C | 10–15 h | Mostly repetition of A and B, plus state modelling |
+| 5. HTTP layer | 12–20 h | All new. Middleware is a genuine concept, not a syntax detail |
+| 6. Authentication | 10–15 h | |
+| **Backend total** | **60–95 h** | |
+| 7. Frontend | 60–100+ h | Learning React, TypeScript and SASS while building every screen |
+
+**These estimates are a stuck-detector, not a deadline.** Their only job is to signal when something
+has gone wrong. If step 1 is at hour twenty-five, the problem is not speed — it is that something
+needs explaining, and that is the moment to ask rather than grind. Estimates made by someone
+learning are unreliable by nature, which is exactly why the *ratio* matters more than the number.
+
+**On pace:** thirty hours a week on top of a full-time job is a sprint, and this is a months-long
+project. The plan does not require that rate. A slower pace that survives to step 7 beats a fast one
+that stops at step 4.
 
 ---
 
