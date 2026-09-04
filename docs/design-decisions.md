@@ -6,6 +6,9 @@ A running record of what has been decided, what is still open, and why. Decision
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
 moves up into the decided sections.
 
+Companion file: [`learning-path.md`](./learning-path.md) — how the build proceeds, step by step.
+This file holds *what* is being built and why; that one holds *how*.
+
 No structural questions remain open. No stack has been chosen and no code has been written.
 
 ---
