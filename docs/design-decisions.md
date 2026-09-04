@@ -1,6 +1,6 @@
 # Taskco — Design Decisions
 
-**Status:** design complete, nothing implemented. Last updated 2026-09-01.
+**Status:** design complete, stack chosen, nothing implemented. Last updated 2026-09-01.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -401,7 +401,69 @@ returns — and deferring it is only cheap until recurring project data exists.
 
 ---
 
-## 11. Open questions
+## 11. Stack
+
+Chosen 2026-09-01. Nothing built yet.
+
+**Most of this is unfamiliar.** React, TypeScript, SQL and SASS are learning targets, not existing
+skills; comfort is in JavaScript, HTML and CSS. Everything under Backend and Testing is new. Build
+guidance should assume the *concepts* are new and explain them; syntax can be looked up.
+
+**How the build proceeds:** one step at a time. Each step is specified — what it must do, what
+"done" looks like, what to watch for — then written by Stjepan on his own branch, then reviewed.
+Nothing is built without explicit confirmation first.
+
+### Frontend
+| Piece | Role |
+|---|---|
+| React | UI |
+| Vite | Build tool and dev server — not a framework |
+| TypeScript | |
+| SASS | Styling |
+| React Router | Routing. Vite ships none |
+| `fetch` | Data fetching to start. TanStack Query only if hand-managing loading states becomes painful |
+| dnd-kit | Drag ordering. Not needed until there is a list to drag |
+
+### Backend
+| Piece | Role |
+|---|---|
+| Node.js | Runtime |
+| Express | HTTP framework |
+| TypeScript | Same language both sides, so task/membership/role types are written once |
+| `pg` | Postgres driver. Raw SQL, no ORM |
+| Zod | Request validation — where "the client sends intent, the server derives facts" becomes code |
+
+### Database
+**PostgreSQL.** Its constraints are what make the "bad states unrepresentable" decisions real: the
+one-membership-per-person rule, the assignee-must-be-a-member invariant, and one-pending-invite-per
+-address are all enforced by the database rather than trusted to application code.
+
+Schema is hand-written SQL migration files.
+
+### Testing
+**Vitest** and **Supertest**. Not optional: the backend is being built before any interface, so
+tests are the only thing that will exercise the model. Without them the code would be written and
+never called.
+
+### Rejected
+*Next.js* — bundles frontend and backend together. Vite keeps them as separate programs, which suits
+building the backend first.
+
+*An ORM (Prisma, Drizzle)* — the reasonable professional default and the wrong choice here. Its
+purpose is to hide SQL, and SQL is a stated learning goal. Writing the schema by hand is what turns
+the design decisions into something concrete. *Escape hatch if the boilerplate grates:* Kysely, a
+typed query builder that still reads like SQL.
+
+*SQLite* — simpler and zero-setup, but avoids concurrency and constraint work that is the point.
+
+### Still open
+Authentication (session cookies versus tokens, and a password hashing library) and hosting. Also a
+migration runner — hand-written SQL either way, the only question is what applies the files in
+order.
+
+---
+
+## 12. Open questions
 
 Nothing structural is outstanding. Every remaining item is decided in principle and marked
 *(at build time)* — only the detail is open, and it is cheaper to settle against real code than in
@@ -419,7 +481,7 @@ the abstract. Refer to these by name; the numbers are not stable, since resolved
 
 ---
 
-## 12. Principles being applied
+## 13. Principles being applied
 
 The reusable part. These outlast this app.
 
