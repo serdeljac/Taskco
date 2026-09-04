@@ -9,7 +9,7 @@ moves up into the decided sections.
 Companion file: [`learning-path.md`](./learning-path.md) — how the build proceeds, step by step.
 This file holds *what* is being built and why; that one holds *how*.
 
-No structural questions remain open. No stack has been chosen and no code has been written.
+No structural questions remain open.
 
 ---
 
@@ -435,6 +435,7 @@ Nothing is built without explicit confirmation first.
 | TypeScript | Same language both sides, so task/membership/role types are written once |
 | `pg` | Postgres driver. Raw SQL, no ORM |
 | Zod | Request validation — where "the client sends intent, the server derives facts" becomes code |
+| `tsx` | Runs `.ts` files on Node. Type *checking* is a separate command, `tsc --noEmit` |
 
 ### Database
 **PostgreSQL.** Its constraints are what make the "bad states unrepresentable" decisions real: the
@@ -460,9 +461,11 @@ typed query builder that still reads like SQL.
 *SQLite* — simpler and zero-setup, but avoids concurrency and constraint work that is the point.
 
 ### Still open
-Authentication (session cookies versus tokens, and a password hashing library) and hosting. Also a
-migration runner — hand-written SQL either way, the only question is what applies the files in
-order.
+Authentication (session cookies versus tokens, and a password hashing library) and hosting.
+
+*Resolved 2026-09-04:* the migration runner is written by hand rather than taken from a library, and
+Postgres runs natively on Windows rather than in Docker. Both are recorded with their reasoning in
+[`learning-path.md`](./learning-path.md), step 1.
 
 ---
 

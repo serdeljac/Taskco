@@ -99,13 +99,36 @@ That combination is normal and worth naming, because the temptation is to rush i
 
 **Decisions already made:**
 
-- **Postgres runs locally in Docker.** Test speed compounds over months, and knowing what a database
-  server actually *is* has value. *Retreat clause:* if Docker fights you for more than an hour, use
-  Neon's free hosted tier and move on. That is a legitimate call, not a failure — the goal is to
-  learn the backend, not to win an argument with Windows.
+- **Postgres runs locally, installed natively on Windows.** Revised 2026-09-04. This step originally
+  said Docker. The machine is Windows 11 Home, which has no Hyper-V, so Docker Desktop requires the
+  WSL2 backend — meaning WSL, a reboot, and Docker Desktop all installed before the first line of
+  code, with virtualization-disabled-in-BIOS as a failure mode that cannot be debugged from inside
+  the OS. What Docker actually buys is a disposable environment and parity with production, and both
+  of those pay off at deployment, which is past step 7. Steps 2–4 are SQL, constraints and
+  transactions, and those are identical whatever the database runs inside.
+  *Accepted cost:* the database is a permanent Windows service rather than a box that can be thrown
+  away, so "start clean" means dropping and recreating databases by hand. The container model is
+  deferred rather than dropped; it gets a step of its own when there is something to deploy.
+  *Retreat clause:* if the installer fights, Neon's free hosted tier works — accepting that every
+  query becomes a network round trip, which is felt in the test suite from step 2 onward.
+- **Two databases from the start — `taskco_dev` and `taskco_test`** — with the connection string in
+  `.env` deciding which one is in use. Added 2026-09-04. The reason belongs to step 2: tests that
+  prove a constraint *rejects* something must create rows, break them and clean up, and doing that
+  against the database being clicked around in by hand produces two failures. The obvious one is
+  losing work. The dangerous one is a suite that passes because of a row left behind days earlier.
+  Costs a minute now; retrofitting means untangling every test that assumed a shared database.
+- **The application connects as its own role**, not as the `postgres` superuser, scoped to those two
+  databases. The distinction is free on a laptop with one app and stops being free the moment there
+  is a server — by which point the connection string is in several places.
 - **The migration runner is written by hand**, in roughly forty lines: read the files in order,
   check which have already been applied, apply the rest, record them. Building it demystifies
   migrations permanently and keeps the SQL raw. A library here would hide the concept being learned.
+- **TypeScript runs through `tsx`, with `tsc --noEmit` as a separate check.** Node cannot execute
+  `.ts` directly; something must strip the types first. Node 22 can do this natively behind a flag,
+  but it rejects some TypeScript features and reports the refusal in terms aimed at people who
+  already know the language. Two tools with one job each keeps "does this run" and "are my types
+  right" as independent questions — and it is worth knowing early that the runner executes even when
+  the types are wrong.
 
 **Done looks like:** a TypeScript file that connects to the database, runs a trivial query, prints
 the result, and exits cleanly. One migration has been applied, and running the runner a second time
