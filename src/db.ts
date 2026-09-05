@@ -27,4 +27,17 @@ export const pool = new Pool({connectionString});
     The important part is when this runs: a module's body executes once, the first time anything imports it, and the result is cached. Every file that imports pool gets the same one. That's what makes "one module owns the pool" true — it's enforced by how modules work, not by you remembering.
 
     { connectionString } is shorthand for { connectionString: connectionString }
+
+
+
+
+    db.ts — the connection to the database.
+
+    It does three things: reads the database address out of .env, stops the program immediately if that address is missing, and opens a small set of connections to Postgres that stay ready for use.
+
+    It exists so that one file in the whole project knows how to reach the database. Every future part — the migration runner, every query in slice A, every endpoint in step 5 — imports the connection from here rather than making its own. If each file opened its own, you'd have dozens of connections nobody is counting, and changing the database address would mean editing dozens of files.
+
+    The "pool" part just means: opening a connection is slow, so instead of opening a new one for every query and throwing it away, it keeps a few open and lends them out.
+
+    This file is permanent. It'll still be here at step 7.
  */

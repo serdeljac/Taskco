@@ -25,4 +25,15 @@ await pool.end()
 
     await pool.end();
     Closes every connection in the pool. Node exits when nothing is left that could still do work — an open pool is idle connections waiting for queries, which counts. This line is why the process ends instead of sitting there.
+
+
+    check.ts — proof that all of it actually works.
+
+    It asks Postgres one trivial question ("what time is it?"), prints the answer, and closes the connections.
+
+    It exists because until something really queried the database, you had no idea whether the setup was correct. There were about eight things that each had to be right: Postgres installed, the role created, the password matching, the database owned properly, .env written correctly, dotenv loading it, TypeScript configured, ESM imports resolving. Any one of them wrong and nothing works — and the error you'd get would rarely point at the actual cause.
+
+    That timestamp printing is a single fact that proves all eight at once.
+
+    This file is scaffolding. It gets deleted once real tests exist in step 2 — they'll prove the same thing continuously, as a side effect of testing real behaviour.
 */

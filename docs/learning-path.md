@@ -1,6 +1,9 @@
 # Taskco — Learning path
 
-**Current step:** 1, not started. Nothing has been built.
+**Current step:** 1, in progress. Chunk A is done — PostgreSQL 18 installed natively, `taskco_dev`
+and `taskco_test` created and owned by a non-superuser `taskco_app` role, a Node project on ESM with
+strict TypeScript, and a script that connects to the database, queries it, and exits cleanly. Chunk
+B, the migration runner, is next.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
