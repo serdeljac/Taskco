@@ -1,9 +1,6 @@
 # Taskco — Learning path
 
-**Current step:** 1, in progress. Chunk A is done — PostgreSQL 18 installed natively, `taskco_dev`
-and `taskco_test` created and owned by a non-superuser `taskco_app` role, a Node project on ESM with
-strict TypeScript, and a script that connects to the database, queries it, and exits cleanly. Chunk
-B, the migration runner, is next.
+**Current step:** 1 complete. Step 2 — slice A, identity and membership — is next and not started.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -312,4 +309,22 @@ that stops at step 4.
 Append one line per completed step: what was built, what was learned, anything that changed a
 decision in `design-decisions.md`.
 
-*(empty)*
+**Step 1 — Environment.** Completed 2026-09-05. PostgreSQL 18 installed natively on Windows;
+`taskco_dev` and `taskco_test` owned by a `taskco_app` role holding no cluster privileges beyond
+login. Node project on ESM with `strict` TypeScript, `tsx` as the runner and `tsc --noEmit` as a
+separate check. A pool module that fails at startup if `DATABASE_URL` is missing, and a hand-written
+migration runner that applies files in sorted order inside one transaction per migration, recording
+each in a `schema_migrations` table it creates itself.
+
+*Changed decisions:* Docker dropped for a native install — reasoning in step 1 above. Ids settled as
+`bigint` identity — reasoning in `design-decisions.md`, section 2.
+
+*Learned, in rough order of how much time it cost:* that a process inherits its environment at
+launch and never sees later changes — which is why a PATH edit appears not to work until the editor
+itself restarts, and the same reason `dotenv` has to be the first import. That psql's `-#` prompt
+means an unfinished statement, and that `\q` discards it silently. That Postgres answers "password
+authentication failed" whether the password is wrong *or the role does not exist*, deliberately, so
+the error names the wrong problem. That a transaction has to run on one checked-out client, because
+a pool will otherwise scatter `begin` and `commit` across different connections. That `npm` silently
+ignores unrecognised top-level keys in `package.json`, so a misplaced script produces no warning at
+all — just a command that isn't there.

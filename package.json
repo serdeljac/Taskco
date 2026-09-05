@@ -7,7 +7,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx src/migrate.ts"
   },
   "repository": {
     "type": "git",

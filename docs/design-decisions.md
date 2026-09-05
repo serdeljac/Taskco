@@ -72,6 +72,15 @@ Lead on one project and an Associate on another.
 
 Users are referenced by an internal id that never changes. Never by email or name.
 
+**Ids are `bigint` identity columns**, decided 2026-09-05 while writing the first migration. Every
+table and every foreign key inherits this, which is why it was settled before the first one was
+written rather than after. Sequential integers are compact, cheap to index, and readable in query
+output while the database is still being learned — which is worth real money right now.
+*Accepted cost:* ids are guessable and leak magnitude. `/projects/47` implies forty-six others
+exist. That matters for a public product; this is explicitly not one, and the design doc's actual
+requirement — an internal id that never changes and is never an email or a name — is met either way.
+*If it ever needs revisiting*, the alternative is `uuidv7()`, which Postgres 18 provides natively.
+
 ---
 
 ## 3. Users, projects, membership
