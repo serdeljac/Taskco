@@ -81,13 +81,28 @@ exist. That matters for a public product; this is explicitly not one, and the de
 requirement — an internal id that never changes and is never an email or a name — is met either way.
 *If it ever needs revisiting*, the alternative is `uuidv7()`, which Postgres 18 provides natively.
 
+**Column-level decisions**, settled 2026-09-05 as the first real tables were written:
+
+- **Email uniqueness is enforced on `lower(email)`**, by a unique index rather than by application
+  code. Two addresses differing only in capitalisation cannot both exist, whatever any query
+  forgets to normalise. The address is stored as the user typed it.
+- **Role is a `text` column with a `CHECK` constraint**, not a Postgres enum type. Equally strict,
+  readable in raw query output, and changing the set of roles later is an ordinary migration rather
+  than a multi-step alteration of a type other tables may depend on.
+
 ---
 
 ## 3. Users, projects, membership
 
 - Any user can create a project. The creator is the Lead.
 - The Lead **is a member**, with role = lead. Not a separate list.
-- One membership per person per project, enforced by a database constraint.
+- **One *active* membership per person per project**, enforced by a partial unique index — unique on
+  (user, project) *where the membership has not ended*. Revised 2026-09-05, while writing the schema.
+  The original rule was simply "one per person per project," which cannot coexist with the two rules
+  either side of it: memberships are soft-deleted, and a Lead can re-invite someone who left. A
+  person who leaves and returns legitimately has two rows, one of them ended. Exempting ended rows
+  preserves the membership history the re-invite convenience depends on, while still making a
+  duplicate *active* membership impossible to write.
 - No subscription tiers. Considered and deliberately dropped — billing would have added a payment
   provider, asynchronous plan state, a second authorization system, and the downgrade problem,
   none of which serve the goal of this project.
