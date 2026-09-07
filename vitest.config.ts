@@ -4,5 +4,6 @@ export default defineConfig({
     test: {
         setupFiles: ["./src/testing/setup.ts"],
         fileParallelism: false,
+        reporters: ["verbose"],
     },
 });
