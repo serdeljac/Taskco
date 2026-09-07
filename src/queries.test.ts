@@ -42,6 +42,22 @@ describe("projects", () => {
         expect(rows).toHaveLength(1);
         expect(rows[0].role).toBe("lead");
     });
+
+    it("refuses a project with a blank name", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+
+        await expect(createProject("   ", lead.id)).rejects.toMatchObject({
+            code: "23514",
+        });
+    });
+
+    it("refuses two users with the same email in different cases", async () => {
+        await createUser("Person@example.com", "Europe/Zagreb");
+
+        await expect(
+            createUser("person@example.com", "Europe/Zagreb")
+        ).rejects.toMatchObject({ code: "23505" });
+    });
 });
 
 describe("memberships", () => {
@@ -85,3 +101,4 @@ describe("memberships", () => {
         expect(await listProjectsForUser(other.id)).toHaveLength(0);
     });
 });
+
