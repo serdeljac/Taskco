@@ -81,6 +81,14 @@ exist. That matters for a public product; this is explicitly not one, and the de
 requirement — an internal id that never changes and is never an email or a name — is met either way.
 *If it ever needs revisiting*, the alternative is `uuidv7()`, which Postgres 18 provides natively.
 
+**Ids arrive in JavaScript as strings, not numbers.** Learned 2026-09-06, building slice A. A
+`bigint` can exceed what JavaScript represents exactly, so the driver returns it as a string rather
+than silently losing precision. This is correct and it propagates upward: the HTTP layer will
+serialise ids as strings and the frontend will receive strings. Anywhere someone writes `id === 1`
+instead of `id === "1"`, the comparison silently never matches. Nothing about this is a workaround —
+an id is a label to compare, never a number to do arithmetic on, which is the same reason the design
+says to reference things by id in the first place.
+
 **Column-level decisions**, settled 2026-09-05 as the first real tables were written:
 
 - **Email uniqueness is enforced on `lower(email)`**, by a unique index rather than by application

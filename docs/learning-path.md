@@ -5,6 +5,9 @@
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
 
+Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-review.md).
+[`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
+
 ---
 
 ## Purpose
