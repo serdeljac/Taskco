@@ -1,6 +1,8 @@
 # Taskco — Learning path
 
-**Current step:** 1 complete. Step 2 — slice A, identity and membership — is next and not started.
+**Current step:** 2 complete, and its checkpoint review is written. Step 3 — slice B, tasks and
+subtasks — is next and not started. Slice B should open by dealing with the first three items in
+[`slice-a-review.md`](./slice-a-review.md), before new tables land on top of them.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -331,3 +333,29 @@ the error names the wrong problem. That a transaction has to run on one checked-
 a pool will otherwise scatter `begin` and `commit` across different connections. That `npm` silently
 ignores unrecognised top-level keys in `package.json`, so a misplaced script produces no warning at
 all — just a command that isn't there.
+
+**Step 2 — Slice A: identity and membership.** Completed 2026-09-06. Migrations 002–005: `users`
+gained email and timezone with a unique index on `lower(email)`; `projects` and `memberships` were
+created; blank text was forbidden in three columns. Five queries in one file — the only file in the
+project that writes SQL — with `createProject` writing the project and its lead membership in one
+transaction. Vitest wired to `taskco_test` behind a guard that refuses any database whose name does
+not end in `_test`, with the tables truncated before every test. Eight tests, four of which assert
+that the database **refuses** something.
+
+*Changed decisions:* the membership uniqueness rule, and ids arriving as strings. Both in
+`design-decisions.md`, section 2 and section 3.
+
+*Checkpoint:* [`slice-a-review.md`](./slice-a-review.md) — twelve open items, **none of which came
+from a failing test.** Every test passed before the review and after it. They came from reading each
+file and asking what it actually guarantees, which turned out to be the technique the checkpoint
+needed and the plan never described.
+
+*Learned, in rough order of how much time it cost:* that ESM evaluates every import before any
+module body runs, so a `config()` call cannot precede an import no matter where it sits in the file.
+That `not null` accepts the empty string, so a required text column is not a filled-in one. That a
+`CHECK` sees only the row being written, through immutable functions only — putting other tables and
+`now()` permanently out of its reach. That "at most one" is a constraint and "at least one" cannot
+be, because no constraint can require a row to exist. And that a test which has never failed has not
+been shown to be watching anything — proven by deleting one `where` clause and watching exactly one
+test go red.
+
