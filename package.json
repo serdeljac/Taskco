@@ -8,7 +8,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "migrate": "tsx src/migrate.ts"
+    "migrate": "tsx src/migrate.ts",
+    "migrate:test": "tsx --env-file=.env.test src/migrate.ts",
+    "test": "vitest run"
   },
   "repository": {
     "type": "git",
@@ -31,6 +33,7 @@
     "@types/node": "^22.20.1",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   }
 }
