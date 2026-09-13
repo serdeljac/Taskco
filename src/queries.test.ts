@@ -10,8 +10,13 @@ import {
 
 describe("users", () => {
     it("returns a row the database generated", async () => {
+
+        //Create a user and add it into the database (taskco_test)
+        //The function is pulled form queries.ts
         const user = await createUser("someone@example.com", "Europe/Zagreb");
 
+        //Compare values
+        //The Rules in the .sql files fill in the id and created_at
         expect(user.email).toBe("someone@example.com");
         expect(user.timezone).toBe("Europe/Zagreb");
         expect(typeof user.id).toBe("string");
@@ -20,10 +25,12 @@ describe("users", () => {
 });
 
 describe("projects", () => {
-    it("makes the creator a member of the project", async () => {
-        const lead = await createUser("lead@example.com", "Europe/Zagreb");
-        const project = await createProject("Website", lead.id);
 
+    it("makes the creator a member of the project", async () => {
+        //Create the user (note, not a lead/member of anything yet)
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        //Create a project, the function requests a user id to be it's lead
+        const project = await createProject("Website", lead.id);
         const projects = await listProjectsForUser(lead.id);
 
         expect(projects).toHaveLength(1);
@@ -33,7 +40,6 @@ describe("projects", () => {
     it("gives the creator the lead role, not associate", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
-
         const { rows } = await pool.query(
             "select role from memberships where project_id = $1 and user_id = $2",
             [project.id, lead.id]
@@ -100,5 +106,17 @@ describe("memberships", () => {
         await removeMember(project.id, other.id);
         expect(await listProjectsForUser(other.id)).toHaveLength(0);
     });
+
+    it("refuses a second lead on the same project", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await expect(
+            addMember(project.id, other.id, "lead")
+        ).rejects.toMatchObject({ code: "23505", constraint: "memberships_one_lead_idx", });
+
+    });
+
 });
 
