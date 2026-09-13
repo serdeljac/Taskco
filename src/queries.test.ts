@@ -73,12 +73,12 @@ describe("memberships", () => {
         const project = await createProject("Website", lead.id);
 
         //Add the member
-        await addMember(project.id, other.id, "associate");
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
 
         // Add the member again and expect the database to refuse it. The partial
         // unique index allows only one *active* membership per person per project.
         await expect(
-            addMember(project.id, other.id, "associate")
+            addMember({ projectId: project.id, userId: other.id, role: "associate" })
         ).rejects.toMatchObject({ code: "23505" });
     });
 
@@ -100,10 +100,10 @@ describe("memberships", () => {
         const other = await createUser("other@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
 
-        await addMember(project.id, other.id, "associate");
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
         expect(await listProjectsForUser(other.id)).toHaveLength(1);
 
-        await removeMember(project.id, other.id);
+        await removeMember({ projectId: project.id, userId: other.id });
         expect(await listProjectsForUser(other.id)).toHaveLength(0);
     });
 
@@ -113,7 +113,7 @@ describe("memberships", () => {
         const project = await createProject("Website", lead.id);
 
         await expect(
-            addMember(project.id, other.id, "lead")
+            addMember({ projectId: project.id, userId: other.id, role: "lead" })
         ).rejects.toMatchObject({ code: "23505", constraint: "memberships_one_lead_idx", });
     });
 
@@ -122,7 +122,7 @@ describe("memberships", () => {
         const project = await createProject("Website", lead.id);
 
         await expect(
-            removeMember(project.id, lead.id)
+            removeMember({ projectId: project.id, userId: lead.id })
         ).rejects.toMatchObject({ message: "Cannot remove the project's lead" });
     });
 

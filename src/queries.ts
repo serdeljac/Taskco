@@ -81,24 +81,28 @@ export async function createProject(name: string, userId: string): Promise<Proje
 
 
 
-export async function addMember(projectId: string, userId: string, role: Role):Promise<void> {
+export async function addMember(member: {
+    projectId: string;
+    userId: string;
+    role: Role;
+}): Promise<void> {
     await pool.query(
         `insert into memberships (user_id, project_id, role)
         values ($1, $2, $3)`,
-        [userId, projectId, role]
+        [member.userId, member.projectId, member.role]
     );
 }
 
 
 
-export async function removeMember(projectId: string, userId: string): Promise<void> {
+export async function removeMember(member: { projectId: string; userId: string }): Promise<void> {
 
     const { rows } = await pool.query(
         `select role from memberships
         where project_id = $1
         and user_id = $2
         and ended_at is null`,
-        [projectId, userId]
+        [member.projectId, member.userId]
     );
 
     if (rows.length > 0 && rows[0].role === "lead") {
@@ -111,7 +115,7 @@ export async function removeMember(projectId: string, userId: string): Promise<v
         where project_id = $1
         and user_id = $2
         and ended_at is null`,
-        [projectId, userId]
+        [member.projectId, member.userId]
     );
 
 }
