@@ -1,8 +1,9 @@
 # Taskco — Learning path
 
-**Current step:** 2 complete, and its checkpoint review is written. Step 3 — slice B, tasks and
-subtasks — is next and not started. Slice B should open by dealing with the first three items in
-[`slice-a-review.md`](./slice-a-review.md), before new tables land on top of them.
+**Current step:** 2 complete, its checkpoint review written, and the review's before-slice-B fixes
+done on branch `slice-a-fixes` (2026-09-13, not yet merged). Step 3 — slice B, tasks and subtasks — is
+next and not started. Before its first migration, settle how "an assignee must be a current member"
+is enforced — the first open question in [`design-decisions.md`](./design-decisions.md).
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -358,4 +359,27 @@ That `not null` accepts the empty string, so a required text column is not a fil
 be, because no constraint can require a row to exist. And that a test which has never failed has not
 been shown to be watching anything — proven by deleting one `where` clause and watching exactly one
 test go red.
+
+**Before slice B — review fixes.** Completed 2026-09-13 on branch `slice-a-fixes`, five commits, each
+test-first. Migration `006` limits a project to one active Lead, and `removeMember` refuses to remove
+the Lead, so "exactly one Lead" is now two mechanisms. The test guard reads the database name from the
+parsed address, in a function with tests of its own. `addMember` and `removeMember` take labelled ids.
+`noUncheckedIndexedAccess` is on. Thirteen tests.
+
+*Changed decisions:* how the one-Lead rule is enforced, in `design-decisions.md` section 6. Review item
+3 dropped as mistaken — the correction is in `slice-a-review.md`, section 5. And the assignee rule is
+reopened as an open question, because the way section 11 says it is enforced cannot work.
+
+*Learned, in rough order of how much time it cost:* what a test actually exercises — real code against
+a real database, fed made-up values, with the tables emptied *before* each test rather than after, so
+the last test's rows stay behind to be looked at. That a migration runs once and leaves rules in the
+database, which then act on every row written. That `.rejects` checks for a refusal and cannot cause
+one, which is why a test written before its rule stays red until the rule exists. That two rules can
+refuse with the same code, so naming the constraint is what shows *which* rule refused — proven by
+adding the existing Lead again and watching the test still pass on the code alone. That commenting out
+the `update` while adding the Lead check broke a slice A test: the older tests caught what the new one
+was not looking at. That `truncate ... cascade` follows foreign keys, which made one of the review's
+own items wrong — found by checking before building the fix. That a string has no parts until
+`new URL()` builds an object from it. And that TypeScript cannot see the database: it knows what a
+list holds but never how many, and it checks nothing typed `any`.
 

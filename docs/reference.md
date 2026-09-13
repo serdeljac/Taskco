@@ -3,7 +3,7 @@
 Every file, organised by the step that built it. For each one: **the code**, **what it does**, and
 **what is still open** in that file.
 
-Code blocks are a snapshot taken 2026-09-06. If a block ever disagrees with the file, the file wins.
+Code blocks are a snapshot taken 2026-09-13. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -21,16 +21,25 @@ Run from `C:\WebFiles\Github\Taskco` in PowerShell.
 | `npm run migrate` | Applies pending migrations to **taskco_dev** |
 | `npm run migrate:test` | Applies pending migrations to **taskco_test** |
 | `npm test` | Runs the test suite once |
+| `npx vitest run -t "second lead"` | Runs only the tests whose name contains that text |
 | `npx vitest list` | Shows which tests exist, without running them |
 | `npx vitest run --sequence.shuffle` | Random order, to prove the tests are independent |
 | `npx vitest` | Watch mode — re-runs on save |
 | `psql -U taskco_app -d taskco_dev` | Interactive session. `\q` to leave. |
 | `psql -U taskco_app -d taskco_dev -c "\d memberships"` | Describe one table without a session |
+| `psql -U taskco_app -d taskco_test -c "select * from memberships"` | What the last test left behind |
 
 **Every new migration needs both migrate commands.** Nothing does this for you.
 
+**Save a migration before running either command.** An empty file is applied, recorded in
+`schema_migrations`, and never run again — even after the SQL is written into it.
+
 Inside psql: `\l` databases, `\dt` tables, `\du` roles, `\d <table>` one table. A `-#` prompt instead
 of `=#` means the statement is unfinished — type a semicolon.
+
+**If PowerShell says `psql` is not recognised,** the terminal was opened before PostgreSQL was added
+to PATH, and never saw the change. Restart the editor, or call it by its full path:
+`& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U taskco_app -d taskco_dev`.
 
 ---
 
@@ -47,7 +56,7 @@ written by hand.
 | `.env.test` | `DATABASE_URL` for `taskco_test`. Git-ignored. |
 | `.env.example` | The keys a fresh clone needs, with fake values. Committed. |
 | `.gitattributes` | `* text=auto eol=lf` — line endings normalised in the repository |
-| `tsconfig.json` | `strict`, `nodenext`, target ES2022, source in `src`, output to `dist` |
+| `tsconfig.json` | `strict`, `nodenext`, target ES2022, source in `src`, output to `dist`. `noUncheckedIndexedAccess` added before slice B — see below |
 | `package.json` | `"type": "module"`, dependencies, and the commands above |
 
 **Open**
@@ -173,11 +182,16 @@ that the bookkeeping says was never changed, and the next run would apply it aga
 It also means **"recorded" is proof of "applied"** — there is no state where `schema_migrations`
 lists a file whose SQL did not run.
 
+A migration runs **once**. What it leaves behind is rules stored in the database, and those act on
+every row written afterwards — the database never reads the file again.
+
 **Open**
 
 - A new migration must be run against both databases by hand. Forgetting `migrate:test` leaves the
   test database a step behind, and the tests then fail for reasons that have nothing to do with the
   change.
+- An empty migration file is applied successfully and recorded, so SQL written into it later never
+  runs. Nothing warns about an empty file.
 - On failure `pool.end()` is never reached. The process exits non-zero anyway, so this is untidy
   rather than broken.
 - There is no way to see what has been applied except by querying `schema_migrations` yourself.
@@ -276,13 +290,9 @@ while a second *active* membership for the same person and project is impossible
 
 **Open**
 
-- **Nothing enforces one lead per project.** `addMember(project, someone, "lead")` succeeds, so two
-  active leads are possible; `removeMember` on the lead succeeds, so zero leads are possible.
-  `createProject` gets it right and nothing keeps it right.
-  - *At most one* is a one-line fix: a partial unique index on `(project_id) where role = 'lead' and
-    ended_at is null`.
-  - *At least one* cannot be a constraint — no constraint can require that a row exists. It has to
-    live in `removeMember` and in transfer.
+- **Fixed before slice B — one lead per project.** Nothing used to enforce it: `addMember` could add
+  a second lead and `removeMember` could remove the only one. *At most one* is now migration `006`;
+  *at least one* is a check in `removeMember`, because no constraint can require that a row exists.
 - `ended_at` can be earlier than `created_at`. A `CHECK` would forbid it.
 - `ended_at` can be in the future, and a `CHECK` **cannot** forbid it — check expressions must be
   immutable and `now()` is not.
@@ -345,7 +355,12 @@ export async function createUser(email: string, timezone: string): Promise<User>
          returning *`,
         [email, timezone]
     );
-    return rows[0]
+
+    const user = rows[0];
+    if (!user) {
+        throw new Error("createUser: the insert returned no row");
+    }
+    return user;
 }
 
 export async function createProject(name: string, userId: string): Promise<Project> {
@@ -362,6 +377,9 @@ export async function createProject(name: string, userId: string): Promise<Proje
         );
 
         const project = rows[0];
+        if (!project) {
+            throw new Error("createProject: the insert returned no row");
+        }
 
         await client.query(
             `insert into memberships (user_id, project_id, role)
@@ -379,22 +397,38 @@ export async function createProject(name: string, userId: string): Promise<Proje
     }
 }
 
-export async function addMember(projectId: string, userId: string, role: Role): Promise<void> {
+export async function addMember(member: {
+    projectId: string;
+    userId: string;
+    role: Role;
+}): Promise<void> {
     await pool.query(
         `insert into memberships (user_id, project_id, role)
          values ($1, $2, $3)`,
-        [userId, projectId, role]
+        [member.userId, member.projectId, member.role]
     );
 }
 
-export async function removeMember(projectId: string, userId: string): Promise<void> {
+export async function removeMember(member: { projectId: string; userId: string }): Promise<void> {
+    const { rows } = await pool.query(
+        `select role from memberships
+         where project_id = $1
+         and user_id = $2
+         and ended_at is null`,
+        [member.projectId, member.userId]
+    );
+
+    if (rows.length > 0 && rows[0].role === "lead") {
+        throw new Error("Cannot remove the project's lead");
+    }
+
     await pool.query(
         `update memberships
          set ended_at = now()
          where project_id = $1
          and user_id = $2
          and ended_at is null`,
-        [projectId, userId]
+        [member.projectId, member.userId]
     );
 }
 
@@ -427,6 +461,21 @@ read as commands.
 needs the first's id, and a project without a Lead is a state nothing in the app knows how to repair.
 `pool.connect()` reserves one connection so `begin` and `commit` reach the same place.
 
+**`if (!user)` and `if (!project)`** exist because `noUncheckedIndexedAccess` makes `rows[0]` a
+`User | undefined`. After an insert with `returning *` the row is always there, so neither ever
+fires — they state that expectation instead of assuming it. In `createProject` the `throw` sits inside
+`try`, so the project row is still rolled back.
+
+**`addMember` and `removeMember` take one labelled object.** Both ids are strings, so positional
+arguments could be swapped without TypeScript noticing — and if both ids happened to exist, the
+database would save the wrong person into the wrong project without complaint. `createProject(name,
+userId)` stays positional: a swap there puts a name where a `bigint` belongs, which the database
+refuses.
+
+**`removeMember` refuses to remove the Lead.** It looks up the member's role and throws before ending
+anything. This is the *at least one* half of the one-Lead rule; migration `006` is the *at most one*
+half. It throws rather than returning a "no", because a returned value can be ignored.
+
 `removeMember`'s `and ended_at is null` prevents re-ending an already-ended membership, which would
 overwrite the original date and falsify the history.
 
@@ -435,25 +484,18 @@ keep seeing projects they left — proven by experiment.
 
 **Open**
 
-- The comment above `createUser` in the actual file says `pool.query` *closes* the connection. It
-  **returns it to the pool**. A wrong comment is a wrong mental model that gets re-read and
-  re-learned; wrong code gets caught by a test, wrong prose does not.
-- `addMember(projectId, userId, role)` takes **two adjacent `string` ids**. Swapping them compiles,
-  and if a user happens to exist with that id the foreign key is satisfied and wrong data is written
-  silently. `role` is protected by its union type; the ids are not. An options object fixes it
-  cheaply, branded types thoroughly. Worth deciding before slice B puts three ids in scope.
-- `removeMember` ignores `rowCount`, so it cannot tell "removed them" from "they were not a member."
-  Step 5 needs that to choose between success and 404.
-- `removeMember` is also where "the last lead cannot leave" will have to live.
+- `removeMember` ignores the `update`'s `rowCount`, so it cannot tell "removed them" from "they were
+  not a member." Step 5 needs that to choose between success and 404.
+- `removeMember` checks and then writes in two separate statements. If a transfer made someone the
+  Lead in between, the `update` would still end their membership. Transfer does not exist yet; when
+  it does, the check and the write may need to share a transaction.
+- The `select` in `removeMember` declares no row type, so its rows are `any`, which
+  `noUncheckedIndexedAccess` never checks. `rows.length > 0` is what keeps `rows[0].role` safe.
 - `order by p.created_at` has **no tiebreaker**. Two projects created in the same microsecond can
   come back in either order, and Postgres is not obliged to be consistent between runs.
   `order by p.created_at, p.id` makes it total.
 - `select p.*` returns whatever columns the table currently has while `<Project>` claims three. They
   agree today; slice C adds columns and they stop agreeing, with nothing to announce it.
-- `rows[0]` is safe after `insert ... returning *`, which always yields one row. It is not safe after
-  a `select` that finds nothing — TypeScript would still insist the result is a `Project`.
-  `noUncheckedIndexedAccess` is the setting that catches this, and slice B is when the first such
-  query appears.
 
 ## `vitest.config.ts`
 
@@ -464,15 +506,20 @@ export default defineConfig({
     test: {
         setupFiles: ["./src/testing/setup.ts"],
         fileParallelism: false,
+        reporters: ["verbose"],
     },
 });
 ```
 
-**What it does.** Names the setup file, and stops test files running in parallel.
+**What it does.** Names the setup file, stops test files running in parallel, and prints every test
+by name.
 
 `fileParallelism: false` is not optional. Every test file talks to the same database, so two running
 at once means one truncating tables while the other is mid-test — failures that appear and vanish
 depending on timing.
+
+`reporters: ["verbose"]` prints one line per test on every terminal. The default printed the list
+only in some terminals and a bare count in others.
 
 **Open** — nothing.
 
@@ -480,10 +527,17 @@ depending on timing.
 
 ```ts
 import { config } from "dotenv";
+import path from "node:path";
+import { isTestDatabase } from "./guard.js";
 
-config({ path: ".env.test" });
+config({
+    path: path.join(import.meta.dirname, "..", "..", ".env.test"),
+    quiet: true,
+});
 
-if (!process.env.DATABASE_URL?.endsWith("_test")) {
+const url = process.env.DATABASE_URL;
+
+if (!url || !isTestDatabase(url)) {
     throw new Error(
         "Refusing to run: DATABASE_URL must name a database ending in _test"
     );
@@ -497,20 +551,21 @@ It is a **separate file, imported first**, rather than a function call inside `s
 ESM evaluates every import before any module body runs. A `config()` call in the body would happen
 *after* `db.ts` had already read the environment, which is exactly the bug this project hit.
 
+The path to `.env.test` is built from `import.meta.dirname`, this file's own folder, so it is found
+whichever folder the tests are started from.
+
+The decision itself lives in `isTestDatabase`, in `guard.ts`, where it can be tested. This file only
+loads the address and acts on the answer. `!url` comes first because `||` stops at the first `true`,
+so a missing address is refused before `isTestDatabase` is handed nothing.
+
 It also fails safe in a case it was not written for: if `.env.test` goes missing, `dotenv` loads
 nothing silently, and the guard then catches either an unset variable or a shell variable still
 pointing at `taskco_dev`.
 
 **Open**
 
-- `endsWith("_test")` tests the **whole URL string**, not the database name. A URL ending
-  `/taskco_dev?application_name=_test` passes the check while pointing at the development database.
-  Parsing the URL and testing `pathname` fixes it. General rule: when a string has structure,
-  validate the structure, not the string.
 - The result of `config()` is discarded, so a missing `.env.test` surfaces as a different complaint
   than the one that actually happened.
-- **The guard itself is untested** — the most safety-critical line in the project, never exercised,
-  because it throws during import. Extracting `isTestDatabase(url)` would make it assertable.
 
 ## `src/testing/setup.ts`
 
@@ -532,9 +587,16 @@ afterAll(async () => {
 
 **What it does.** Resets the database before every test and closes the pool at the end.
 
-`truncate` empties tables wholesale rather than deleting rows one at a time. All three are named in
-one statement so foreign keys do not complain about ordering. `restart identity` resets the id
-counters so every test starts from id 1 and assertions are predictable.
+`truncate` empties tables wholesale rather than deleting rows one at a time; the tables themselves
+stay. `restart identity` resets the id counters so every test starts from id 1 and assertions are
+predictable.
+
+**`cascade` also empties every table that references the ones named** — and every table that
+references those, all the way down. Slice B's `tasks` will reference `projects` and `subtasks` will
+reference `tasks`, so both are emptied without being listed.
+
+The tables are emptied **before** each test, not after, so the last test's rows stay in `taskco_test`
+until the next run. That is useful: `psql` can show exactly what a test wrote.
 
 Closing the pool matters for the same reason it did in step 1: leave connections open and the
 process never exits.
@@ -543,18 +605,16 @@ Runs **per test file**, not per test.
 
 **Open**
 
-- The table list is hardcoded. Slice B adds `tasks` and `subtasks`, and forgetting to add them here
-  means rows survive between tests — a test that passes alone and fails after another one, which is
-  among the least fun things to debug. Asking the database which tables exist cannot fall out of
-  date.
+- A table that references none of `users`, `projects` or `memberships` would survive between tests,
+  because `cascade` only follows foreign keys. Nothing in the design is shaped like that. *(This
+  replaces an earlier note claiming slice B's tables would survive — `cascade` already covers them.)*
 - Closing the pool here is correct only because Vitest isolates each test file's modules by default.
   Setting `isolate: false` for speed would make files share a pool, and the first to finish would
   close it underneath the others.
 
 ## `src/queries.test.ts`
 
-Eight tests. **Four assert that the database refuses something**, which is the unusual and valuable
-half.
+Ten tests. **Six assert that something is refused**, which is the unusual and valuable half.
 
 ```
 users
@@ -568,29 +628,42 @@ memberships
   refuses to add the same person to a project twice
   returns only the projects a user belongs to
   stops listing a project once the member has left
+  refuses a second lead on the same project
+  refuses to remove the project's lead
 ```
 
-The shape they all follow, using the one your plan singled out:
+The shape the refusal tests follow:
 
 ```ts
-it("refuses to add the same person to a project twice", async () => {
+it("refuses a second lead on the same project", async () => {
     const lead = await createUser("lead@example.com", "Europe/Zagreb");
     const other = await createUser("other@example.com", "Europe/Zagreb");
     const project = await createProject("Website", lead.id);
 
-    await addMember(project.id, other.id, "associate");
-
     await expect(
-        addMember(project.id, other.id, "associate")
-    ).rejects.toMatchObject({ code: "23505" });
+        addMember({ projectId: project.id, userId: other.id, role: "lead" })
+    ).rejects.toMatchObject({ code: "23505", constraint: "memberships_one_lead_idx" });
 });
 ```
 
-**The second call is deliberately not awaited** — you hand the promise to `expect`, not its result.
+**The attempt is deliberately not awaited** — you hand the promise to `expect`, not its result.
 Awaiting it would throw before `expect` ever saw it. `.rejects` says the promise must reject;
-`toMatchObject` checks the error *contains* that code, because the error carries a dozen other
-fields. Asserting the **code** rather than the message means the test survives a Postgres upgrade
-changing the wording.
+`toMatchObject` checks the error *contains* those fields, because the error carries a dozen others.
+Asserting the **code** rather than the message means the test survives a Postgres upgrade changing
+the wording.
+
+**`.rejects` checks for a refusal — it cannot cause one.** Written before migration `006` existed,
+this test failed with *promise resolved instead of rejecting*: the database had saved a second lead.
+
+**`constraint` names which rule refused.** `memberships` has two unique indexes, and both raise
+`23505`. With the code alone, the test still passed when changed to add the existing lead again —
+refused by the *other* index. With the name, that change fails.
+
+`refuses to remove the project's lead` checks `message` instead. That refusal comes from
+`removeMember`, not the database, so there is no database code to check.
+
+Lists are read with `projects[0]?.id`. If the list were empty, the value is `undefined` and the
+assertion fails with a clear message rather than a crash.
 
 Vitest finds test files by **filename** — anything containing `.test.`. Nothing lists them, and
 renaming one to `.tests.` makes it silently disappear with no error.
@@ -599,11 +672,108 @@ renaming one to `.tests.` makes it silently disappear with no error.
 
 - "refuses two users with the same email in different cases" sits in the `projects` describe. It is a
   users test, and the describe path is what you read when something fails.
-- The grouping axis is inconsistent — `users` and `projects` are tables, but `memberships` holds two
-  tests that are really about `listProjectsForUser`. Pick one axis before there are thirty tests.
+- The grouping axis is inconsistent — `users` and `projects` are tables, but `memberships` holds tests
+  that are really about `listProjectsForUser`. Pick one axis before there are thirty tests.
 - Independence is assumed, not proven. `npx vitest run --sequence.shuffle` would demonstrate it.
+- "gives the creator the lead role" reads `rows[0].role` from an untyped query, so the row is `any`
+  and `noUncheckedIndexedAccess` does not check it.
 - Not covered: foreign keys, the role `CHECK` (which needs a deliberate TypeScript bypass), the
-  cascade, two leads on one project, `removeMember` on a non-member, and ordering.
+  cascade, `removeMember` on a non-member, and ordering.
+
+---
+
+# Before slice B — review fixes
+
+The items [`slice-a-review.md`](./slice-a-review.md) marked for doing before slice B, built test-first
+on branch `slice-a-fixes`: each test was written and seen to fail before the change that made it
+pass. Changed files are updated in place above; the new ones are here.
+
+## `migrations/006_limit_one_lead_per_project.sql`
+
+```sql
+create unique index memberships_one_lead_idx
+    on memberships (project_id)
+    where role = 'lead' and ended_at is null;
+```
+
+**What it does.** Among memberships that are leads and have not ended, the same project cannot
+appear twice — so a second active Lead is unwritable, whichever code tries. The same shape as
+`memberships_one_active_idx` in `004`, keyed on the project alone.
+
+Associates are not in the index, so a project can have any number. Ended memberships are not in it
+either, so a former Lead's history row never blocks the next one.
+
+This is *at most one*. *At least one* cannot be a constraint, and lives in `removeMember`.
+
+**Open**
+
+- A unique index is checked as each row is written, not at commit. Leadership transfer, when it is
+  built, must demote the outgoing Lead before promoting the new one, inside one transaction. Promote
+  first and this index refuses it.
+
+## `src/testing/guard.ts`
+
+```ts
+export function isTestDatabase(url: string): boolean {
+    const databaseName = new URL(url).pathname.slice(1);
+    return databaseName.endsWith("_test");
+}
+```
+
+**What it does.** Decides whether an address names a test database. `env.ts` calls it with the real
+address; the tests below call it with addresses nothing connects to.
+
+It judges the **database name**, not the address. A string has no parts, so `new URL(url)` builds an
+object from it with labelled ones: `.pathname` is `/taskco_test`, and `.slice(1)` drops the slash.
+Anything after `?` is an extra setting and never reaches the name.
+
+The old check was `endsWith("_test")` on the whole address, which
+`/taskco_dev?application_name=_test` passed while pointing at the development database.
+
+It lives in its own file so it can be tested. `env.ts` throws while being imported, which no test can
+catch; a function that returns `true` or `false` can be asserted.
+
+**Open**
+
+- An address that is not a valid URL makes `new URL` throw, so the tests stop with "Invalid URL"
+  rather than the guard's message. They still refuse to run, which is the part that matters.
+
+## `src/testing/guard.test.ts`
+
+```
+isTestDatabase
+  accepts a database named taskco_test
+  refuses a database named taskco_dev
+  refuses taskco_dev even when the address ends in _test
+```
+
+**What it does.** Three addresses, three answers. The first proves the guard lets the real test
+database through — if it wrongly said no, no test could ever run. The second is its basic job. The
+third is the case the old check got wrong, and it failed until `guard.ts` parsed the URL.
+
+No `async`: these tests never touch the database, they only hand the function text. `setup.ts` still
+empties the tables before each one, because it runs for every test file.
+
+**Open** — nothing.
+
+## `tsconfig.json`: `noUncheckedIndexedAccess`
+
+**What it does.** Makes reading a list by position honest. `rows[0]` becomes `User | undefined` rather
+than `User`, because TypeScript knows what a list holds but never how many — it never runs the code
+and cannot see the database. The empty case has to be handled before the item is used:
+`if (!user) throw` in code, `projects[0]?.id` in tests.
+
+Turned on before slice B because slice B brings the first lookups that can genuinely return nothing,
+and at the time only five places needed changing.
+
+*Rejected — `projects[0]!.id`:* the `!` tells TypeScript "trust me, it is there." It silences the
+check without performing one, which is what the setting exists to prevent.
+
+**Open**
+
+- It cannot check `any`. A query with no row type — `pool.query(...)` rather than
+  `pool.query<User>(...)` — returns `any` rows, and `rows[0].role` passes unchecked. Every slice B
+  query should declare a row type.
 
 ---
 
@@ -643,7 +813,8 @@ Two databases, both owned by `taskco_app`, a role with no privileges beyond logi
 | `ended_at` | timestamptz | nullable — **null means still a member** |
 
 Indexes: `memberships_user_id_idx` on `(user_id)`; `memberships_one_active_idx`, unique, on
-`(user_id, project_id) where ended_at is null`.
+`(user_id, project_id) where ended_at is null`; `memberships_one_lead_idx`, unique, on
+`(project_id) where role = 'lead' and ended_at is null`.
 
 ### `schema_migrations`
 
@@ -657,10 +828,12 @@ Five characters, stable across versions — which is why tests assert the code a
 
 | Code | Meaning | Where you have met it |
 |---|---|---|
-| `23505` | unique violation | duplicate email, duplicate active membership |
+| `23505` | unique violation | duplicate email, duplicate active membership, second active lead |
 | `23514` | check violation | blank project name |
 | `23503` | foreign key violation | not yet — a membership pointing at a user who does not exist |
 | `23502` | not-null violation | not yet |
+
+Several rules can raise the same code. The error's `constraint` field names the one that did.
 
 ---
 
@@ -672,7 +845,12 @@ Five characters, stable across versions — which is why tests assert the code a
 - A process copies its environment at launch. Changing `PATH` does nothing to a terminal — or an
   editor — that was already open.
 - Applied migrations are never edited. A mistake becomes the next migration.
+- Save a migration before applying it. An empty file is recorded as applied and never runs again.
+- Creating a unique index or a `CHECK` validates the rows already there, and fails if any break it.
 - A transaction must run on one checked-out client from `pool.connect()`, never on `pool.query`.
 - `not null` does not mean "not empty." Text columns accept `''`.
 - A `CHECK` sees one row, through immutable functions only. Other rows, other tables, and `now()` are
   all out of reach.
+- "At most one" is a constraint; "at least one" is code. No constraint can require that a row exists.
+- `truncate ... cascade` also empties every table that references the ones named, all the way down.
+- `rows[0]` may be `undefined`. Rows typed `any` are never checked.

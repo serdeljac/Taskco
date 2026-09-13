@@ -10,26 +10,32 @@ is still open.
 **Nothing here came from a failing test.** Every test passed before this review and every test passes
 after it. The open items were found by reading each file and asking what it actually guarantees.
 
+**Follow-up, 2026-09-13.** The items marked for doing before slice B have been worked through on
+branch `slice-a-fixes`. The Status column below is current; the sections after it are the 2026-09-06
+snapshot, except where marked *Corrected*. One item turned out to be wrong — see item 3, and the
+follow-up at the end.
+
 ---
 
 ## Everything still open, in one place
 
-| # | Open item | Where |
-|---|---|---|
-| 1 | Nothing enforces one lead per project | 004 memberships |
-| 2 | `_test` guard checks the raw URL, not the database name | test harness |
-| 3 | Truncate list is hand-maintained; breaks when slice B adds tables | test harness |
-| 4 | `addMember` takes two adjacent `string` ids — a swap is invisible | queries.ts |
-| 5 | `order by created_at` has no tiebreaker | 003 projects |
-| 6 | `lower(email)` index only works if lookups use `lower()` | 002 users |
-| 7 | `removeMember` cannot report that it matched nothing | queries.ts |
-| 8 | `select p.*` and the `Project` type can drift apart | queries.ts |
-| 9 | `timezone` accepts any string | 002 users |
-| 10 | No index on `project_id` | 004 memberships |
-| 11 | Untested: foreign keys, role `CHECK`, `on delete cascade`, the guard | tests |
-| 12 | `.env.example` never mentions that `.env.test` is required too | step 1 config |
+| # | Open item | Where | Status |
+|---|---|---|---|
+| 1 | Nothing enforces one lead per project | 004 memberships | **Fixed** — migration 006 (at most one), `removeMember` (at least one) |
+| 2 | `_test` guard checks the raw URL, not the database name | test harness | **Fixed** — `isTestDatabase` parses the URL, and is tested |
+| 3 | Truncate list is hand-maintained; breaks when slice B adds tables | test harness | **Wrong — dropped.** `cascade` already covers them; see section 5 |
+| 4 | `addMember` takes two adjacent `string` ids — a swap is invisible | queries.ts | **Fixed** — labelled object, in `removeMember` too |
+| 5 | `order by created_at` has no tiebreaker | 003 projects | Open |
+| 6 | `lower(email)` index only works if lookups use `lower()` | 002 users | Open |
+| 7 | `removeMember` cannot report that it matched nothing | queries.ts | Open |
+| 8 | `select p.*` and the `Project` type can drift apart | queries.ts | Open |
+| 9 | `timezone` accepts any string | 002 users | Open |
+| 10 | No index on `project_id` | 004 memberships | Open |
+| 11 | Untested: foreign keys, role `CHECK`, `on delete cascade`, the guard | tests | Partly — the guard is now tested |
+| 12 | `.env.example` never mentions that `.env.test` is required too | step 1 config | Open |
 
-Items 1–3 are worth doing before slice B. The rest are notes.
+Items 1–3 were marked as worth doing before slice B; item 4 and `noUncheckedIndexedAccess` (section 4)
+joined that batch. The rest are notes.
 
 ---
 
@@ -166,6 +172,12 @@ still pointing at `taskco_dev`. It was written to catch typos; it also catches t
 - The truncate list is hardcoded. Slice B adds `tasks` and `subtasks`, and forgetting to add them
   here means rows survive between tests — a test that passes alone and fails after another one.
   Asking the database which tables exist cannot fall out of date.
+  - **Corrected 2026-09-13 — this item is wrong.** The statement ends in `cascade`, which also empties
+    every table that references the named ones, and every table that references those. `tasks` will
+    reference `projects` and `subtasks` will reference `tasks`, so both are emptied without being
+    listed. Verified by creating a referencing table inside a transaction that was rolled back. Only a
+    table referencing none of the three would survive, and nothing in the design is shaped like that.
+    The item was written from the list of names without following what `cascade` adds to it.
 - The result of `config()` is discarded, so a missing `.env.test` surfaces as a different complaint
   than the one that actually happened.
 - The guard is the most safety-critical line in the project and is itself untested, because it throws
@@ -209,3 +221,30 @@ Both recorded in [`design-decisions.md`](./design-decisions.md):
 - **Ids are `bigint`, and `pg` returns them as strings**, because they exceed what JavaScript can
   represent exactly. This propagates: step 5 serialises them as strings and step 7 receives strings.
   Anywhere someone writes `id === 1` instead of `id === "1"` will silently never match.
+
+---
+
+## Follow-up — the fixes before slice B
+
+Done 2026-09-10 to 2026-09-13 on branch `slice-a-fixes`, one commit per item. Each was built
+test-first: the test was written and seen to fail before the change that made it pass.
+
+| Item | Commit | What changed |
+|---|---|---|
+| 1, at most one lead | `8643ab3` | Migration 006: a partial unique index on `(project_id) where role = 'lead' and ended_at is null`. The test asserts the constraint name as well as `23505`, because two indexes on `memberships` now raise that code. |
+| 1, at least one lead | `7f6c987` | `removeMember` looks up the member's role and throws if it is `lead`, before ending anything. |
+| 2 | `f61b560` | The guard's decision moved into `isTestDatabase(url)` in `src/testing/guard.ts`, which reads the database name from the parsed URL. Three tests, one of them an address ending in `_test` that names `taskco_dev`. |
+| 3 | — | Dropped. It was wrong; see the correction in section 5. |
+| 4 | `e064f11` | `addMember` and `removeMember` take `{ projectId, userId }` instead of ids in a row. |
+| `noUncheckedIndexedAccess` | `0e4f52a` | Turned on. `createUser` and `createProject` throw if their insert returns no row; the tests read list items with `?.`. |
+
+Also resolved along the way: the wrong comment above `createUser` was deleted, and "two leads on one
+project" is now covered by a test, as is removing the Lead.
+
+**What item 3 taught about reviews.** It was found by checking a claim before building its fix, not by
+a failing test. That is the same technique the review itself used, pointed at the review: a list of
+open items is a set of claims, and a claim can be wrong.
+
+**Still true after the fixes:** a query with no row type returns `any` rows, which
+`noUncheckedIndexedAccess` cannot check. `removeMember` guards `rows[0].role` with `rows.length > 0`;
+the lead-role test does not need to. Every query slice B adds should declare its row type.

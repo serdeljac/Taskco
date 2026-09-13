@@ -1,6 +1,7 @@
 # Taskco — Design Decisions
 
-**Status:** design complete, stack chosen, nothing implemented. Last updated 2026-09-01.
+**Status:** design complete, stack chosen, slice A built and its review fixes done. Last updated
+2026-09-13.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -9,7 +10,7 @@ moves up into the decided sections.
 Companion file: [`learning-path.md`](./learning-path.md) — how the build proceeds, step by step.
 This file holds *what* is being built and why; that one holds *how*.
 
-No structural questions remain open.
+One question must be settled before slice B's first migration — see section 12.
 
 ---
 
@@ -180,6 +181,21 @@ whom.
 
 ### One Lead
 A project has exactly one Lead at all times. There is no co-lead and no vacant state.
+
+**How it is enforced**, decided 2026-09-13 while fixing the slice A review. "Exactly one" is two rules,
+and they need different mechanisms:
+
+- **At most one** is a partial unique index: unique on the project, among memberships that are leads
+  and have not ended. The database refuses a second active Lead whichever code writes the row.
+- **At least one** cannot be a constraint, because no constraint can require that a row exists. The
+  shared remove-member operation refuses to end the Lead's membership, so a Lead leaves only after
+  transferring leadership.
+
+*Rejected — having remove-member return a "no" instead of throwing an error:* a caller can ignore a
+returned value and carry on as though the Lead had been removed. An error cannot be silently ignored.
+
+*Consequence for transfer, when it is built:* the index is checked as each row is written, not at
+commit, so transfer must demote the outgoing Lead before promoting the new one, in one transaction.
 
 ### Transfer of leadership
 - **Only an existing member can be made Lead**, and the change is **immediate** — no acceptance step
@@ -474,6 +490,10 @@ Nothing is built without explicit confirmation first.
 one-membership-per-person rule, the assignee-must-be-a-member invariant, and one-pending-invite-per
 -address are all enforced by the database rather than trusted to application code.
 
+*Revised 2026-09-13:* not all of these are a constraint alone. "Exactly one Lead" is a constraint for
+*at most one* plus application code for *at least one* (section 6), and the assignee rule cannot be a
+plain foreign key while memberships are soft-deleted — it is reopened in section 12.
+
 Schema is hand-written SQL migration files.
 
 ### Testing
@@ -503,18 +523,25 @@ Postgres runs natively on Windows rather than in Docker. Both are recorded with 
 
 ## 12. Open questions
 
-Nothing structural is outstanding. Every remaining item is decided in principle and marked
-*(at build time)* — only the detail is open, and it is cheaper to settle against real code than in
-the abstract. Refer to these by name; the numbers are not stable, since resolved items are removed.
+One item must be settled before slice B's first migration. The rest are decided in principle and
+marked *(at build time)* — only the detail is open, and it is cheaper to settle against real code
+than in the abstract. Refer to these by name; the numbers are not stable, since resolved items are
+removed.
 
-1. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+1. **How "an assignee must be a current member" is enforced.** Raised 2026-09-13. Section 11 says
+   the database enforces it, but a plain foreign key cannot. Memberships are soft-deleted, so a user
+   and project pair is unique only among *active* memberships, and Postgres will not point a foreign
+   key at a partial unique index. What the task references, and how much of "still current" rests on
+   the remove-member operation clearing assignees, decides the shape of the `tasks` table — which is
+   why it comes before that table rather than after. *(before slice B's tasks migration)*
+2. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
    *(at build time)*
-2. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
+3. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
    to stop the "No email found" response being used to harvest which addresses have accounts.
    *(at build time)*
-3. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
+4. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
    accounts; tasks and ended memberships still accumulate. *(at build time)*
-4. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
+5. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
    non-goal. *(at build time)*
 
 ---
@@ -555,3 +582,7 @@ The reusable part. These outlast this app.
   case, made while thinking about only one of them.
 - **An obligation is only safe to hand over unasked if the recipient can put it down.** Consent
   matters in proportion to how stuck someone gets without it.
+- **"At most" is a constraint; "at least" is code.** No constraint can require that a row exists, so
+  "exactly one" is always two mechanisms — and the lower bound is the one that can be forgotten.
+- **Prove the problem before building the fix.** A failing test shows a gap is real before anything
+  closes it. Checking first is also how a mistaken problem gets caught before code is written for it.
