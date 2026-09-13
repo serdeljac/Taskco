@@ -10,7 +10,7 @@ moves up into the decided sections.
 Companion file: [`learning-path.md`](./learning-path.md) — how the build proceeds, step by step.
 This file holds *what* is being built and why; that one holds *how*.
 
-One question must be settled before slice B's first migration — see section 12.
+One question is open, deferred until after slice B — see section 12.
 
 ---
 
@@ -523,17 +523,19 @@ Postgres runs natively on Windows rather than in Docker. Both are recorded with 
 
 ## 12. Open questions
 
-One item must be settled before slice B's first migration. The rest are decided in principle and
-marked *(at build time)* — only the detail is open, and it is cheaper to settle against real code
-than in the abstract. Refer to these by name; the numbers are not stable, since resolved items are
-removed.
+The first item is a genuine open question, deferred until after slice B. The rest are decided in
+principle and marked *(at build time)* — only the detail is open, and it is cheaper to settle against
+real code than in the abstract. Refer to these by name; the numbers are not stable, since resolved
+items are removed.
 
 1. **How "an assignee must be a current member" is enforced.** Raised 2026-09-13. Section 11 says
    the database enforces it, but a plain foreign key cannot. Memberships are soft-deleted, so a user
    and project pair is unique only among *active* memberships, and Postgres will not point a foreign
    key at a partial unique index. What the task references, and how much of "still current" rests on
-   the remove-member operation clearing assignees, decides the shape of the `tasks` table — which is
-   why it comes before that table rather than after. *(before slice B's tasks migration)*
+   the remove-member operation clearing assignees, is still to decide.
+   *Deferred out of slice B, 2026-09-13.* This was first marked as due before the `tasks` table,
+   which overstated it: an assignee may be empty, so it can arrive later as a nullable column with
+   nothing to fill in for existing tasks. *(after slice B)*
 2. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
    *(at build time)*
 3. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,

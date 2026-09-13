@@ -1,9 +1,9 @@
 # Taskco — Learning path
 
-**Current step:** 2 complete, its checkpoint review written, and the review's before-slice-B fixes
-done on branch `slice-a-fixes` (2026-09-13, not yet merged). Step 3 — slice B, tasks and subtasks — is
-next and not started. Before its first migration, settle how "an assignee must be a current member"
-is enforced — the first open question in [`design-decisions.md`](./design-decisions.md).
+**Current step:** 3 — slice B, tasks and subtasks — started 2026-09-13 on branch `slice-b`. The
+review's before-slice-B fixes are merged into `main`. The assignee is left out of slice B and arrives
+later as its own small step — the first open question in
+[`design-decisions.md`](./design-decisions.md).
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.

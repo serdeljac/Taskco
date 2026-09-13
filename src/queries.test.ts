@@ -6,6 +6,8 @@ import {
     addMember,
     removeMember,
     listProjectsForUser,
+    createTask,
+    listTasks,
 } from "./queries.js";
 
 describe("users", () => {
@@ -128,3 +130,62 @@ describe("memberships", () => {
 
 });
 
+
+describe("tasks", () => {
+    it("creates a task in a project", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        expect(task.title).toBe("Draft the homepage");
+        expect(task.project_id).toBe(project.id);
+        expect(typeof task.id).toBe("string");
+        expect(task.created_at).toBeInstanceOf(Date);
+    });
+
+    it("refuses a task with a blank title", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await expect(
+            createTask({ projectId: project.id, title: "   " })
+        ).rejects.toMatchObject({ code: "23514", constraint: "tasks_title_not_blank" });
+    });
+
+    it("refuses a task in a project that does not exist", async () => {
+        await expect(
+            createTask({ projectId: "999", title: "Draft the homepage" })
+        ).rejects.toMatchObject({ code: "23503", constraint: "tasks_project_id_fkey" });
+    });
+
+    it("lists a project's tasks, oldest first", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const otherProject = await createProject("Mobile app", lead.id);
+
+        await createTask({ projectId: project.id, title: "First" });
+        await createTask({ projectId: project.id, title: "Second" });
+        await createTask({ projectId: otherProject.id, title: "Elsewhere" });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+
+        expect(tasks).toHaveLength(2);
+        expect(tasks[0]?.title).toBe("First");
+        expect(tasks[1]?.title).toBe("Second");
+    });
+
+    it("shows nothing to someone who is not a member", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const outsider = await createUser("outsider@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await createTask({ projectId: project.id, title: "First" });
+
+        const tasks = await listTasks({ projectId: project.id, userId: outsider.id });
+
+        expect(tasks).toHaveLength(0);
+    });
+
+
+});

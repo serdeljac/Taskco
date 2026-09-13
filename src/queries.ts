@@ -13,6 +13,13 @@ export type Project = {
     created_at: Date;
 };
 
+export type Task = {
+    id: string;
+    project_id: string;
+    title: string;
+    created_at: Date;
+};
+
 export type Role = "lead" | "associate";
 
 
@@ -123,6 +130,36 @@ export async function listProjectsForUser(userId: string): Promise<Project[]> {
         and m.ended_at is null
         order by p.created_at`,
         [userId]
+    );
+    return rows;
+}
+
+
+export async function createTask(task: { projectId: string; title: string }): Promise<Task> {
+    const { rows } = await pool.query<Task>(
+        `insert into tasks (project_id, title)
+        values ($1, $2)
+        returning *`,
+        [task.projectId, task.title]
+    );
+
+    const created = rows[0];
+    if (!created) {
+        throw new Error("createTask: the insert returned no row");
+    }
+    return created;
+}
+
+export async function listTasks(filter: { projectId: string; userId: string }): Promise<Task[]> {
+    const { rows } = await pool.query<Task>(
+        `select t.*
+        from tasks t
+        join memberships m on m.project_id = t.project_id
+        where t.project_id = $1
+        and m.user_id = $2
+        and m.ended_at is null
+        order by t.created_at, t.id`,
+        [filter.projectId, filter.userId]
     );
     return rows;
 }
