@@ -49,11 +49,9 @@ export async function createUser(email: string, timezone: string): Promise<User>
 
 
 export async function createProject(name: string, userId: string): Promise<Project> {
-    //This opens a connection, and remains open until you call release. You can run multiple queries on it, and they will all be part of the same transaction.
     const client = await pool.connect();
 
     try {
-        // This starts a transaction. All queries after this will be part of the same transaction, until you call commit or rollback.
         await client.query("begin");
 
         const { rows } = await client.query<Project>(
@@ -94,6 +92,19 @@ export async function addMember(projectId: string, userId: string, role: Role):P
 
 
 export async function removeMember(projectId: string, userId: string): Promise<void> {
+
+    const { rows } = await pool.query(
+        `select role from memberships
+        where project_id = $1
+        and user_id = $2
+        and ended_at is null`,
+        [projectId, userId]
+    );
+
+    if (rows.length > 0 && rows[0].role === "lead") {
+        throw new Error("Cannot remove the project's lead");
+    }
+
     await pool.query(
         `update memberships
         set ended_at = now()
@@ -102,6 +113,7 @@ export async function removeMember(projectId: string, userId: string): Promise<v
         and ended_at is null`,
         [projectId, userId]
     );
+
 }
 
 

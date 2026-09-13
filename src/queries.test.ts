@@ -115,7 +115,15 @@ describe("memberships", () => {
         await expect(
             addMember(project.id, other.id, "lead")
         ).rejects.toMatchObject({ code: "23505", constraint: "memberships_one_lead_idx", });
+    });
 
+    it("refuses to remove the project's lead", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await expect(
+            removeMember(project.id, lead.id)
+        ).rejects.toMatchObject({ message: "Cannot remove the project's lead" });
     });
 
 });
