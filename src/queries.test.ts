@@ -34,7 +34,7 @@ describe("projects", () => {
         const projects = await listProjectsForUser(lead.id);
 
         expect(projects).toHaveLength(1);
-        expect(projects[0].id).toBe(project.id);
+        expect(projects[0]?.id).toBe(project.id);
     });
 
     it("gives the creator the lead role, not associate", async () => {
@@ -92,7 +92,7 @@ describe("memberships", () => {
         const projects = await listProjectsForUser(alice.id);
 
         expect(projects).toHaveLength(1);
-        expect(projects[0].id).toBe(aliceProject.id);
+        expect(projects[0]?.id).toBe(aliceProject.id);
     });
 
     it("stops listing a project once the member has left", async () => {

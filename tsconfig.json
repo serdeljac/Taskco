@@ -4,6 +4,7 @@
         "target": "ES2022",
         "module": "nodenext",
         "strict": true,
+        "noUncheckedIndexedAccess": true,
         "skipLibCheck": true,
         "rootDir": "src",
         "outDir": "dist",

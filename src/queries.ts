@@ -16,14 +16,8 @@ export type Project = {
 export type Role = "lead" | "associate";
 
 
-//Functions
-
-
-// adds one person to the database and hands you back their record.
-// This adds one row to the users table, and returns the whole row as a JavaScript object. The database generates the id and created_at values for you, so you don't have to.
 export async function createUser(email: string, timezone: string): Promise<User> {
 
-    //Query is a connections that sends one line, then closes the connection afterwards. It is the simplest way to run a query, and it is fine for one-off queries like this. If you need to run multiple queries in a row, you can borrow a connection from the pool and use it for all of them, then return it to the pool when you're done.
     const { rows } = await pool.query<User>(
         `
         insert into users (email, timezone)
@@ -32,20 +26,15 @@ export async function createUser(email: string, timezone: string): Promise<User>
         `,
         [email, timezone]
     );
-    return rows[0]
 
-    /*
-        The backtick string exists as text in memory. Nothing has happened.
-        pool.query borrows a connection from the pool and sends the text and the values across it.
-        Postgres — the separate program running in the background — parses it, generates the id, and writes the row into its own data files under C:\Program Files\PostgreSQL\18\data.
-        await holds your function there until Postgres replies.
-        Postgres sends back the finished row, because you asked for returning *.
-        pg turns that reply into a JavaScript object and puts it in rows.
-    */
+    const user = rows[0];
+
+    if (!user) {
+        throw new Error("createUser: the insert returned no row");
+    }
+    return user; 
 }
 
-
-// This function creates a new project and adds the user as its lead. It does two things in one transaction: it inserts a row into the projects table, and it inserts a row into the memberships table. If either insert fails, the other is rolled back.
 
 
 export async function createProject(name: string, userId: string): Promise<Project> {
@@ -62,6 +51,9 @@ export async function createProject(name: string, userId: string): Promise<Proje
         );
 
         const project = rows[0];
+        if (!project) {
+            throw new Error("createProject: the insert returned no row");
+        }
 
         await client.query(
             `insert into memberships (user_id, project_id, role)
