@@ -188,4 +188,39 @@ describe("tasks", () => {
     });
 
 
+
+    //When you create a task, the status is set to 'not started' and no priority set
+    it("starts a new task as not started, with no priority", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        expect(task.status).toBe("not_started");
+        expect(task.priority).toBeNull();
+    });
+
+    //This is to test and make sure SPECIFIC values are used for status
+    it("refuses a status that is not on the list", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await expect(
+            pool.query("update tasks set status = 'done' where id = $1", [task.id])
+        ).rejects.toMatchObject({ code: "23514", constraint: "tasks_status_valid" });
+    });
+
+    //Same as above, but for priority
+    it("refuses a priority that is not on the list", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await expect(
+            pool.query("update tasks set priority = 'urgent' where id = $1", [task.id])
+        ).rejects.toMatchObject({ code: "23514", constraint: "tasks_priority_valid" });
+    });
+
+
 });

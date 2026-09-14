@@ -298,6 +298,13 @@ a flag rather than a status, and TBD different from a date nobody set.
 
 An empty priority reads as a question. "Low" reads as an answer.
 
+**Stored as `null`, shown as "Not set."** Confirmed 2026-09-13, while building slice B, when storing a
+`'not_set'` value was considered. It is the same rule as "TBD" for dates: the word belongs on screen,
+and empty is how the database says empty — a `date` column could not hold the text anyway, so a
+stored word would give the app two ways of saying one thing. A stored `'not_set'` would also look like
+a fourth priority to anything that lists or counts them, and TypeScript would stop flagging the empty
+case that `Priority | null` forces code to handle.
+
 Only the Lead can set priority.
 
 *Dropped — Omit:* originally a fifth status, then a flag, now removed. It existed to set a task

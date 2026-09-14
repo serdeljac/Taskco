@@ -13,10 +13,16 @@ export type Project = {
     created_at: Date;
 };
 
+export type TaskStatus = "not_started" | "in_progress" | "on_hold" | "completed";
+
+export type Priority = "low" | "med" | "high";
+
 export type Task = {
     id: string;
     project_id: string;
     title: string;
+    status: TaskStatus;
+    priority: Priority | null;
     created_at: Date;
 };
 
