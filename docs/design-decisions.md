@@ -394,6 +394,14 @@ it has no timezone. It is stored as a plain date and never converted — convert
 task due Friday in Zagreb into one due Thursday afternoon in Los Angeles, which is not what anyone
 meant.
 
+**Dates arrive in JavaScript as text, not as `Date` objects.** Learned 2026-09-13, building slice B.
+By default `pg` turns a `date` column into a JavaScript `Date`, which cannot hold a day on its own: it
+picks midnight on the clock of whatever machine is running. The same due date left a laptop in
+Vancouver as `2026-09-18T07:00:00.000Z`, and would leave a server in Zagreb as
+`2026-09-17T22:00:00.000Z`. `db.ts` tells `pg` to hand dates over as the text the database sent,
+`"2026-09-18"`, and because every file reads through that pool, the rule holds everywhere. Same
+reasoning as ids arriving as strings: a due date is a label, and converting a label is how it changes.
+
 **A timestamp is a moment.** Created-at, completed-at, invite expiry, scheduled deletion. Stored in
 UTC, rendered in the timezone of whoever is looking.
 

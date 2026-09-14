@@ -23,6 +23,7 @@ export type Task = {
     title: string;
     status: TaskStatus;
     priority: Priority | null;
+    due_date: string | null;
     created_at: Date;
 };
 
@@ -141,12 +142,16 @@ export async function listProjectsForUser(userId: string): Promise<Project[]> {
 }
 
 
-export async function createTask(task: { projectId: string; title: string }): Promise<Task> {
+export async function createTask(task: {
+    projectId: string;
+    title: string;
+    dueDate?: string;
+}): Promise<Task> {
     const { rows } = await pool.query<Task>(
-        `insert into tasks (project_id, title)
-        values ($1, $2)
+        `insert into tasks (project_id, title, due_date)
+        values ($1, $2, $3)
         returning *`,
-        [task.projectId, task.title]
+        [task.projectId, task.title, task.dueDate ?? null]
     );
 
     const created = rows[0];

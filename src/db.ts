@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
 
 const connectionString = process.env.DATABASE_URL
 
@@ -6,8 +6,9 @@ if (!connectionString) {
     throw new Error("DATABASE URL environment variable is not set");
 }
 
-export const pool = new Pool({connectionString});
+types.setTypeParser(types.builtins.DATE, (value) => value);
 
+export const pool = new Pool({connectionString});
 
 /*
     import { Pool } from "pg";

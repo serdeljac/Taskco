@@ -200,7 +200,7 @@ describe("tasks", () => {
         expect(task.priority).toBeNull();
     });
 
-    //This is to test and make sure SPECIFIC values are used for status
+    //Tries to save a status that isn't on the list; passes only if the database refuses it
     it("refuses a status that is not on the list", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
@@ -220,6 +220,25 @@ describe("tasks", () => {
         await expect(
             pool.query("update tasks set priority = 'urgent' where id = $1", [task.id])
         ).rejects.toMatchObject({ code: "23514", constraint: "tasks_priority_valid" });
+    });
+
+    it("keeps a due date as the calendar day it was given", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const task = await createTask({ projectId: project.id, title: "Launch", dueDate: "2026-09-18" });
+
+        expect(task.due_date).toBe("2026-09-18");
+    });
+
+    //Make sure on creation, the due date is empty (null) if not set
+    it("leaves the due date empty when none is given", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        expect(task.due_date).toBeNull();
     });
 
 
