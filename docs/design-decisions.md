@@ -320,6 +320,16 @@ view, restore, and orphan-free subtasks all cheap to add later.
 through it. Without this discipline, soft deletion turns into every query carrying four filters
 and the bug being the one place that forgot one.
 
+**That place is a database view, `visible_tasks`.** Decided 2026-09-13, building slice B. Every query
+that reads tasks selects from the view; only writes touch `tasks` directly. When slice C adds delete
+mode, "visible" gains a second condition, and only the view changes.
+
+*Rejected — a `deleted_at is null` filter in each query:* one reading query today, several by the end
+of slice B, and each would have to remember it.
+
+*Accepted cost:* a view's `select *` is expanded when the view is created, so a column added to
+`tasks` later does not appear in `visible_tasks` until a migration re-creates the view.
+
 ### Assignee
 **Assignment is organizational only.** It records who is expected to do the work and has no effect
 on permissions.

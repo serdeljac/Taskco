@@ -8,6 +8,7 @@ import {
     listProjectsForUser,
     createTask,
     listTasks,
+    deleteTask,
 } from "./queries.js";
 
 describe("users", () => {
@@ -239,6 +240,37 @@ describe("tasks", () => {
         const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
 
         expect(task.due_date).toBeNull();
+    });
+
+    //Delete a task
+    it("hides a deleted task from the list", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const kept = await createTask({ projectId: project.id, title: "Keep me" });
+        const deleted = await createTask({ projectId: project.id, title: "Delete me" });
+
+        await deleteTask(deleted.id);
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+
+        expect(tasks).toHaveLength(1);
+        expect(tasks[0]?.id).toBe(kept.id);
+    });
+
+    it("keeps a deleted task's row, with the time it was deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Delete me" });
+
+        await deleteTask(task.id);
+
+        const { rows } = await pool.query<{ deleted_at: Date | null }>(
+            "select deleted_at from tasks where id = $1",
+            [task.id]
+        );
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0]?.deleted_at).toBeInstanceOf(Date);
     });
 
 

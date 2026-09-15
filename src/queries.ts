@@ -25,6 +25,7 @@ export type Task = {
     priority: Priority | null;
     due_date: string | null;
     created_at: Date;
+    deleted_at: Date | null;
 };
 
 export type Role = "lead" | "associate";
@@ -164,7 +165,7 @@ export async function createTask(task: {
 export async function listTasks(filter: { projectId: string; userId: string }): Promise<Task[]> {
     const { rows } = await pool.query<Task>(
         `select t.*
-        from tasks t
+        from visible_tasks t
         join memberships m on m.project_id = t.project_id
         where t.project_id = $1
         and m.user_id = $2
@@ -173,4 +174,15 @@ export async function listTasks(filter: { projectId: string; userId: string }): 
         [filter.projectId, filter.userId]
     );
     return rows;
+}
+
+
+export async function deleteTask(taskID: string): Promise<void> {
+    await pool.query(
+        `update tasks
+        set deleted_at = now()
+        where id = $1
+        and deleted_at is null`,
+        [taskID]
+    );
 }
