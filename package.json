@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "migrate": "tsx src/migrate.ts",
     "migrate:test": "tsx --env-file=.env.test src/migrate.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed": "tsx src/seed.ts",
+    "preview": "tsx src/preview.ts"
   },
   "repository": {
     "type": "git",
