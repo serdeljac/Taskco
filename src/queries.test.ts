@@ -9,6 +9,7 @@ import {
     createTask,
     listTasks,
     deleteTask,
+    moveTask,
 } from "./queries.js";
 
 describe("users", () => {
@@ -188,8 +189,6 @@ describe("tasks", () => {
         expect(tasks).toHaveLength(0);
     });
 
-
-
     //When you create a task, the status is set to 'not started' and no priority set
     it("starts a new task as not started, with no priority", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
@@ -273,5 +272,63 @@ describe("tasks", () => {
         expect(rows[0]?.deleted_at).toBeInstanceOf(Date);
     });
 
+    it("puts a new task at the end of the list", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
 
+        await createTask({ projectId: project.id, title: "First" });
+        await createTask({ projectId: project.id, title: "Second" });
+        await createTask({ projectId: project.id, title: "Third" });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+
+        expect(tasks.map((task) => task.title)).toEqual(
+            ["First", "Second", "Third"]
+        );
+    });
+
+    it("spaces positions so there is room between tasks", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const first = await createTask({ projectId: project.id, title: "First" });
+        const second = await createTask({ projectId: project.id, title: "Second" });
+
+        expect(first.position).toBe(65536);
+        expect(second.position).toBe(131072);
+    });
+
+    it("moves a task between two others", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const first = await createTask({ projectId: project.id, title: "First" });
+        const second = await createTask({ projectId: project.id, title: "Second" });
+        const third = await createTask({ projectId: project.id, title: "Third" });
+
+        await moveTask({ taskId: third.id, afterTaskId: first.id, beforeTaskId: second.id });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+
+        expect(tasks.map((task) => task.title)).toEqual(["First", "Third", "Second"]);
+        expect(tasks[0]?.position).toBe(65536);
+        expect(tasks[1]?.position).toBe(98304);
+        expect(tasks[2]?.position).toBe(131072);
+    });
+
+    it("makes room when two tasks are next to each other", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const moved = await createTask({ projectId: project.id, title: "Moved" });
+        const left = await createTask({ projectId: project.id, title: "Left" });
+        const right = await createTask({ projectId: project.id, title: "Right" });
+
+        await pool.query("update tasks set position = 10 where id = $1", [left.id]);
+        await pool.query("update tasks set position = 11 where id = $1", [right.id]);
+
+        await moveTask({ taskId: moved.id, afterTaskId: left.id, beforeTaskId: right.id });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+
+        expect(tasks.map((task) => task.title)).toEqual(["Left", "Moved", "Right"]);
+    });
 });

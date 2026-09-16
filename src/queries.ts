@@ -24,12 +24,12 @@ export type Task = {
     status: TaskStatus;
     priority: Priority | null;
     due_date: string | null;
+    position: number;
     created_at: Date;
     deleted_at: Date | null;
 };
 
 export type Role = "lead" | "associate";
-
 
 export async function createUser(email: string, timezone: string): Promise<User> {
 
@@ -49,8 +49,6 @@ export async function createUser(email: string, timezone: string): Promise<User>
     }
     return user; 
 }
-
-
 
 export async function createProject(name: string, userId: string): Promise<Project> {
     const client = await pool.connect();
@@ -86,8 +84,6 @@ export async function createProject(name: string, userId: string): Promise<Proje
     }
 }
 
-
-
 export async function addMember(member: {
     projectId: string;
     userId: string;
@@ -99,8 +95,6 @@ export async function addMember(member: {
         [member.userId, member.projectId, member.role]
     );
 }
-
-
 
 export async function removeMember(member: { projectId: string; userId: string }): Promise<void> {
 
@@ -127,8 +121,6 @@ export async function removeMember(member: { projectId: string; userId: string }
 
 }
 
-
-
 export async function listProjectsForUser(userId: string): Promise<Project[]> {
     const { rows } = await pool.query<Project>(
         `select p.*
@@ -142,15 +134,19 @@ export async function listProjectsForUser(userId: string): Promise<Project[]> {
     return rows;
 }
 
-
 export async function createTask(task: {
     projectId: string;
     title: string;
     dueDate?: string;
 }): Promise<Task> {
     const { rows } = await pool.query<Task>(
-        `insert into tasks (project_id, title, due_date)
-        values ($1, $2, $3)
+        `insert into tasks (project_id, title, due_date, position)
+        values (
+            $1,
+            $2,
+            $3,
+            (select coalesce(max(position), 0) + 65536 from tasks where project_id = $1)
+        )
         returning *`,
         [task.projectId, task.title, task.dueDate ?? null]
     );
@@ -170,12 +166,11 @@ export async function listTasks(filter: { projectId: string; userId: string }): 
         where t.project_id = $1
         and m.user_id = $2
         and m.ended_at is null
-        order by t.created_at, t.id`,
+        order by t.position, t.id`,
         [filter.projectId, filter.userId]
     );
     return rows;
 }
-
 
 export async function deleteTask(taskID: string): Promise<void> {
     await pool.query(
@@ -185,4 +180,69 @@ export async function deleteTask(taskID: string): Promise<void> {
         and deleted_at is null`,
         [taskID]
     );
+}
+
+export async function moveTask(move: {
+    taskId: string;
+    afterTaskId: string;
+    beforeTaskId: string;
+}): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const { rows } = await client.query<{ id: string; project_id: string; position: number }>(
+            `select id, project_id, position
+            from tasks
+            where id = $1 or id = $2`,
+            [move.afterTaskId, move.beforeTaskId]
+        );
+
+        const after = rows.find((row) => row.id === move.afterTaskId);
+        const before = rows.find((row) => row.id === move.beforeTaskId);
+
+        if (!after || !before) {
+            throw new Error("moveTask: a neighbour was not found");
+        }
+
+        const midpoint = Math.floor((after.position + before.position) / 2);
+
+        if (midpoint > after.position && midpoint < before.position) {
+            await client.query(
+                `update tasks
+                set position = $1
+                where id = $2`,
+                [midpoint, move.taskId]
+            );
+        } else {
+            const ordered = await client.query<{ id: string }>(
+                `select id
+                from tasks
+                where project_id = $1
+                and id <> $2
+                order by position, id`,
+                [after.project_id, move.taskId]
+            );
+
+            const ids = ordered.rows.map((row) => row.id);
+            ids.splice(ids.indexOf(move.afterTaskId) + 1, 0, move.taskId);
+
+            for (const [index, id] of ids.entries()) {
+                await client.query(
+                    `update tasks
+                    set position = $1
+                    where id = $2`,
+                    [(index + 1) * 65536, id]
+                );
+            }
+        }
+
+        await client.query("commit");
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
 }

@@ -383,6 +383,14 @@ One door stays open forever, the other has a deadline.
 - Dragging is disabled whenever a field sort is active, since "put this here" and "the app decides
   placement" cannot both be true.
 
+**Built in slice B, 2026-09-14.** The operation is `moveTask({ taskId, afterTaskId, beforeTaskId })`:
+the caller names the two neighbours the task lands between, which is what a drag already knows. A new
+task appends to the end at `max(position) + 65536` for that project, worked out inside the insert, so
+nothing can slip in between reading the maximum and writing the row. Positions are `integer`, so
+unlike ids they arrive in JavaScript as numbers — a position is a number to do arithmetic on, which
+is exactly what an id is not. Renumbering covers the project's soft-deleted tasks as well, so a
+restored task still sits where it was.
+
 *Rejected — consecutive integers (1, 2, 3):* one drag rewrites every row below the insertion point,
 and two people dragging at once each compute a full renumbering from what they saw, so the second
 save silently overwrites the first.
