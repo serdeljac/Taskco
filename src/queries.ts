@@ -184,8 +184,8 @@ export async function deleteTask(taskID: string): Promise<void> {
 
 export async function moveTask(move: {
     taskId: string;
-    afterTaskId: string;
-    beforeTaskId: string;
+    afterTaskId?: string;
+    beforeTaskId?: string;
 }): Promise<void> {
     const client = await pool.connect();
 
@@ -196,24 +196,43 @@ export async function moveTask(move: {
             `select id, project_id, position
             from tasks
             where id = $1 or id = $2`,
-            [move.afterTaskId, move.beforeTaskId]
+            [move.afterTaskId ?? null, move.beforeTaskId ?? null]
         );
 
         const after = rows.find((row) => row.id === move.afterTaskId);
         const before = rows.find((row) => row.id === move.beforeTaskId);
 
-        if (!after || !before) {
+        if ((move.afterTaskId && !after) || (move.beforeTaskId && !before)) {
             throw new Error("moveTask: a neighbour was not found");
         }
 
-        const midpoint = Math.floor((after.position + before.position) / 2);
+        const neighbour = after ?? before;
 
-        if (midpoint > after.position && midpoint < before.position) {
+        if (!neighbour) {
+            throw new Error("moveTask: give at least one neighbour");
+        }
+
+        let candidate: number;
+
+        if (after && before) {
+            candidate = Math.floor((after.position + before.position) / 2);
+        } else if (before) {
+            candidate = Math.floor(before.position / 2);
+        } else {
+            candidate = neighbour.position + 65536;
+        }
+
+        const hasRoom =
+            candidate > 0 &&
+            (!after || candidate > after.position) &&
+            (!before || candidate < before.position);
+
+        if (hasRoom) {
             await client.query(
                 `update tasks
                 set position = $1
                 where id = $2`,
-                [midpoint, move.taskId]
+                [candidate, move.taskId]
             );
         } else {
             const ordered = await client.query<{ id: string }>(
@@ -222,11 +241,12 @@ export async function moveTask(move: {
                 where project_id = $1
                 and id <> $2
                 order by position, id`,
-                [after.project_id, move.taskId]
+                [neighbour.project_id, move.taskId]
             );
 
             const ids = ordered.rows.map((row) => row.id);
-            ids.splice(ids.indexOf(move.afterTaskId) + 1, 0, move.taskId);
+            const afterIndex = move.afterTaskId ? ids.indexOf(move.afterTaskId) : -1;
+            ids.splice(afterIndex + 1, 0, move.taskId);
 
             for (const [index, id] of ids.entries()) {
                 await client.query(

@@ -384,7 +384,8 @@ One door stays open forever, the other has a deadline.
   placement" cannot both be true.
 
 **Built in slice B, 2026-09-14.** The operation is `moveTask({ taskId, afterTaskId, beforeTaskId })`:
-the caller names the two neighbours the task lands between, which is what a drag already knows. A new
+the caller names the two neighbours the task lands between, which is what a drag already knows. Either
+neighbour may be left out: no `after` means the top of the list, no `before` means the bottom. A new
 task appends to the end at `max(position) + 65536` for that project, worked out inside the insert, so
 nothing can slip in between reading the maximum and writing the row. Positions are `integer`, so
 unlike ids they arrive in JavaScript as numbers — a position is a number to do arithmetic on, which
