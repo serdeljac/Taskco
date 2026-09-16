@@ -10,6 +10,10 @@ import {
     listTasks,
     deleteTask,
     moveTask,
+    createSubtask,
+    listSubtasks,
+    setSubtaskDueDate,
+    setTaskDueDate,
 } from "./queries.js";
 
 describe("users", () => {
@@ -377,5 +381,222 @@ describe("tasks", () => {
 
         expect(tasks.map((task) => task.title)).toEqual(["Third", "First", "Second"]);
         expect(tasks[0]?.position).toBe(65536);
+    });
+
+    it("refuses more than 50 subtasks on one task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        for (let i = 1; i <= 50; i++) {
+            await createSubtask({ taskId: task.id, title: `Step ${i}` });
+        }
+
+        await expect(
+            createSubtask({ taskId: task.id, title: "Step 51" })
+        ).rejects.toMatchObject({ message: "createSubtask: a task can have at most 50 subtasks" });
+    });
+
+    it("refuses a subtask due after its task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-18",
+        });
+
+        await expect(
+            createSubtask({ taskId: task.id, title: "Too late", dueDate: "2026-09-20" })
+        ).rejects.toMatchObject({ message: "a subtask cannot be due after its task" });
+    });
+
+        it("creates a subtask under a task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        expect(subtask.title).toBe("Write the headline");
+        expect(subtask.task_id).toBe(task.id);
+        expect(subtask.position).toBe(65536);
+    });
+
+    it("lists a task's subtasks in order", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await createSubtask({ taskId: task.id, title: "First" });
+        await createSubtask({ taskId: task.id, title: "Second" });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+
+        expect(subtasks.map((subtask) => subtask.title)).toEqual(["First", "Second"]);
+    });
+
+    it("refuses a subtask with a blank title", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await expect(
+            createSubtask({ taskId: task.id, title: "   " })
+        ).rejects.toMatchObject({ code: "23514", constraint: "subtasks_title_not_blank" });
+    });
+
+    it("hides the subtasks of a deleted task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await deleteTask(task.id);
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+
+        expect(subtasks).toHaveLength(0);
+    });
+
+    it("allows a subtask due on the same day as its task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-18",
+        });
+
+        const subtask = await createSubtask({
+            taskId: task.id,
+            title: "On the day",
+            dueDate: "2026-09-18",
+        });
+
+        expect(subtask.due_date).toBe("2026-09-18");
+    });
+
+    it("allows any subtask date when the task has none", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        const subtask = await createSubtask({
+            taskId: task.id,
+            title: "Whenever",
+            dueDate: "2027-01-01",
+        });
+
+        expect(subtask.due_date).toBe("2027-01-01");
+    });
+
+    it("changes a subtask's due date", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-18",
+        });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2026-09-17" });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+
+        expect(subtasks[0]?.due_date).toBe("2026-09-17");
+    });
+
+    it("refuses a changed date that is past its task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-18",
+        });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await expect(
+            setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2026-09-20" })
+        ).rejects.toMatchObject({ message: "a subtask cannot be due after its task" });
+    });
+
+    it("clears a subtask's due date", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-18",
+        });
+        const subtask = await createSubtask({
+            taskId: task.id,
+            title: "Write the headline",
+            dueDate: "2026-09-17",
+        });
+
+        await setSubtaskDueDate({ subtaskId: subtask.id, dueDate: null });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+
+        expect(subtasks[0]?.due_date).toBeNull();
+    });
+
+        it("clears subtask dates that fall past a task's new date", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-20",
+        });
+        await createSubtask({ taskId: task.id, title: "Late", dueDate: "2026-09-19" });
+        await createSubtask({ taskId: task.id, title: "Early", dueDate: "2026-09-15" });
+
+        const result = await setTaskDueDate({ taskId: task.id, dueDate: "2026-09-16" });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+
+        expect(result.clearedSubtasks).toBe(1);
+        expect(subtasks[0]?.due_date).toBeNull();
+        expect(subtasks[1]?.due_date).toBe("2026-09-15");
+    });
+
+    it("keeps subtask dates when a task's date moves later", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-18",
+        });
+        await createSubtask({ taskId: task.id, title: "Write the headline", dueDate: "2026-09-17" });
+
+        const result = await setTaskDueDate({ taskId: task.id, dueDate: "2026-09-25" });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+
+        expect(result.clearedSubtasks).toBe(0);
+        expect(subtasks[0]?.due_date).toBe("2026-09-17");
+    });
+
+    it("keeps subtask dates when a task's date is removed", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-18",
+        });
+        await createSubtask({ taskId: task.id, title: "Write the headline", dueDate: "2026-09-17" });
+
+        const result = await setTaskDueDate({ taskId: task.id, dueDate: null });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+
+        expect(result.clearedSubtasks).toBe(0);
+        expect(subtasks[0]?.due_date).toBe("2026-09-17");
     });
 });

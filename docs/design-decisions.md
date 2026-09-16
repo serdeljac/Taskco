@@ -352,6 +352,23 @@ on permissions.
   Lead sees a confirmation prompt naming how many will be affected before this happens.
 - **"TBD" is a word on screen for an empty date field.** It is not a stored value.
 
+**Where the due-date rule lives**, decided 2026-09-15 while building slice B: in application code, in
+one helper that every writer of a subtask date calls. A `CHECK` cannot express it, because the
+parent's date is in another row.
+
+*Rejected — a database trigger:* it would hold the rule whoever writes, which is the argument that
+put the one-Lead rule in an index. But the other half of this rule — clearing subtask dates when the
+parent moves earlier — is a multi-row repair that has to live in code regardless, and splitting one
+rule across a trigger and TypeScript is harder to follow than keeping it in one place.
+*Accepted cost:* a writer that bypasses those functions can break the rule.
+
+*Deferred:* the "not earlier than today" half. Today depends on the asker's timezone, and the code
+does not know who is asking until sessions exist in step 6.
+
+**The cascade** is one transaction: the task's new date and the clearing of its subtasks' dates land
+together or not at all. It reports how many dates it cleared, which is what the Lead's confirmation
+prompt counts.
+
 ### Views
 **List first, board later.** The statuses are board-shaped, and a board is expected eventually.
 

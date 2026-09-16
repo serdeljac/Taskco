@@ -29,6 +29,18 @@ export type Task = {
     deleted_at: Date | null;
 };
 
+export type Subtask = {
+    id: string;
+    task_id: string;
+    title: string;
+    status: TaskStatus;
+    priority: Priority | null;
+    due_date: string | null;
+    position: number;
+    created_at: Date;
+    deleted_at: Date | null;
+};
+
 export type Role = "lead" | "associate";
 
 export async function createUser(email: string, timezone: string): Promise<User> {
@@ -264,5 +276,148 @@ export async function moveTask(move: {
         throw error;
     } finally {
         client.release();
+    }
+}
+
+export async function createSubtask(subtask: {
+    taskId: string;
+    title: string;
+    dueDate?: string;
+}): Promise<Subtask> {
+    const counted = await pool.query<{ count: number }>(
+        `select count(*)::int as count
+        from visible_subtasks
+        where task_id = $1`,
+        [subtask.taskId]
+    );
+
+    if (subtask.dueDate) {
+        await refuseDueDateAfterParent(subtask.taskId, subtask.dueDate);
+    }
+
+    if ((counted.rows[0]?.count ?? 0) >= 50) {
+        throw new Error("createSubtask: a task can have at most 50 subtasks");
+    }
+
+    const { rows } = await pool.query<Subtask>(
+        `insert into subtasks (task_id, title, due_date, position)
+        values (
+            $1,
+            $2,
+            $3,
+            (select coalesce(max(position), 0) + 65536 from subtasks where task_id = $1)
+        )
+        returning *`,
+        [subtask.taskId, subtask.title, subtask.dueDate ?? null]
+    );
+
+    const created = rows[0];
+    if (!created) {
+        throw new Error("createSubtask: the insert returned no row");
+    }
+    return created;
+}
+
+export async function listSubtasks(filter: { taskId: string; userId: string }): Promise<Subtask[]> {
+    const { rows } = await pool.query<Subtask>(
+        `select s.*
+        from visible_subtasks s
+        join visible_tasks t on t.id = s.task_id
+        join memberships m on m.project_id = t.project_id
+        where s.task_id = $1
+        and m.user_id = $2
+        and m.ended_at is null
+        order by s.position, s.id`,
+        [filter.taskId, filter.userId]
+    );
+    return rows;
+}
+
+export async function setSubtaskDueDate(change: {
+    subtaskId: string;
+    dueDate: string | null;
+}): Promise<void> {
+    const { rows } = await pool.query<{ task_id: string }>(
+        `select task_id
+        from visible_subtasks
+        where id = $1`,
+        [change.subtaskId]
+    );
+
+    const parentTaskId = rows[0]?.task_id;
+
+    if (!parentTaskId) {
+        throw new Error("setSubtaskDueDate: subtask not found");
+    }
+
+    if (change.dueDate) {
+        await refuseDueDateAfterParent(parentTaskId, change.dueDate);
+    }
+
+    await pool.query(
+        `update subtasks
+        set due_date = $1
+        where id = $2`,
+        [change.dueDate, change.subtaskId]
+    );
+}
+
+export async function setTaskDueDate(change: {
+    taskId: string;
+    dueDate: string | null;
+}): Promise<{ clearedSubtasks: number }> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        await client.query(
+            `update tasks
+            set due_date = $1
+            where id = $2`,
+            [change.dueDate, change.taskId]
+        );
+
+        let clearedSubtasks = 0;
+
+        if (change.dueDate) {
+            const cleared = await client.query(
+                `update subtasks
+                set due_date = null
+                where task_id = $1
+                and due_date > $2`,
+                [change.taskId, change.dueDate]
+            );
+
+            clearedSubtasks = cleared.rowCount ?? 0;
+        }
+
+        await client.query("commit");
+        return { clearedSubtasks };
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+
+
+
+
+
+async function refuseDueDateAfterParent(taskId: string, dueDate: string): Promise<void> {
+    const { rows } = await pool.query<{ due_date: string | null }>(
+        `select due_date
+        from tasks
+        where id = $1`,
+        [taskId]
+    );
+
+    const parentDueDate = rows[0]?.due_date;
+
+    if (parentDueDate && dueDate > parentDueDate) {
+        throw new Error("a subtask cannot be due after its task");
     }
 }
