@@ -24,6 +24,7 @@ export type Task = {
     status: TaskStatus;
     priority: Priority | null;
     due_date: string | null;
+    notes: string | null;
     position: number;
     created_at: Date;
     deleted_at: Date | null;
@@ -36,6 +37,7 @@ export type Subtask = {
     status: TaskStatus;
     priority: Priority | null;
     due_date: string | null;
+    notes: string | null;
     position: number;
     created_at: Date;
     deleted_at: Date | null;
@@ -400,6 +402,36 @@ export async function setTaskDueDate(change: {
     } finally {
         client.release();
     }
+}
+
+export async function setTaskNotes(change: {
+    taskId: string;
+    notes: string | null;
+}): Promise<void> {
+    const notes = change.notes?.trim() || null;
+
+    await pool.query(
+        `update tasks
+        set notes = $1
+        where id = $2
+        and deleted_at is null`,
+        [notes, change.taskId]
+    );
+}
+
+export async function setSubtaskNotes(change: {
+    subtaskId: string;
+    notes: string | null;
+}): Promise<void> {
+    const notes = change.notes?.trim() || null;
+
+    await pool.query(
+        `update subtasks
+        set notes = $1
+        where id = $2
+        and deleted_at is null`,
+        [notes, change.subtaskId]
+    );
 }
 
 

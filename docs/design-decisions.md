@@ -277,6 +277,15 @@ history is what makes that one click rather than an act of memory.
 ### Fields
 Due date, notes, and priority are all optional. Plus status and assignee.
 
+**Notes are a `text` column on tasks and on subtasks**, added 2026-09-17 after the slice B review
+found the field described here and missing from the schema. Blank text is refused, so "no notes" has
+exactly one spelling — empty — and nothing has to ask twice.
+
+*Rejected — a separate notes table:* a note row would have to belong to either a task or a subtask,
+which means two nullable pointers and a rule that exactly one is filled, plus a second question in
+every query. That shape earns its keep only if notes become a thread with authors and timestamps,
+which is a different feature from the field this design describes.
+
 ### Status
 Four values: **Not Started**, **In Progress**, **On Hold**, **Completed**.
 
