@@ -138,7 +138,6 @@ describe("memberships", () => {
 
 });
 
-
 describe("tasks", () => {
     it("creates a task in a project", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
@@ -195,7 +194,6 @@ describe("tasks", () => {
         expect(tasks).toHaveLength(0);
     });
 
-    //When you create a task, the status is set to 'not started' and no priority set
     it("starts a new task as not started, with no priority", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
@@ -206,7 +204,6 @@ describe("tasks", () => {
         expect(task.priority).toBeNull();
     });
 
-    //Tries to save a status that isn't on the list; passes only if the database refuses it
     it("refuses a status that is not on the list", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
@@ -217,7 +214,6 @@ describe("tasks", () => {
         ).rejects.toMatchObject({ code: "23514", constraint: "tasks_status_valid" });
     });
 
-    //Same as above, but for priority
     it("refuses a priority that is not on the list", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
@@ -237,7 +233,6 @@ describe("tasks", () => {
         expect(task.due_date).toBe("2026-09-18");
     });
 
-    //Make sure on creation, the due date is empty (null) if not set
     it("leaves the due date empty when none is given", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
@@ -247,7 +242,6 @@ describe("tasks", () => {
         expect(task.due_date).toBeNull();
     });
 
-    //Delete a task
     it("hides a deleted task from the list", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
@@ -385,7 +379,10 @@ describe("tasks", () => {
         expect(tasks[0]?.position).toBe(65536);
     });
 
+    /* TEST NOTES */
+
     it("saves notes on a task", async () => {
+        //Check not only to see if the note is saved, but it contains the right contents
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
         const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
@@ -398,6 +395,7 @@ describe("tasks", () => {
     });
 
     it("stores blank notes as empty", async () => {
+        //Check to see what an empty note returns as
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
         const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
@@ -410,6 +408,7 @@ describe("tasks", () => {
     });
 
     it("refuses blank notes written straight to the table", async () => {
+        //Ensure you cannot add a note directly into the table
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);
         const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
@@ -417,6 +416,84 @@ describe("tasks", () => {
         await expect(
             pool.query("update tasks set notes = '' where id = $1", [task.id])
         ).rejects.toMatchObject({ code: "23514", constraint: "tasks_notes_not_blank" });
+    });
+
+    it("refuses to change a deleted task's date, and leaves its subtasks alone", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-20",
+        });
+        const subtask = await createSubtask({
+            taskId: task.id,
+            title: "Write the headline",
+            dueDate: "2026-09-19",
+        });
+
+        await deleteTask(task.id);
+
+        await expect(
+            setTaskDueDate({ taskId: task.id, dueDate: "2026-09-10" })
+        ).rejects.toMatchObject({ message: "setTaskDueDate: task not found" });
+
+        const { rows } = await pool.query<{ due_date: string | null }>(
+            "select due_date from subtasks where id = $1",
+            [subtask.id]
+        );
+
+        expect(rows[0]?.due_date).toBe("2026-09-19");
+    });
+
+    it("refuses to move a task next to tasks in another project", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const website = await createProject("Website", lead.id);
+        const app = await createProject("Mobile app", lead.id);
+        const first = await createTask({ projectId: website.id, title: "First" });
+        const second = await createTask({ projectId: website.id, title: "Second" });
+        const outsider = await createTask({ projectId: app.id, title: "From the other project" });
+
+        await expect(
+            moveTask({ taskId: outsider.id, afterTaskId: first.id, beforeTaskId: second.id })
+        ).rejects.toMatchObject({
+            message: "moveTask: the task and its neighbours must be in the same project",
+        });
+
+        const { rows } = await pool.query<{ position: number }>(
+            "select position from tasks where id = $1",
+            [outsider.id]
+        );
+
+        expect(rows[0]?.position).toBe(65536);
+    });
+
+    it("refuses to move a deleted task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const first = await createTask({ projectId: project.id, title: "First" });
+        const second = await createTask({ projectId: project.id, title: "Second" });
+        const third = await createTask({ projectId: project.id, title: "Third" });
+
+        await deleteTask(third.id);
+
+        await expect(
+            moveTask({ taskId: third.id, afterTaskId: first.id, beforeTaskId: second.id })
+        ).rejects.toMatchObject({ message: "moveTask: task not found" });
+    });
+
+    it("refuses a deleted task as a neighbour", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const first = await createTask({ projectId: project.id, title: "First" });
+        await createTask({ projectId: project.id, title: "Second" });
+        const third = await createTask({ projectId: project.id, title: "Third" });
+
+        await deleteTask(first.id);
+
+        await expect(
+            moveTask({ taskId: third.id, beforeTaskId: first.id })
+        ).rejects.toMatchObject({ message: "moveTask: a neighbour was not found" });
     });
 });
 
@@ -649,5 +726,34 @@ describe("subtasks", () => {
         const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
 
         expect(subtasks[0]?.notes).toBe("Ask marketing for the tagline");
+    });
+
+    it("refuses a subtask under a deleted task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await deleteTask(task.id);
+
+        await expect(
+            createSubtask({ taskId: task.id, title: "Write the headline" })
+        ).rejects.toMatchObject({ message: "createSubtask: task not found" });
+    });
+
+    it("refuses to change a subtask's date when its task is deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-20",
+        });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await deleteTask(task.id);
+
+        await expect(
+            setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2026-09-18" })
+        ).rejects.toMatchObject({ message: "setSubtaskDueDate: subtask not found" });
     });
 });

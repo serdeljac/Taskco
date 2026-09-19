@@ -186,6 +186,8 @@ export async function listTasks(filter: { projectId: string; userId: string }): 
     return rows;
 }
 
+
+
 export async function deleteTask(taskID: string): Promise<void> {
     await pool.query(
         `update tasks
@@ -208,13 +210,18 @@ export async function moveTask(move: {
 
         const { rows } = await client.query<{ id: string; project_id: string; position: number }>(
             `select id, project_id, position
-            from tasks
-            where id = $1 or id = $2`,
-            [move.afterTaskId ?? null, move.beforeTaskId ?? null]
+            from visible_tasks
+            where id = $1 or id = $2 or id = $3`,
+            [move.taskId, move.afterTaskId ?? null, move.beforeTaskId ?? null]
         );
 
+        const moved = rows.find((row) => row.id === move.taskId);
         const after = rows.find((row) => row.id === move.afterTaskId);
         const before = rows.find((row) => row.id === move.beforeTaskId);
+
+        if (!moved) {
+            throw new Error("moveTask: task not found");
+        }
 
         if ((move.afterTaskId && !after) || (move.beforeTaskId && !before)) {
             throw new Error("moveTask: a neighbour was not found");
@@ -224,6 +231,13 @@ export async function moveTask(move: {
 
         if (!neighbour) {
             throw new Error("moveTask: give at least one neighbour");
+        }
+
+        if (
+            (after && after.project_id !== moved.project_id) ||
+            (before && before.project_id !== moved.project_id)
+        ) {
+            throw new Error("moveTask: the task and its neighbours must be in the same project");
         }
 
         let candidate: number;
@@ -255,7 +269,7 @@ export async function moveTask(move: {
                 where project_id = $1
                 and id <> $2
                 order by position, id`,
-                [neighbour.project_id, move.taskId]
+                [moved.project_id, move.taskId]
             );
 
             const ids = ordered.rows.map((row) => row.id);
@@ -286,6 +300,17 @@ export async function createSubtask(subtask: {
     title: string;
     dueDate?: string;
 }): Promise<Subtask> {
+    const parent = await pool.query<{ id: string }>(
+        `select id
+        from visible_tasks
+        where id = $1`,
+        [subtask.taskId]
+    );
+
+    if (parent.rowCount === 0) {
+        throw new Error("createSubtask: task not found");
+    }
+
     const counted = await pool.query<{ count: number }>(
         `select count(*)::int as count
         from visible_subtasks
@@ -340,9 +365,10 @@ export async function setSubtaskDueDate(change: {
     dueDate: string | null;
 }): Promise<void> {
     const { rows } = await pool.query<{ task_id: string }>(
-        `select task_id
-        from visible_subtasks
-        where id = $1`,
+        `select s.task_id
+        from visible_subtasks s
+        join visible_tasks t on t.id = s.task_id
+        where s.id = $1`,
         [change.subtaskId]
     );
 
@@ -373,12 +399,17 @@ export async function setTaskDueDate(change: {
     try {
         await client.query("begin");
 
-        await client.query(
+        const updated = await client.query(
             `update tasks
             set due_date = $1
-            where id = $2`,
+            where id = $2
+            and deleted_at is null`,
             [change.dueDate, change.taskId]
         );
+
+        if (updated.rowCount === 0) {
+            throw new Error("setTaskDueDate: task not found");
+        }
 
         let clearedSubtasks = 0;
 
