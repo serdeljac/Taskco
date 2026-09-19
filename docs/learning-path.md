@@ -1,14 +1,15 @@
 # Taskco — Learning path
 
-**Current step:** 3 — slice B, tasks and subtasks — started 2026-09-13 on branch `slice-b`. The
-review's before-slice-B fixes are merged into `main`. The assignee is left out of slice B and arrives
-later as its own small step — the first open question in
+**Current step:** 3 complete on branch `slice-b` (2026-09-18), with its review written and the two
+fixes it called for done. Merging into `main` is next, then step 4 — slice C: invites, delete mode
+and routines. The assignee is still deferred — the first open question in
 [`design-decisions.md`](./design-decisions.md).
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
 
-Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-review.md).
+Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-review.md),
+[`slice-b-review.md`](./slice-b-review.md).
 [`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
 
 ---
@@ -382,4 +383,31 @@ was not looking at. That `truncate ... cascade` follows foreign keys, which made
 own items wrong — found by checking before building the fix. That a string has no parts until
 `new URL()` builds an object from it. And that TypeScript cannot see the database: it knows what a
 list holds but never how many, and it checks nothing typed `any`.
+
+**Step 3 — Slice B: tasks and subtasks.** Completed 2026-09-18 on branch `slice-b`. Migrations
+007–013: `tasks` and `subtasks` with status, priority, due date, notes, soft deletion read through two
+views, and stored positions. Eleven functions in `queries.ts`, among them `moveTask` — midpoint
+placement, exhaustion detected by testing the result, renumbering in one transaction — and
+`setTaskDueDate`, which clears subtask dates past the new one in the same transaction. A seed script
+and a throwaway page render `taskco_dev` in a browser. Fifty-six tests. The checkpoint is
+[`slice-b-review.md`](./slice-b-review.md): fourteen items, two fixed before merging — a deleted task
+could still be changed, and a task could be moved into another project's order — and neither was
+found by a failing test.
+
+*Changed decisions:* the assignee deferred out of slice B; priority stored empty and shown as "Not
+set"; dates arriving as text; one view deciding what is visible; the shape of `moveTask`; the subtask
+due-date rule kept in code, with its "not before today" half waiting for step 6; notes added after
+the review found them in the design and missing from the schema. All in `design-decisions.md`.
+
+*Learned, in rough order of how much time it cost:* what `.rejects` does, and why a test written
+before its rule fails first — which took several explanations and a longhand rewrite as `try`/`catch`
+to land. That `pg` turns a `date` into midnight on the machine's clock, so "due the 18th" left
+Vancouver as `07:00Z` and would have left Zagreb on the 17th. That a view stores no rows and fixes its
+column list the day it is made. That adding a required column breaks every writer at once, which is
+how the first `23502` arrived. That gaps between positions make a move one row, that running out of
+room is found by testing the result rather than measuring the gap, and that an `id` tiebreaker can
+hide the very bug a test is looking for. That rules come as locks and signs: a `check` sees one row,
+so anything that counts rows or reads a parent lives in code and only guards the writes that go
+through it. And that a checkpoint review is a list of claims that can each be checked — which found
+notes missing from the schema, and two real bugs that fifty passing tests had nothing to say about.
 

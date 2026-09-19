@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
-**Status:** design complete, stack chosen, slice A built and its review fixes done. Last updated
-2026-09-13.
+**Status:** design complete, stack chosen, slices A and B built, each with its review done. Last
+updated 2026-09-18.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it

@@ -3,7 +3,7 @@
 Every file, organised by the step that built it. For each one: **the code**, **what it does**, and
 **what is still open** in that file.
 
-Code blocks are a snapshot taken 2026-09-13. If a block ever disagrees with the file, the file wins.
+Code blocks are a snapshot taken 2026-09-18. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -28,6 +28,10 @@ Run from `C:\WebFiles\Github\Taskco` in PowerShell.
 | `psql -U taskco_app -d taskco_dev` | Interactive session. `\q` to leave. |
 | `psql -U taskco_app -d taskco_dev -c "\d memberships"` | Describe one table without a session |
 | `psql -U taskco_app -d taskco_test -c "select * from memberships"` | What the last test left behind |
+| `npm run seed` | Empties **taskco_dev** and fills it with a demo project, tasks and subtasks |
+| `npm run preview` | Writes `preview.html` from **taskco_dev**, as user 1 sees it |
+| `npx tsx src/preview.ts 2` | The same page, as user 2 sees it |
+| `Invoke-Item preview.html` | Opens the page in your browser |
 
 **Every new migration needs both migrate commands.** Nothing does this for you.
 
@@ -67,7 +71,7 @@ written by hand.
 ## `src/db.ts`
 
 ```ts
-import { Pool } from "pg";
+import { Pool, types } from "pg";
 
 const connectionString = process.env.DATABASE_URL
 
@@ -75,11 +79,19 @@ if (!connectionString) {
     throw new Error("DATABASE URL environment variable is not set");
 }
 
+types.setTypeParser(types.builtins.DATE, (value) => value);
+
 export const pool = new Pool({connectionString});
 ```
 
-**What it does.** Reads the connection string, refuses to start without one, and creates the
-connection pool.
+**What it does.** Reads the connection string, refuses to start without one, makes `date` columns
+arrive as text, and creates the connection pool.
+
+**`types.setTypeParser(...)`**, added in slice B, hands every `date` over exactly as the database
+sent it — `"2026-09-18"`. By default `pg` turns a `date` into a JavaScript `Date`, which is a moment:
+midnight on this machine's clock, which moves the day depending on where the code runs. It lives here
+rather than in `queries.ts` because every file that reaches the database imports this one, and
+`migrate.ts` and `setup.ts` never touch `queries.ts`.
 
 Exports `pool`. Everything else imports it rather than building its own — a module body runs once
 and the result is cached, so there is exactly one pool per process. That is what makes closing it in
@@ -614,7 +626,10 @@ Runs **per test file**, not per test.
 
 ## `src/queries.test.ts`
 
-Ten tests. **Six assert that something is refused**, which is the unusual and valuable half.
+This section covers slice A's ten tests. The file has since grown to 47 tests in five groups; the
+task and subtask tests are listed under step 3.
+
+Of slice A's ten, **six assert that something is refused**, which is the unusual and valuable half.
 
 ```
 users
@@ -777,6 +792,189 @@ check without performing one, which is what the setting exists to prevent.
 
 ---
 
+# Step 3 — Slice B: tasks and subtasks
+
+Tasks and subtasks, with status, priority, due dates, soft deletion, manual ordering and notes. Built
+one idea per piece, with each migration applied to both databases. The checkpoint is
+[`slice-b-review.md`](./slice-b-review.md).
+
+## Migrations 007–013
+
+| File | What it adds |
+|---|---|
+| `007_create_tasks.sql` | `tasks`: `id`, `project_id` → `projects`, a non-blank `title`, `created_at`; an index on `project_id` |
+| `008_add_task_status_and_priority.sql` | `status`, required and starting at `not_started`; `priority`, empty until someone decides. Both checked against their lists |
+| `009_add_task_due_date.sql` | `due_date`, a `date`: a calendar day with no time and no timezone |
+| `010_soft_delete_tasks.sql` | `deleted_at`, and the `visible_tasks` view |
+| `011_add_task_position.sql` | `position`; re-creates `visible_tasks` |
+| `012_create_subtask.sql` | `subtasks`: the task fields, with `task_id` → `tasks` as the parent; `visible_subtasks` |
+| `013_add_notes.sql` | `notes` on both tables, blank refused; re-creates both views |
+
+Three of them are worth reading for the pattern, not just the columns.
+
+**The view — `010`**
+
+```sql
+create view visible_tasks as
+    select * from tasks
+    where deleted_at is null;
+```
+
+A named query. It stores no rows; it is worked out from `tasks` each time it is read. Reads go through
+it and writes go to the table, so no reading query has to know what "deleted" means. `select *` is
+fixed the moment the view is created, so every new column needs `create or replace view` in the same
+migration — done in `011` and `013`.
+
+**A required column on a table that may already have rows — `011`**
+
+```sql
+alter table tasks
+    add column position integer not null default 0;
+
+alter table tasks
+    alter column position drop default;
+```
+
+The default exists only so existing rows get *some* value. The second statement removes it, so every
+new task must be given a position on purpose. Until `createTask` supplied one, every test that created
+a task failed with `23502`.
+
+**Blank refused, empty allowed — `013`**
+
+```sql
+check (length(trim(notes)) > 0)
+```
+
+Refuses `''` and three spaces. Allows `null`, because a `check` only refuses when its answer is
+*false*, and for `null` the answer is unknown. It leaves one spelling for "no notes". The same
+reasoning is why `tasks_priority_valid` never mentions empty priorities.
+
+**Open** — in `slice-b-review.md`: positions can repeat or go negative; `deleted_at` can precede
+`created_at`; titles and notes have no length limit.
+
+## `src/queries.ts` — the slice B functions
+
+Summarised rather than reproduced: they are long, and the file is the source of truth.
+
+| Function | What it does | Reads through | Transaction | Refuses when |
+|---|---|---|---|---|
+| `createTask({ projectId, title, dueDate? })` | appends at `max(position) + 65536` | — | no | blank title (`23514`), no such project (`23503`) |
+| `listTasks({ projectId, userId })` | the project's tasks, in position order | `visible_tasks`, current membership | no | — an outsider gets an empty list |
+| `deleteTask(taskId)` | sets `deleted_at`; deleting twice keeps the first time | — | no | — |
+| `moveTask({ taskId, afterTaskId?, beforeTaskId? })` | places a task between neighbours, or at either end; renumbers the project when there is no room | `visible_tasks` | yes | task or neighbour missing or deleted; a neighbour in another project |
+| `setTaskDueDate({ taskId, dueDate })` | sets the date, clears subtask dates past it, returns `{ clearedSubtasks }` | — | yes | task missing or deleted |
+| `setTaskNotes({ taskId, notes })` | blank text becomes empty | — | no | — deleted tasks are skipped |
+| `createSubtask({ taskId, title, dueDate? })` | appends a subtask within its task | `visible_tasks`, `visible_subtasks` | no | task missing or deleted; 50 already; due after the task |
+| `listSubtasks({ taskId, userId })` | the task's subtasks, in position order | both views, current membership | no | — |
+| `setSubtaskDueDate({ subtaskId, dueDate })` | `null` clears it to "TBD" | both views | no | subtask or its task deleted; due after the task |
+| `setSubtaskNotes({ subtaskId, notes })` | blank text becomes empty | — | no | — deleted subtasks are skipped |
+| `refuseDueDateAfterParent(taskId, dueDate)` | the one place the due-date rule is written; not exported | `tasks` | — | a date later than the task's |
+
+**Patterns worth recognising**
+
+- **Reads go through the views; writes go to the tables.** Two reads use `tasks` on purpose: the next
+  position and the renumbering, so a deleted task's place is never reused and it comes back where it
+  was if restored.
+- **Dates compare as text.** `"2026-09-20" > "2026-09-18"` is right because the year comes first and
+  every part is zero-padded — which only works because `db.ts` makes dates arrive as text.
+- **`count(*)::int`.** `count` produces a `bigint`, which would arrive as a string.
+- **`rowCount`** is how an `update` says how many rows it changed. `setTaskDueDate` uses it twice: to
+  tell "done" from "not found", and to report how many subtask dates it cleared.
+- **The 50-subtask rule and the due-date rule are signs, not locks.** They hold for writes that go
+  through these functions, and for nothing else.
+
+**Open** — in `slice-b-review.md`: writes don't yet check who is asking (step 5); two simultaneous
+creates can share a position, or both get under the 50; no functions for status or priority yet.
+
+## `src/queries.test.ts` — the slice B tests
+
+47 tests in the file — `users` 1, `projects` 4, `memberships` 5, `tasks` 26, `subtasks` 17 — plus 3 in
+`guard.test.ts`, for 50 in all.
+
+```
+tasks
+  creates a task in a project
+  refuses a task with a blank title
+  refuses a task in a project that does not exist
+  lists a project's tasks, oldest first
+  shows nothing to someone who is not a member
+  starts a new task as not started, with no priority
+  refuses a status that is not on the list
+  refuses a priority that is not on the list
+  keeps a due date as the calendar day it was given
+  leaves the due date empty when none is given
+  hides a deleted task from the list
+  keeps a deleted task's row, with the time it was deleted
+  puts a new task at the end of the list
+  spaces positions so there is room between tasks
+  moves a task between two others
+  makes room when two tasks are next to each other
+  moves a task to the top of the list
+  moves a task to the bottom of the list
+  makes room at the top when the first task sits at 1
+  saves notes on a task
+  stores blank notes as empty
+  refuses blank notes written straight to the table
+  refuses to change a deleted task's date, and leaves its subtasks alone
+  refuses to move a task next to tasks in another project
+  refuses to move a deleted task
+  refuses a deleted task as a neighbour
+subtasks
+  refuses more than 50 subtasks on one task
+  refuses a subtask due after its task
+  creates a subtask under a task
+  lists a task's subtasks in order
+  refuses a subtask with a blank title
+  hides the subtasks of a deleted task
+  allows a subtask due on the same day as its task
+  allows any subtask date when the task has none
+  changes a subtask's due date
+  refuses a changed date that is past its task
+  clears a subtask's due date
+  clears subtask dates that fall past a task's new date
+  keeps subtask dates when a task's date moves later
+  keeps subtask dates when a task's date is removed
+  saves notes on a subtask
+  refuses a subtask under a deleted task
+  refuses to change a subtask's date when its task is deleted
+```
+
+**Patterns new in slice B**
+
+- **Raw SQL to prove a database rule.** `pool.query("update tasks set status = 'done' ...")`: no
+  function can write a bad status, and TypeScript would refuse one anyway, so the test talks to the
+  database directly.
+- **Reading the table beneath the view.** Tests about deleted rows read `tasks` or `subtasks`
+  directly, because the view would hide exactly the row being checked.
+- **Setting up the hard case by hand.** "makes room when two tasks are next to each other" writes
+  positions 10 and 11 directly instead of making seventeen moves, and creates the tasks in an order
+  where the `id` tiebreaker cannot rescue the bug.
+- **`toEqual`** compares the contents of two lists; `toBe` would ask whether they are the same list.
+- **Refusals from code check `message`; refusals from the database check `code` and `constraint`.**
+
+**Open**
+
+- "lists a project's tasks, oldest first" is ordered by position now, not by age.
+- Nothing tests the signs from outside `queries.ts`. Every test goes through the same functions, which
+  is exactly what makes a sign look like a lock from inside the suite.
+
+## `src/seed.ts` and `src/preview.ts` — throwaway tools
+
+- **`npm run seed`** empties **taskco_dev** and fills it with a demo: a lead, an associate, one project,
+  four tasks (one of them deleted) and two subtasks.
+- **`npm run preview`** writes `preview.html` from **taskco_dev** as one user sees it — user 1 by
+  default, or `npx tsx src/preview.ts <id>`. It calls the same functions the tests call, so the page
+  shows exactly what the app knows. `preview.html` is git-ignored.
+
+Both exist to look at the data before there is a frontend, and are meant to be deleted in step 7.
+
+**Open**
+
+- `seed.ts` sets status and priority with raw SQL, because no function does it yet.
+- `preview.ts` fetches subtasks with one query per task — fine for four tasks, not for a real page.
+
+---
+
 # Appendix — current schema
 
 What the tables look like *now*. The migrations are a history; this is their sum.
@@ -816,6 +1014,37 @@ Indexes: `memberships_user_id_idx` on `(user_id)`; `memberships_one_active_idx`,
 `(user_id, project_id) where ended_at is null`; `memberships_one_lead_idx`, unique, on
 `(project_id) where role = 'lead' and ended_at is null`.
 
+### `tasks`
+
+| Column | Type | Rules |
+|---|---|---|
+| `id` | bigint | identity, primary key |
+| `project_id` | bigint | not null, → `projects(id)`, on delete cascade |
+| `title` | text | not null, non-blank |
+| `status` | text | not null, defaults to `'not_started'`; one of `not_started`, `in_progress`, `on_hold`, `completed` |
+| `priority` | text | nullable — **empty means nobody has decided**; one of `low`, `med`, `high` |
+| `due_date` | date | nullable — **empty shows as "TBD"** |
+| `notes` | text | nullable, non-blank |
+| `position` | integer | not null |
+| `created_at` | timestamptz | not null, defaults to `now()` |
+| `deleted_at` | timestamptz | nullable — **empty means not deleted** |
+
+Index: `tasks_project_id_idx` on `(project_id)`.
+
+### `subtasks`
+
+The same columns and rules as `tasks`, with **`task_id`** bigint, not null, → `tasks(id)`, on delete
+cascade, in place of `project_id`. Index: `subtasks_task_id_idx` on `(task_id)`.
+
+Nothing references `subtasks`, which is what keeps nesting to one level.
+
+### Views
+
+| View | Shows |
+|---|---|
+| `visible_tasks` | every column of `tasks`, for rows where `deleted_at is null` |
+| `visible_subtasks` | every column of `subtasks`, for rows where `deleted_at is null` |
+
 ### `schema_migrations`
 
 Created by the runner, not by a migration. `filename` text primary key, `applied_at` timestamptz.
@@ -829,9 +1058,9 @@ Five characters, stable across versions — which is why tests assert the code a
 | Code | Meaning | Where you have met it |
 |---|---|---|
 | `23505` | unique violation | duplicate email, duplicate active membership, second active lead |
-| `23514` | check violation | blank project name |
-| `23503` | foreign key violation | not yet — a membership pointing at a user who does not exist |
-| `23502` | not-null violation | not yet |
+| `23514` | check violation | blank project name or title, a status or priority not on its list, blank notes |
+| `23503` | foreign key violation | a task in a project that does not exist |
+| `23502` | not-null violation | every new task, between adding `position` and `createTask` supplying one |
 
 Several rules can raise the same code. The error's `constraint` field names the one that did.
 
@@ -854,3 +1083,13 @@ Several rules can raise the same code. The error's `constraint` field names the 
 - "At most one" is a constraint; "at least one" is code. No constraint can require that a row exists.
 - `truncate ... cascade` also empties every table that references the ones named, all the way down.
 - `rows[0]` may be `undefined`. Rows typed `any` are never checked.
+- A `check` only refuses when its answer is *false*. For `null` the answer is unknown, so `null` passes.
+- A view's `select *` is fixed when the view is created. A new column means re-creating the view.
+- Reads go through `visible_tasks` and `visible_subtasks`; writes go to the tables.
+- `date` columns arrive as text, because of `db.ts`. `timestamptz` columns still arrive as `Date`.
+- `count(*)` is a `bigint`, which arrives as a string. `count(*)::int` gives a number.
+- `rowCount` says how many rows an `update` changed — the way to tell "done" from "not found".
+- A required column added to a table with rows needs a value for them: add it with a `default`, then
+  drop the default.
+- A lock is a rule in the database; a sign is a rule in code. Signs only guard the writes that go
+  through the code that holds them.
