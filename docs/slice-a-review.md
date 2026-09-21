@@ -11,28 +11,31 @@ is still open.
 after it. The open items were found by reading each file and asking what it actually guarantees.
 
 **Follow-up, 2026-09-13.** The items marked for doing before slice B have been worked through on
-branch `slice-a-fixes`. The Status column below is current; the sections after it are the 2026-09-06
-snapshot, except where marked *Corrected*. One item turned out to be wrong — see item 3, and the
-follow-up at the end.
+branch `slice-a-fixes`. The sections after the table are the 2026-09-06 snapshot, except where
+marked *Corrected*. One item turned out to be wrong — see item 3, and the follow-up at the end.
+
+**This file no longer tracks status.** It is dated, and a dated document cannot also be a live
+tracker. Whether an item is still open is answered in [`open-items.md`](./open-items.md), by the
+name in the table below. The numbers are local to this review, and the prose below refers to them.
 
 ---
 
-## Everything still open, in one place
+## Everything this review raised, in one place
 
-| # | Open item | Where | Status |
+| # | Name | Open item | Where |
 |---|---|---|---|
-| 1 | Nothing enforces one lead per project | 004 memberships | **Fixed** — migration 006 (at most one), `removeMember` (at least one) |
-| 2 | `_test` guard checks the raw URL, not the database name | test harness | **Fixed** — `isTestDatabase` parses the URL, and is tested |
-| 3 | Truncate list is hand-maintained; breaks when slice B adds tables | test harness | **Wrong — dropped.** `cascade` already covers them; see section 5 |
-| 4 | `addMember` takes two adjacent `string` ids — a swap is invisible | queries.ts | **Fixed** — labelled object, in `removeMember` too |
-| 5 | `order by created_at` has no tiebreaker | 003 projects | Open |
-| 6 | `lower(email)` index only works if lookups use `lower()` | 002 users | Open |
-| 7 | `removeMember` cannot report that it matched nothing | queries.ts | Open |
-| 8 | `select p.*` and the `Project` type can drift apart | queries.ts | Open |
-| 9 | `timezone` accepts any string | 002 users | Open |
-| 10 | No index on `project_id` | 004 memberships | Open |
-| 11 | Untested: foreign keys, role `CHECK`, `on delete cascade`, the guard | tests | Partly — the guard is now tested |
-| 12 | `.env.example` never mentions that `.env.test` is required too | step 1 config | Open |
+| 1 | `one-lead-per-project` | Nothing enforces one lead per project | 004 memberships |
+| 2 | `test-guard-checks-whole-url` | `_test` guard checks the raw URL, not the database name | test harness |
+| 3 | `truncate-list-hand-maintained` | Truncate list is hand-maintained; breaks when slice B adds tables | test harness |
+| 4 | `swappable-id-arguments` | `addMember` takes two adjacent `string` ids — a swap is invisible | queries.ts |
+| 5 | `projects-order-no-tiebreaker` | `order by created_at` has no tiebreaker | 003 projects |
+| 6 | `email-lookup-must-lowercase` | `lower(email)` index only works if lookups use `lower()` | 002 users |
+| 7 | `writes-cannot-report-no-such-row` | `removeMember` cannot report that it matched nothing | queries.ts |
+| 8 | `project-type-drift` | `select p.*` and the `Project` type can drift apart | queries.ts |
+| 9 | `timezone-accepts-any-text` | `timezone` accepts any string | 002 users |
+| 10 | `no-index-on-project-id` | No index on `project_id` | 004 memberships |
+| 11 | `membership-rules-untested` | Untested: foreign keys, role `CHECK`, `on delete cascade`, the guard | tests |
+| 12 | `env-example-omits-env-test` | `.env.example` never mentions that `.env.test` is required too | step 1 config |
 
 Items 1–3 were marked as worth doing before slice B; item 4 and `noUncheckedIndexedAccess` (section 4)
 joined that batch. The rest are notes.

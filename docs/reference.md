@@ -9,6 +9,11 @@ Inline comments are stripped here so the code reads as code.
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
 for looking things up.
 
+**The `Open` note under each file says what is still wrong with that file. It does not say whether
+it has been fixed** — [`open-items.md`](./open-items.md) is the one place that answers that, and
+each item there carries a name that does not change. Roughly fifteen of the notes below appear in
+no review at all, which is why they are still written out here in full rather than moved.
+
 ---
 
 ## Commands

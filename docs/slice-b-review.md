@@ -25,29 +25,33 @@ anything that writes to the database without going through `queries.ts` walks st
 As with slice A, **nothing here came from a failing test.** All fifty pass. These were found by reading
 each piece and asking what it actually guarantees.
 
-**Follow-up, 2026-09-18.** Items 2 and 3 were fixed before merging, test-first. The Status column below
-is current; the sections after it describe the code as it was reviewed.
+**Follow-up, 2026-09-18.** Items 2 and 3 were fixed before merging, test-first. The sections after
+the table describe the code as it was reviewed.
+
+**This file no longer tracks status.** It is dated, and a dated document cannot also be a live
+tracker. Whether an item is still open is answered in [`open-items.md`](./open-items.md), by the
+name in the table below. The numbers are local to this review, and the prose below refers to them.
 
 ---
 
-## Everything open, in one place
+## Everything this review raised, in one place
 
-| # | Open item | Where | Status |
+| # | Name | Open item | Where |
 |---|---|---|---|
-| 1 | Writes don't check who is asking | `queries.ts` | Open — step 5 |
-| 2 | A deleted task can still be changed | `queries.ts` | **Fixed** — writes find their task through the view |
-| 3 | `moveTask` doesn't check that the task and its neighbours share a project | `moveTask` | **Fixed** — refuses a move across projects |
-| 4 | The 50-subtask limit is a sign, and two simultaneous creates can both get under it | `createSubtask` | Open |
-| 5 | "Not due after its task" is a sign | `refuseDueDateAfterParent` | Open |
-| 6 | "Not before today" is not built yet | design, step 6 | Open — step 6 |
-| 7 | `users.timezone` accepts any text, and items 5 and 6 will lean on it | `002`, from slice A | Open |
-| 8 | Positions can repeat or go negative | `011`, `createTask`, `createSubtask` | Open |
-| 9 | Nothing makes a query read through the views | `010`, `012` | Open |
-| 10 | Write functions can't tell "done" from "no such row" | `queries.ts` | Partly — the fixes for item 2 report a missing task |
-| 11 | No functions for changing status or priority yet | `queries.ts` | Open — step 5 |
-| 12 | `deleted_at` can be before `created_at`, or in the future | `010`, `012` | Open |
-| 13 | Titles and notes have no length limit | `007`, `012`, `013` | Open |
-| 14 | Three names no longer say what they mean | cosmetic | Open |
+| 1 | `writes-dont-check-who-is-asking` | Writes don't check who is asking | `queries.ts` |
+| 2 | `deleted-task-still-editable` | A deleted task can still be changed | `queries.ts` |
+| 3 | `move-task-across-projects` | `moveTask` doesn't check that the task and its neighbours share a project | `moveTask` |
+| 4 | `subtask-limit-is-a-sign` | The 50-subtask limit is a sign, and two simultaneous creates can both get under it | `createSubtask` |
+| 5 | `subtask-due-date-rule-is-a-sign` | "Not due after its task" is a sign | `refuseDueDateAfterParent` |
+| 6 | `not-before-today-not-built` | "Not before today" is not built yet | design, step 6 |
+| 7 | `timezone-accepts-any-text` | `users.timezone` accepts any text, and items 5 and 6 will lean on it | `002`, from slice A |
+| 8 | `positions-can-repeat-or-go-negative` | Positions can repeat or go negative | `011`, `createTask`, `createSubtask` |
+| 9 | `nothing-forces-reads-through-views` | Nothing makes a query read through the views | `010`, `012` |
+| 10 | `writes-cannot-report-no-such-row` | Write functions can't tell "done" from "no such row" | `queries.ts` |
+| 11 | `no-status-or-priority-functions` | No functions for changing status or priority yet | `queries.ts` |
+| 12 | `soft-delete-timestamps-unchecked` | `deleted_at` can be before `created_at`, or in the future | `010`, `012` |
+| 13 | `titles-and-notes-have-no-length-limit` | Titles and notes have no length limit | `007`, `012`, `013` |
+| 14 | `three-names-no-longer-say-what-they-mean` | Three names no longer say what they mean | cosmetic |
 
 **Items 2 and 3 are worth fixing before slice B is merged.** Both are small, and both are real bugs
 that no test notices. The rest are notes, most of them waiting for step 5 or step 6.
@@ -240,9 +244,9 @@ failing before its fix — fifty-six in all.
 - **Item 14:** the test `"lists a project's tasks, oldest first"` is now ordered by position, not age;
   `deleteTask(taskID)` is the only id spelled `ID`; migration `012` is named `create_subtask` for a
   table called `subtasks`. The migration name can't change, because it is applied. The other two can.
-- **Still open from slice A:** `listProjectsForUser` has no tiebreaker on its `order by`; the
-  `lower(email)` lookup rule; `removeMember` ignoring its row count; `.env.example` not mentioning
-  `.env.test`.
+- **Still open from slice A:** see [`open-items.md`](./open-items.md). This line used to name four
+  of slice A's eight open items, and nothing marked it as partial — which is why status moved into
+  one file.
 
 ---
 

@@ -11,6 +11,7 @@ why. This file holds *how the building proceeds* and *what to learn at each stag
 Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-review.md),
 [`slice-b-review.md`](./slice-b-review.md).
 [`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
+[`open-items.md`](./open-items.md) is the one place that says whether something is still open.
 
 ---
 
