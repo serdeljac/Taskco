@@ -1,8 +1,8 @@
 # Taskco — Learning path
 
-**Current step:** 3 complete on branch `slice-b` (2026-09-18), with its review written and the two
-fixes it called for done. Merging into `main` is next, then step 4 — slice C: invites, delete mode
-and routines. The assignee is still deferred — the first open question in
+**Current step:** 3 complete and merged into `main` (2026-09-18), with its review written and the
+two fixes it called for done. Next is step 4 — slice C: invites, delete mode and routines. The
+assignee is still deferred — the first open question in
 [`design-decisions.md`](./design-decisions.md).
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and

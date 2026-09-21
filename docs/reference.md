@@ -13,7 +13,7 @@ for looking things up.
 
 ## Commands
 
-Run from `C:\WebFiles\Github\Taskco` in PowerShell.
+Run from `H:\Github\Taskco` in PowerShell.
 
 | Command | What it does |
 |---|---|
@@ -626,7 +626,7 @@ Runs **per test file**, not per test.
 
 ## `src/queries.test.ts`
 
-This section covers slice A's ten tests. The file has since grown to 47 tests in five groups; the
+This section covers slice A's ten tests. The file has since grown to 53 tests in five groups; the
 task and subtask tests are listed under step 3.
 
 Of slice A's ten, **six assert that something is refused**, which is the unusual and valuable half.
@@ -888,8 +888,8 @@ creates can share a position, or both get under the 50; no functions for status 
 
 ## `src/queries.test.ts` — the slice B tests
 
-47 tests in the file — `users` 1, `projects` 4, `memberships` 5, `tasks` 26, `subtasks` 17 — plus 3 in
-`guard.test.ts`, for 50 in all.
+53 tests in the file — `users` 1, `projects` 4, `memberships` 5, `tasks` 26, `subtasks` 17 — plus 3 in
+`guard.test.ts`, for 56 in all.
 
 ```
 tasks
