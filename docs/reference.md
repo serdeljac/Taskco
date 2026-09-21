@@ -345,7 +345,11 @@ which is why constraints are cheap to add early and expensive later.
 
 **Open** — nothing.
 
-## `src/queries.ts`
+## `src/queries.ts` — the slice A functions
+
+The block below is the file as slice A left it: five functions and three types. It has since grown
+to fifteen exported functions and seven types — the rest are summarised under step 3, because the
+file is now long enough that reproducing it would be copying rather than explaining.
 
 ```ts
 import { pool } from "./db.js";
@@ -1074,7 +1078,8 @@ Several rules can raise the same code. The error's `constraint` field names the 
 # Appendix — rules that are easy to forget
 
 - Import paths use **`.js`** even though the files are `.ts`. You are naming the file as it exists at
-  runtime, and TypeScript never rewrites import paths.
+  runtime, and TypeScript never rewrites import paths. That rule is for your own files only: a bare
+  package name like `pg` never takes an extension, a relative path always does.
 - `dotenv` does **not** overwrite a variable that is already set. The real environment wins.
 - A process copies its environment at launch. Changing `PATH` does nothing to a terminal — or an
   editor — that was already open.
