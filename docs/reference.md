@@ -11,7 +11,7 @@ for looking things up.
 
 **The `Open` note under each file says what is still wrong with that file. It does not say whether
 it has been fixed** — [`open-items.md`](./open-items.md) is the one place that answers that, and
-each item there carries a name that does not change. Roughly fifteen of the notes below appear in
+each item there carries a name that does not change. Roughly eighteen of the notes below appear in
 no review at all, which is why they are still written out here in full rather than moved.
 
 ---
@@ -894,6 +894,21 @@ Summarised rather than reproduced: they are long, and the file is the source of 
 
 **Open** — in `slice-b-review.md`: writes don't yet check who is asking (step 5); two simultaneous
 creates can share a position, or both get under the 50; no functions for status or priority yet.
+
+Not in the review:
+
+- `setSubtaskNotes` checks only the subtask's own `deleted_at`, so a subtask whose task was deleted
+  still takes new notes. The review counted it as safe because it skips deleted rows — but deleting a
+  task marks the task, not its subtasks. The fix for the four writers the review named never reached
+  it, and no test covers it.
+- Positions only grow at the bottom. A new task, and a task moved to the bottom, both land 65536 past
+  the last position, and only a move that finds no room renumbers the list. Around the 32,768th of
+  those in one project, with no renumbering in between, the write is refused with `22003`: `position`
+  is an `integer`, which stops at 2,147,483,647.
+- `setTaskDueDate` clears the dates of soft-deleted subtasks too, and counts them in
+  `clearedSubtasks`. Clearing them may be right — a restored subtask should not come back due after
+  its task — but the count is what the Lead's confirmation shows, and it would include subtasks the
+  Lead cannot see. Nothing soft-deletes a subtask yet, so it cannot happen today.
 
 ## `src/queries.test.ts` — the slice B tests
 

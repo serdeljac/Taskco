@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
 **Status:** design complete, stack chosen, slices A and B built, each with its review done. Last
-updated 2026-09-18.
+updated 2026-09-24.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -55,7 +55,7 @@ open questions as a backlog.
 
 ## 2. The shape of the data
 
-Five kinds of record:
+Seven kinds of record:
 
 | Record | Belongs to | Notes |
 |---|---|---|
@@ -514,7 +514,7 @@ returns — and deferring it is only cheap until recurring project data exists.
 
 ## 11. Stack
 
-Chosen 2026-09-01. Nothing built yet.
+Chosen 2026-09-01.
 
 **Most of this is unfamiliar.** React, TypeScript, SQL and SASS are learning targets, not existing
 skills; comfort is in JavaScript, HTML and CSS. Everything under Backend and Testing is new. Build

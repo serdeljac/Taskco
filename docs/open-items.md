@@ -74,7 +74,7 @@ becomes a decision; an item here becomes a commit.
 |---|---|---|---|
 | `projects-order-no-tiebreaker` | `listProjectsForUser` can return two same-microsecond projects in either order, and Postgres is not obliged to be consistent between runs | [A §2](./slice-a-review.md) | Open |
 | `project-type-drift` | `select p.*` returns whatever the table has while `Project` claims three columns. They agree today | [A §4](./slice-a-review.md) | Open |
-| `writes-cannot-report-no-such-row` | `removeMember` and the notes writers cannot tell "done" from "no such row", which step 5 needs to choose between success and 404 | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | Partly — the deleted-task fixes report a missing task |
+| `writes-cannot-report-no-such-row` | `removeMember`, `deleteTask` and the notes writers cannot tell "done" from "no such row", which step 5 needs to choose between success and 404 | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | Partly — the deleted-task fixes report a missing task |
 | `remove-member-check-and-write-not-atomic` | The role check and the update are separate statements, so a transfer landing between them would still end the new Lead's membership | [reference, `src/queries.ts`](./reference.md) | Open — matters once transfer exists |
 | `untyped-queries-return-any` | A query with no row type returns `any` rows, which `noUncheckedIndexedAccess` cannot check | [reference, `src/queries.ts`](./reference.md) | Open |
 
@@ -91,6 +91,9 @@ becomes a decision; an item here becomes a commit.
 | `nothing-forces-reads-through-views` | "Reads go through `visible_tasks`" is a convention, not a lock — a query against the table sees everything | [B §3](./slice-b-review.md) | Open |
 | `titles-and-notes-have-no-length-limit` | Any length is accepted, on both tables | [B §1](./slice-b-review.md) | Open |
 | `three-names-no-longer-say-what-they-mean` | `deleteTask(taskID)`, the test called "oldest first" that orders by position, and migration `012_create_subtask` for a table called `subtasks` | [B](./slice-b-review.md) | Open — the migration name cannot change |
+| `deleted-task-still-editable` | A deleted task is meant to be read-only with everything under it, but `setSubtaskNotes` still writes to a subtask whose task was deleted | [B §5](./slice-b-review.md), [reference, `src/queries.ts`](./reference.md) | Partly — reopened 2026-09-24; the other four writers were fixed in `eee74db` |
+| `positions-grow-until-they-overflow` | A new task, and a task moved to the bottom, land 65536 past the last position, and only a move with no room renumbers — so around the 32,768th in one project is refused with `22003` | [reference, `src/queries.ts`](./reference.md) | Open |
+| `cleared-count-includes-deleted-subtasks` | `setTaskDueDate` counts soft-deleted subtasks in `clearedSubtasks`, the number the Lead's confirmation shows | [reference, `src/queries.ts`](./reference.md) | Open — cannot happen until subtasks can be deleted |
 
 ### The test suite
 
@@ -104,6 +107,12 @@ becomes a decision; an item here becomes a commit.
 | `truncate-misses-unreferenced-tables` | `cascade` follows foreign keys only, so a table referencing none of the three would survive. Nothing in the design is shaped that way | [reference, `src/testing/setup.ts`](./reference.md) | Open |
 | `pool-close-depends-on-file-isolation` | Setting `isolate: false` for speed would let the first file to finish close the pool underneath the others | [reference, `src/testing/setup.ts`](./reference.md) | Open |
 | `guard-throws-on-invalid-url` | A malformed address stops the run with "Invalid URL" rather than the guard's own message. It still refuses to run | [reference, `src/testing/guard.ts`](./reference.md) | Open |
+
+### Across files
+
+| Name | What | Explained in | Status |
+|---|---|---|---|
+| `explanations-still-in-comments` | `migrate.ts`, `queries.test.ts` and migrations 002 and 004 still carry the kind of notes `db.ts` shed. The two migrations are applied, so clearing theirs means editing an applied file | `ea5427c` | Open — the migrations need a decision first |
 
 ### Throwaway tools, and work not started
 
@@ -125,5 +134,4 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `truncate-list-hand-maintained` | [A §5](./slice-a-review.md) | **Dropped — the claim was wrong.** `truncate ... cascade` already empties referencing tables |
 | `swappable-id-arguments` | [A §4](./slice-a-review.md) | `addMember` and `removeMember` take one labelled object — `e064f11` |
 | `unchecked-indexed-access` | [A §4](./slice-a-review.md) | Turned on in `tsconfig.json`; five places had to handle the empty case — `0e4f52a` |
-| `deleted-task-still-editable` | [B §5](./slice-b-review.md) | The writers find their task through `visible_tasks` and refuse when it is gone — `eee74db` |
 | `move-task-across-projects` | [B §5](./slice-b-review.md) | `moveTask` refuses unless the task and both neighbours share a project — `eee74db` |
