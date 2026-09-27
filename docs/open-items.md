@@ -91,7 +91,6 @@ becomes a decision; an item here becomes a commit.
 | `titles-and-notes-have-no-length-limit` | Any length is accepted, on both tables | [B §1](./slice-b-review.md) | Open |
 | `three-names-no-longer-say-what-they-mean` | `deleteTask(taskID)`, the test called "oldest first" that orders by position, and migration `012_create_subtask` for a table called `subtasks` | [B](./slice-b-review.md) | Open — the migration name cannot change |
 | `positions-grow-until-they-overflow` | A new task, and a task moved to the bottom, land 65536 past the last position, and only a move with no room renumbers — so around the 32,768th in one project is refused with `22003` | [reference, `src/queries.ts`](./reference.md) | Open |
-| `cleared-count-includes-deleted-subtasks` | `setTaskDueDate` counts soft-deleted subtasks in `clearedSubtasks`, the number the Lead's confirmation shows | [reference, `src/queries.ts`](./reference.md) | Open — cannot happen until subtasks can be deleted |
 
 ### The test suite
 
@@ -133,5 +132,6 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `swappable-id-arguments` | [A §4](./slice-a-review.md) | `addMember` and `removeMember` take one labelled object — `e064f11` |
 | `unchecked-indexed-access` | [A §4](./slice-a-review.md) | Turned on in `tsconfig.json`; five places had to handle the empty case — `0e4f52a` |
 | `remove-member-check-and-write-not-atomic` | [reference, `src/queries.ts`](./reference.md) | `removeMember` runs on one checked-out client, and the role lookup takes `for update`, so a concurrent transfer blocks rather than slipping between the check and the write. The race is reasoned, not demonstrated: no test in the suite goes red for it |
+| `cleared-count-includes-deleted-subtasks` | [reference, `src/queries.ts`](./reference.md) | `setTaskDueDate` still clears a deleted subtask's date, so a restored subtask cannot come back breaking the rule, but it counts only the rows the Lead can see. One statement, with `returning` in place of `rowCount` |
 | `deleted-task-still-editable` | [B §5](./slice-b-review.md) | `setSubtaskNotes` now requires its subtask's `task_id` to be among `visible_tasks`, and both notes writers throw on a row count of zero. Four tests, each seen failing first |
 | `move-task-across-projects` | [B §5](./slice-b-review.md) | `moveTask` refuses unless the task and both neighbours share a project — `eee74db` |

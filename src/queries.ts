@@ -249,15 +249,16 @@ export async function setTaskDueDate(change: {
         let clearedSubtasks = 0;
 
         if (change.dueDate) {
-            const cleared = await client.query(
+            const cleared = await client.query<{ deleted_at: Date | null }>(
                 `update subtasks
                 set due_date = null
                 where task_id = $1
-                and due_date > $2`,
+                and due_date > $2
+                returning deleted_at`,
                 [change.taskId, change.dueDate]
             );
 
-            clearedSubtasks = cleared.rowCount ?? 0;
+            clearedSubtasks = cleared.rows.filter((row) => row.deleted_at === null).length;
         }
 
         await client.query("commit");

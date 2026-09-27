@@ -833,4 +833,33 @@ describe("subtasks", () => {
             setSubtaskNotes({ subtaskId: "999999", notes: "Ask marketing for the tagline" })
         ).rejects.toMatchObject({ message: "setSubtaskNotes: subtask not found" });
     });
+
+    it("counts only the subtasks the Lead can see, and still clears the deleted one", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-09-20",
+        });
+        await createSubtask({ taskId: task.id, title: "Late", dueDate: "2026-09-19" });
+        const scrapped = await createSubtask({
+            taskId: task.id,
+            title: "Scrapped",
+            dueDate: "2026-09-19",
+        });
+
+        await pool.query("update subtasks set deleted_at = now() where id = $1", [scrapped.id]);
+
+        const result = await setTaskDueDate({ taskId: task.id, dueDate: "2026-09-16" });
+
+        expect(result.clearedSubtasks).toBe(1);
+
+        const { rows } = await pool.query<{ due_date: string | null }>(
+            "select due_date from subtasks where id = $1",
+            [scrapped.id]
+        );
+
+        expect(rows[0]?.due_date).toBeNull();
+    });
 });
