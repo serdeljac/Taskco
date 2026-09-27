@@ -18,6 +18,9 @@ import {
     setSubtaskNotes,
 } from "./queries.js";
 
+
+
+
 describe("users", () => {
     it("returns a row the database generated", async () => {
 
@@ -31,48 +34,6 @@ describe("users", () => {
         expect(user.timezone).toBe("Europe/Zagreb");
         expect(typeof user.id).toBe("string");
         expect(user.created_at).toBeInstanceOf(Date);
-    });
-});
-
-describe("projects", () => {
-
-    it("makes the creator a member of the project", async () => {
-        //Create the user (note, not a lead/member of anything yet)
-        const lead = await createUser("lead@example.com", "Europe/Zagreb");
-        //Create a project, the function requests a user id to be it's lead
-        const project = await createProject("Website", lead.id);
-        const projects = await listProjectsForUser(lead.id);
-
-        expect(projects).toHaveLength(1);
-        expect(projects[0]?.id).toBe(project.id);
-    });
-
-    it("gives the creator the lead role, not associate", async () => {
-        const lead = await createUser("lead@example.com", "Europe/Zagreb");
-        const project = await createProject("Website", lead.id);
-        const { rows } = await pool.query(
-            "select role from memberships where project_id = $1 and user_id = $2",
-            [project.id, lead.id]
-        );
-
-        expect(rows).toHaveLength(1);
-        expect(rows[0].role).toBe("lead");
-    });
-
-    it("refuses a project with a blank name", async () => {
-        const lead = await createUser("lead@example.com", "Europe/Zagreb");
-
-        await expect(createProject("   ", lead.id)).rejects.toMatchObject({
-            code: "23514",
-        });
-    });
-
-    it("refuses two users with the same email in different cases", async () => {
-        await createUser("Person@example.com", "Europe/Zagreb");
-
-        await expect(
-            createUser("person@example.com", "Europe/Zagreb")
-        ).rejects.toMatchObject({ code: "23505" });
     });
 });
 
@@ -136,6 +97,48 @@ describe("memberships", () => {
         ).rejects.toMatchObject({ message: "Cannot remove the project's lead" });
     });
 
+});
+
+describe("projects", () => {
+
+    it("makes the creator a member of the project", async () => {
+        //Create the user (note, not a lead/member of anything yet)
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        //Create a project, the function requests a user id to be it's lead
+        const project = await createProject("Website", lead.id);
+        const projects = await listProjectsForUser(lead.id);
+
+        expect(projects).toHaveLength(1);
+        expect(projects[0]?.id).toBe(project.id);
+    });
+
+    it("gives the creator the lead role, not associate", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const { rows } = await pool.query(
+            "select role from memberships where project_id = $1 and user_id = $2",
+            [project.id, lead.id]
+        );
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0].role).toBe("lead");
+    });
+
+    it("refuses a project with a blank name", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+
+        await expect(createProject("   ", lead.id)).rejects.toMatchObject({
+            code: "23514",
+        });
+    });
+
+    it("refuses two users with the same email in different cases", async () => {
+        await createUser("Person@example.com", "Europe/Zagreb");
+
+        await expect(
+            createUser("person@example.com", "Europe/Zagreb")
+        ).rejects.toMatchObject({ code: "23505" });
+    });
 });
 
 describe("tasks", () => {
@@ -495,6 +498,18 @@ describe("tasks", () => {
             moveTask({ taskId: third.id, beforeTaskId: first.id })
         ).rejects.toMatchObject({ message: "moveTask: a neighbour was not found" });
     });
+
+    it("refuses notes on a deleted task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await deleteTask(task.id);
+
+        await expect(
+            setTaskNotes({ taskId: task.id, notes: "Call the printer first" })
+        ).rejects.toMatchObject({ message: "setTaskNotes: task not found" });
+    });
 });
 
 describe("subtasks", () => {
@@ -755,5 +770,44 @@ describe("subtasks", () => {
         await expect(
             setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2026-09-18" })
         ).rejects.toMatchObject({ message: "setSubtaskDueDate: subtask not found" });
+    });
+
+    it("refuses notes on a subtask whose task was deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await deleteTask(task.id);
+
+        await expect(
+            setSubtaskNotes({ subtaskId: subtask.id, notes: "Ask marketing for the tagline" })
+        ).rejects.toMatchObject({ message: "setSubtaskNotes: subtask not found" });
+
+        const { rows } = await pool.query<{ notes: string | null }>(
+            "select notes from subtasks where id = $1",
+            [subtask.id]
+        );
+
+        expect(rows[0]?.notes).toBeNull();
+    });
+
+    it("refuses notes on a deleted subtask", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await pool.query("update subtasks set deleted_at = now() where id = $1", [subtask.id]);
+
+        await expect(
+            setSubtaskNotes({ subtaskId: subtask.id, notes: "Ask marketing for the tagline" })
+        ).rejects.toMatchObject({ message: "setSubtaskNotes: subtask not found" });
+    });
+
+    it("refuses notes for a subtask that does not exist", async () => {
+        await expect(
+            setSubtaskNotes({ subtaskId: "999999", notes: "Ask marketing for the tagline" })
+        ).rejects.toMatchObject({ message: "setSubtaskNotes: subtask not found" });
     });
 });

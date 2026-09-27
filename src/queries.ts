@@ -45,6 +45,14 @@ export type Subtask = {
 
 export type Role = "lead" | "associate";
 
+
+
+
+
+/***********************************
+    USERS
+***********************************/
+
 export async function createUser(email: string, timezone: string): Promise<User> {
 
     const { rows } = await pool.query<User>(
@@ -64,39 +72,9 @@ export async function createUser(email: string, timezone: string): Promise<User>
     return user; 
 }
 
-export async function createProject(name: string, userId: string): Promise<Project> {
-    const client = await pool.connect();
-
-    try {
-        await client.query("begin");
-
-        const { rows } = await client.query<Project>(
-            `insert into projects (name)
-            values ($1)
-             returning *`,
-            [name]
-        );
-
-        const project = rows[0];
-        if (!project) {
-            throw new Error("createProject: the insert returned no row");
-        }
-
-        await client.query(
-            `insert into memberships (user_id, project_id, role)
-            values ($1, $2, 'lead')`,
-            [userId, project.id]
-        );
-
-        await client.query("commit");
-        return project;
-    } catch (error) {
-        await client.query("rollback");
-        throw error;
-    } finally {
-        client.release();
-    }
-}
+/***********************************
+    MEMBERS
+***********************************/
 
 export async function addMember(member: {
     projectId: string;
@@ -135,6 +113,44 @@ export async function removeMember(member: { projectId: string; userId: string }
 
 }
 
+/***********************************
+    PROJECTS
+***********************************/
+
+export async function createProject(name: string, userId: string): Promise<Project> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const { rows } = await client.query<Project>(
+            `insert into projects (name)
+            values ($1)
+             returning *`,
+            [name]
+        );
+
+        const project = rows[0];
+        if (!project) {
+            throw new Error("createProject: the insert returned no row");
+        }
+
+        await client.query(
+            `insert into memberships (user_id, project_id, role)
+            values ($1, $2, 'lead')`,
+            [userId, project.id]
+        );
+
+        await client.query("commit");
+        return project;
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 export async function listProjectsForUser(userId: string): Promise<Project[]> {
     const { rows } = await pool.query<Project>(
         `select p.*
@@ -147,6 +163,10 @@ export async function listProjectsForUser(userId: string): Promise<Project[]> {
     );
     return rows;
 }
+
+/***********************************
+    TASKS
+***********************************/
 
 export async function createTask(task: {
     projectId: string;
@@ -186,7 +206,69 @@ export async function listTasks(filter: { projectId: string; userId: string }): 
     return rows;
 }
 
+export async function setTaskDueDate(change: {
+    taskId: string;
+    dueDate: string | null;
+}): Promise<{ clearedSubtasks: number }> {
+    const client = await pool.connect();
 
+    try {
+        await client.query("begin");
+
+        const updated = await client.query(
+            `update tasks
+            set due_date = $1
+            where id = $2
+            and deleted_at is null`,
+            [change.dueDate, change.taskId]
+        );
+
+        if (updated.rowCount === 0) {
+            throw new Error("setTaskDueDate: task not found");
+        }
+
+        let clearedSubtasks = 0;
+
+        if (change.dueDate) {
+            const cleared = await client.query(
+                `update subtasks
+                set due_date = null
+                where task_id = $1
+                and due_date > $2`,
+                [change.taskId, change.dueDate]
+            );
+
+            clearedSubtasks = cleared.rowCount ?? 0;
+        }
+
+        await client.query("commit");
+        return { clearedSubtasks };
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+export async function setTaskNotes(change: {
+    taskId: string;
+    notes: string | null;
+}): Promise<void> {
+    const notes = change.notes?.trim() || null;
+
+    const updated = await pool.query(
+        `update tasks
+        set notes = $1
+        where id = $2
+        and deleted_at is null`,
+        [notes, change.taskId]
+    );
+
+    if (updated.rowCount === 0) {
+        throw new Error("setTaskNotes: task not found");
+    }
+}
 
 export async function deleteTask(taskID: string): Promise<void> {
     await pool.query(
@@ -295,6 +377,10 @@ export async function moveTask(move: {
     }
 }
 
+/***********************************
+    SUBTASKS
+***********************************/
+
 export async function createSubtask(subtask: {
     taskId: string;
     title: string;
@@ -360,6 +446,26 @@ export async function listSubtasks(filter: { taskId: string; userId: string }): 
     return rows;
 }
 
+export async function setSubtaskNotes(change: {
+    subtaskId: string;
+    notes: string | null;
+}): Promise<void> {
+    const notes = change.notes?.trim() || null;
+
+    const updated = await pool.query(
+        `update subtasks
+        set notes = $1
+        where id = $2
+        and deleted_at is null
+        and task_id in (select id from visible_tasks)`,
+        [notes, change.subtaskId]
+    );
+
+    if (updated.rowCount === 0) {
+        throw new Error("setSubtaskNotes: subtask not found");
+    }
+}
+
 export async function setSubtaskDueDate(change: {
     subtaskId: string;
     dueDate: string | null;
@@ -390,85 +496,18 @@ export async function setSubtaskDueDate(change: {
     );
 }
 
-export async function setTaskDueDate(change: {
-    taskId: string;
-    dueDate: string | null;
-}): Promise<{ clearedSubtasks: number }> {
-    const client = await pool.connect();
-
-    try {
-        await client.query("begin");
-
-        const updated = await client.query(
-            `update tasks
-            set due_date = $1
-            where id = $2
-            and deleted_at is null`,
-            [change.dueDate, change.taskId]
-        );
-
-        if (updated.rowCount === 0) {
-            throw new Error("setTaskDueDate: task not found");
-        }
-
-        let clearedSubtasks = 0;
-
-        if (change.dueDate) {
-            const cleared = await client.query(
-                `update subtasks
-                set due_date = null
-                where task_id = $1
-                and due_date > $2`,
-                [change.taskId, change.dueDate]
-            );
-
-            clearedSubtasks = cleared.rowCount ?? 0;
-        }
-
-        await client.query("commit");
-        return { clearedSubtasks };
-    } catch (error) {
-        await client.query("rollback");
-        throw error;
-    } finally {
-        client.release();
-    }
-}
-
-export async function setTaskNotes(change: {
-    taskId: string;
-    notes: string | null;
-}): Promise<void> {
-    const notes = change.notes?.trim() || null;
-
-    await pool.query(
-        `update tasks
-        set notes = $1
-        where id = $2
-        and deleted_at is null`,
-        [notes, change.taskId]
-    );
-}
-
-export async function setSubtaskNotes(change: {
-    subtaskId: string;
-    notes: string | null;
-}): Promise<void> {
-    const notes = change.notes?.trim() || null;
-
-    await pool.query(
-        `update subtasks
-        set notes = $1
-        where id = $2
-        and deleted_at is null`,
-        [notes, change.subtaskId]
-    );
-}
 
 
 
 
 
+
+
+
+
+/***********************************
+    HELPER FUNCTIONS
+***********************************/
 
 async function refuseDueDateAfterParent(taskId: string, dueDate: string): Promise<void> {
     const { rows } = await pool.query<{ due_date: string | null }>(
