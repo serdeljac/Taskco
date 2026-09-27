@@ -90,7 +90,8 @@ becomes a decision; an item here becomes a commit.
 | `nothing-forces-reads-through-views` | "Reads go through `visible_tasks`" is a convention, not a lock — a query against the table sees everything | [B §3](./slice-b-review.md) | Open |
 | `titles-and-notes-have-no-length-limit` | Any length is accepted, on both tables | [B §1](./slice-b-review.md) | Open |
 | `three-names-no-longer-say-what-they-mean` | `deleteTask(taskID)`, the test called "oldest first" that orders by position, and migration `012_create_subtask` for a table called `subtasks` | [B](./slice-b-review.md) | Open — the migration name cannot change |
-| `positions-grow-until-they-overflow` | A new task, and a task moved to the bottom, land 65536 past the last position, and only a move with no room renumbers — so around the 32,768th in one project is refused with `22003` | [reference, `src/queries.ts`](./reference.md) | Open |
+| `positions-grow-until-they-overflow` | `createTask` still lands 65536 past the last position, and because it reads `tasks` rather than `visible_tasks`, deleted tasks keep pushing the ceiling up — so it is the 32,768th task *created* in a project, not the 32,768th alive | [reference, `src/queries.ts`](./reference.md) | Partly — `moveTask`'s bottom move now treats the ceiling as one more way a candidate has no room, and renumbers |
+| `tasks-per-project-capped-by-position-spacing` | Renumbering writes `(index + 1) * 65536`, and only 32,767 of those fit in an `integer`, so a project with more tasks than that overflows while being renumbered. Renumbering reclaims space that churn wasted; it cannot create space that was never there | [reference, `src/queries.ts`](./reference.md) | Open — needs narrower spacing or a wider column, and `bigint` would arrive as a string |
 
 ### The test suite
 

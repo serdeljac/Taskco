@@ -533,6 +533,23 @@ describe("tasks", () => {
             setTaskNotes({ taskId: task.id, notes: "Call the printer first" })
         ).rejects.toMatchObject({ message: "setTaskNotes: task not found" });
     });
+
+    it("makes room at the bottom when the last task sits at the integer ceiling", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const first = await createTask({ projectId: project.id, title: "First" });
+        const second = await createTask({ projectId: project.id, title: "Second" });
+
+        await pool.query("update tasks set position = 2147483647 where id = $1", [second.id]);
+
+        await moveTask({ taskId: first.id, afterTaskId: second.id });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+
+        expect(tasks.map((task) => task.title)).toEqual(["Second", "First"]);
+        expect(tasks[0]?.position).toBe(65536);
+        expect(tasks[1]?.position).toBe(131072);
+    });
 });
 
 describe("subtasks", () => {

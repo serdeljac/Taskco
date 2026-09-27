@@ -354,6 +354,7 @@ export async function moveTask(move: {
 
         const hasRoom =
             candidate > 0 &&
+            candidate <= 2147483647 &&
             (!after || candidate > after.position) &&
             (!before || candidate < before.position);
 
