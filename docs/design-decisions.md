@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
 **Status:** design complete, stack chosen, slices A and B built, each with its review done. Last
-updated 2026-09-24.
+updated 2026-09-27.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -10,7 +10,7 @@ moves up into the decided sections.
 Companion file: [`learning-path.md`](./learning-path.md) — how the build proceeds, step by step.
 This file holds *what* is being built and why; that one holds *how*.
 
-One question is open, deferred until after slice B — see section 12.
+No genuine open questions remain. What is left in section 12 is detail to settle against real code.
 
 ---
 
@@ -350,6 +350,41 @@ on permissions.
 - Only the Lead can change an assignment, since associates are limited to status and notes.
 - An assignee must be a current member of the project.
 
+**How "a current member" is enforced**, decided 2026-09-27, resolving the open question raised on
+2026-09-13. The sentence is two rules, and they need different mechanisms — the same shape as
+"exactly one Lead" in section 6.
+
+- **In this project** is a lock. **A task stores a membership id, not a user id.** A membership row
+  already holds both facts — which person, and which project — so the task references the
+  relationship rather than the person. A composite foreign key from `tasks (assignee_membership_id,
+  project_id)` to `memberships (id, project_id)` then makes the database refuse an assignee whose
+  membership belongs to a different project. This requires an explicit unique constraint on
+  `memberships (id, project_id)`, which is redundant — `id` is already the primary key — but a
+  foreign key must name a declared unique constraint on exactly the columns it points at.
+- **Still current** cannot be a lock. Leaving sets `ended_at`; the row stays, so every foreign key
+  that was satisfied before is still satisfied after. A foreign key checks that a row *exists* and
+  cannot see what is inside it. So the shared remove-member operation sets the assignee of every
+  task and subtask that person held to **None**, and it must do that in the same transaction that
+  ends the membership — a crash between the two leaves exactly the state the rule forbids.
+
+*Why not a plain foreign key to `users`:* it answers "does this person exist," which was never the
+question. Both halves of the rule would then live in code, including the half the database can hold.
+
+*Why not a foreign key to the partial unique index on active memberships:* Postgres refuses to point
+a foreign key at a partial index, and correctly — a guarantee that holds for only some rows is not
+a guarantee.
+
+*Subtasks get the lock's weaker form.* The composite key needs a `project_id` on the referring row,
+and a subtask deliberately has none, so that it cannot disagree with its task about its project.
+Buying the lock would mean giving that up. A subtask's assignee therefore gets a plain foreign key
+to `memberships` plus a check in code that the membership belongs to the parent task's project —
+the same division as the subtask due-date rule, which lives in code for the same reason: it depends
+on the parent, and the parent is another row.
+
+*Consequences.* None is stored as `null`, the same rule as an unset priority or an empty due date.
+`createTask` must read `memberships` to find the Lead's membership for the default assignee.
+`removeMember` becomes transactional, which it is not today.
+
 ### Subtasks
 - One level only. A subtask cannot have subtasks.
 - Maximum **50 per task**. Unbounded lists break queries, payloads and rendering.
@@ -550,9 +585,10 @@ Nothing is built without explicit confirmation first.
 one-membership-per-person rule, the assignee-must-be-a-member invariant, and one-pending-invite-per
 -address are all enforced by the database rather than trusted to application code.
 
-*Revised 2026-09-13:* not all of these are a constraint alone. "Exactly one Lead" is a constraint for
-*at most one* plus application code for *at least one* (section 6), and the assignee rule cannot be a
-plain foreign key while memberships are soft-deleted — it is reopened in section 12.
+*Revised 2026-09-13, settled 2026-09-27:* not all of these are a constraint alone. "Exactly one Lead"
+is a constraint for *at most one* plus application code for *at least one* (section 6), and the
+assignee rule splits the same way — a composite foreign key for *in this project*, application code
+for *has not left*, because leaving mutates a column no foreign key can see (section 7).
 
 Schema is hand-written SQL migration files.
 
@@ -583,27 +619,21 @@ Postgres runs natively on Windows rather than in Docker. Both are recorded with 
 
 ## 12. Open questions
 
-The first item is a genuine open question, deferred until after slice B. The rest are decided in
-principle and marked *(at build time)* — only the detail is open, and it is cheaper to settle against
-real code than in the abstract. Refer to these by name; the numbers are not stable, since resolved
-items are removed.
+Every remaining item is decided in principle and marked *(at build time)* — only the detail is open,
+and it is cheaper to settle against real code than in the abstract. Refer to these by name; the
+numbers are not stable, since resolved items are removed.
 
-1. **How "an assignee must be a current member" is enforced.** Raised 2026-09-13. Section 11 says
-   the database enforces it, but a plain foreign key cannot. Memberships are soft-deleted, so a user
-   and project pair is unique only among *active* memberships, and Postgres will not point a foreign
-   key at a partial unique index. What the task references, and how much of "still current" rests on
-   the remove-member operation clearing assignees, is still to decide.
-   *Deferred out of slice B, 2026-09-13.* This was first marked as due before the `tasks` table,
-   which overstated it: an assignee may be empty, so it can arrive later as a nullable column with
-   nothing to fill in for existing tasks. *(after slice B)*
-2. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
+*Resolved 2026-09-27:* how "an assignee must be a current member" is enforced. The answer is in
+section 7, under Assignee.
+
+1. **How the CSV flattens the task/subtask tree.** Tasks and subtasks are a tree; CSV is flat.
    *(at build time)*
-3. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
+2. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
    to stop the "No email found" response being used to harvest which addresses have accounts.
    *(at build time)*
-4. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
+3. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
    accounts; tasks and ended memberships still accumulate. *(at build time)*
-5. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
+4. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
    non-goal. *(at build time)*
 
 ---

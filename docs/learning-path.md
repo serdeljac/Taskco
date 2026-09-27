@@ -1,9 +1,9 @@
 # Taskco — Learning path
 
 **Current step:** 3 complete and merged into `main` (2026-09-18), with its review written and the
-two fixes it called for done. Next is step 4 — slice C: invites, delete mode and routines. The
-assignee is still deferred — the first open question in
-[`design-decisions.md`](./design-decisions.md).
+two fixes it called for done. Next is step 4 — slice C: invites, delete mode and routines. How the
+assignee rule is enforced was settled on 2026-09-27 and is recorded in
+[`design-decisions.md`](./design-decisions.md), section 7.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.

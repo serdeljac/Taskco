@@ -75,7 +75,7 @@ becomes a decision; an item here becomes a commit.
 | `projects-order-no-tiebreaker` | `listProjectsForUser` can return two same-microsecond projects in either order, and Postgres is not obliged to be consistent between runs | [A §2](./slice-a-review.md) | Open |
 | `project-type-drift` | `select p.*` returns whatever the table has while `Project` claims three columns. They agree today | [A §4](./slice-a-review.md) | Open |
 | `writes-cannot-report-no-such-row` | `removeMember`, `deleteTask` and the notes writers cannot tell "done" from "no such row", which step 5 needs to choose between success and 404 | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | Partly — the deleted-task fixes report a missing task |
-| `remove-member-check-and-write-not-atomic` | The role check and the update are separate statements, so a transfer landing between them would still end the new Lead's membership | [reference, `src/queries.ts`](./reference.md) | Open — matters once transfer exists |
+| `remove-member-check-and-write-not-atomic` | The role check and the update are separate statements, so a transfer landing between them would still end the new Lead's membership | [reference, `src/queries.ts`](./reference.md) | Open — **now a prerequisite.** The assignee decision of 2026-09-27 requires ending a membership and clearing that person's assignees to be one transaction |
 | `untyped-queries-return-any` | A query with no row type returns `any` rows, which `noUncheckedIndexedAccess` cannot check | [reference, `src/queries.ts`](./reference.md) | Open |
 
 ### Tasks and subtasks — migrations 007–013
