@@ -97,6 +97,29 @@ describe("memberships", () => {
         ).rejects.toMatchObject({ message: "Cannot remove the project's lead" });
     });
 
+    it("refuses to remove someone who is not a member", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const stranger = await createUser("stranger@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await expect(
+            removeMember({ projectId: project.id, userId: stranger.id })
+        ).rejects.toMatchObject({ message: "removeMember: membership not found" });
+    });
+
+    it("refuses to remove the same member twice", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+
+        await removeMember({ projectId: project.id, userId: other.id });
+
+        await expect(
+            removeMember({ projectId: project.id, userId: other.id })
+        ).rejects.toMatchObject({ message: "removeMember: membership not found" });
+    });
+
 });
 
 describe("projects", () => {

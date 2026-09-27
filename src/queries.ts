@@ -90,27 +90,46 @@ export async function addMember(member: {
 
 export async function removeMember(member: { projectId: string; userId: string }): Promise<void> {
 
-    const { rows } = await pool.query(
-        `select role from memberships
-        where project_id = $1
-        and user_id = $2
-        and ended_at is null`,
-        [member.projectId, member.userId]
-    );
+    const client = await pool.connect();
 
-    if (rows.length > 0 && rows[0].role === "lead") {
-        throw new Error("Cannot remove the project's lead");
+    try {
+        await client.query("begin");
+
+            const { rows } = await client.query<{ role: Role }>(
+            `select role from memberships
+            where project_id = $1
+            and user_id = $2
+            and ended_at is null
+            for update`,
+            [member.projectId, member.userId]
+        );
+
+        const membership = rows[0];
+
+        if (!membership) {
+            throw new Error("removeMember: membership not found");
+        }
+
+        if (membership.role === "lead") {
+            throw new Error("Cannot remove the project's lead");
+        }
+
+        await client.query(
+            `update memberships
+            set ended_at = now()
+            where project_id = $1
+            and user_id = $2
+            and ended_at is null`,
+            [member.projectId, member.userId]
+        );
+
+        await client.query("commit");
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
     }
-
-    await pool.query(
-        `update memberships
-        set ended_at = now()
-        where project_id = $1
-        and user_id = $2
-        and ended_at is null`,
-        [member.projectId, member.userId]
-    );
-
 }
 
 /***********************************

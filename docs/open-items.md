@@ -74,9 +74,8 @@ becomes a decision; an item here becomes a commit.
 |---|---|---|---|
 | `projects-order-no-tiebreaker` | `listProjectsForUser` can return two same-microsecond projects in either order, and Postgres is not obliged to be consistent between runs | [A §2](./slice-a-review.md) | Open |
 | `project-type-drift` | `select p.*` returns whatever the table has while `Project` claims three columns. They agree today | [A §4](./slice-a-review.md) | Open |
-| `writes-cannot-report-no-such-row` | `removeMember` and `deleteTask` cannot tell "done" from "no such row", which step 5 needs to choose between success and 404 | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | Partly — the due-date and notes writers all report a missing row now; these two are what is left |
-| `remove-member-check-and-write-not-atomic` | The role check and the update are separate statements, so a transfer landing between them would still end the new Lead's membership | [reference, `src/queries.ts`](./reference.md) | Open — **now a prerequisite.** The assignee decision of 2026-09-27 requires ending a membership and clearing that person's assignees to be one transaction |
-| `untyped-queries-return-any` | A query with no row type returns `any` rows, which `noUncheckedIndexedAccess` cannot check | [reference, `src/queries.ts`](./reference.md) | Open |
+| `writes-cannot-report-no-such-row` | `deleteTask` cannot tell "done" from "no such row", which step 5 needs to choose between success and 404 | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | Partly — every writer but `deleteTask` reports a missing row now |
+| `untyped-queries-return-any` | A query with no row type returns `any` rows, which `noUncheckedIndexedAccess` cannot check | [reference, `src/queries.ts`](./reference.md) | Partly — `removeMember` declares its row type now; the test "gives the creator the lead role" is what is left |
 
 ### Tasks and subtasks — migrations 007–013
 
@@ -133,5 +132,6 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `truncate-list-hand-maintained` | [A §5](./slice-a-review.md) | **Dropped — the claim was wrong.** `truncate ... cascade` already empties referencing tables |
 | `swappable-id-arguments` | [A §4](./slice-a-review.md) | `addMember` and `removeMember` take one labelled object — `e064f11` |
 | `unchecked-indexed-access` | [A §4](./slice-a-review.md) | Turned on in `tsconfig.json`; five places had to handle the empty case — `0e4f52a` |
+| `remove-member-check-and-write-not-atomic` | [reference, `src/queries.ts`](./reference.md) | `removeMember` runs on one checked-out client, and the role lookup takes `for update`, so a concurrent transfer blocks rather than slipping between the check and the write. The race is reasoned, not demonstrated: no test in the suite goes red for it |
 | `deleted-task-still-editable` | [B §5](./slice-b-review.md) | `setSubtaskNotes` now requires its subtask's `task_id` to be among `visible_tasks`, and both notes writers throw on a row count of zero. Four tests, each seen failing first |
 | `move-task-across-projects` | [B §5](./slice-b-review.md) | `moveTask` refuses unless the task and both neighbours share a project — `eee74db` |
