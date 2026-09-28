@@ -139,6 +139,29 @@ describe("memberships", () => {
         });
     });
 
+    it("takes memberships, tasks and subtasks with it when a project is truly deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await pool.query("delete from projects where id = $1", [project.id]);
+
+        const memberships = await pool.query("select id from memberships where project_id = $1", [
+            project.id,
+        ]);
+        const tasks = await pool.query("select id from tasks where project_id = $1", [project.id]);
+        const subtasks = await pool.query("select id from subtasks where task_id = $1", [task.id]);
+        const users = await pool.query("select id from users");
+
+        expect(memberships.rowCount).toBe(0);
+        expect(tasks.rowCount).toBe(0);
+        expect(subtasks.rowCount).toBe(0);
+        expect(users.rowCount).toBe(2);
+    });
+
 });
 
 describe("projects", () => {

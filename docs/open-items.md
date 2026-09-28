@@ -57,7 +57,6 @@ becomes a decision; an item here becomes a commit.
 
 | Name | What | Explained in | Status |
 |---|---|---|---|
-| `projects-cascade-unverified` | Nothing has ever deleted a project, so the `on delete cascade` on memberships has never actually run | [A §2](./slice-a-review.md) | Open |
 | `visible-projects-filter-arrives-with-delete-mode` | Slice C adds a second visibility condition beside `ended_at is null`, which is where "one place decides what is visible" stops being theoretical | [A §2](./slice-a-review.md) | Waits for slice C |
 
 ### `memberships` — migration 004
@@ -66,7 +65,7 @@ becomes a decision; an item here becomes a commit.
 |---|---|---|---|
 | `no-index-on-project-id` | "Who is in this project" scans the table, and the composite index cannot help because an index is only usable from its leading column | [A §3](./slice-a-review.md) | Open — add when a member list needs it |
 | `soft-delete-timestamps-unchecked` | `ended_at` and `deleted_at` can still hold a future date, which no `CHECK` can refuse because a check expression must be immutable and `now()` is not. Every query tests `is null` rather than `<= now()`, so a future value reads as deleted straight away — it is a lie about *when*, not a state the app misreads | [A §3](./slice-a-review.md), [B §1](./slice-b-review.md) | Partly — migration `014` locks the ordering: neither can fall before `created_at` |
-| `membership-rules-untested` | The foreign keys, the role `CHECK`, the cascade, and `removeMember` on a non-member have no test | [A §3](./slice-a-review.md) | Partly — the test guard is covered now |
+| `membership-rules-untested` | The foreign keys and the role `CHECK` have no test. The `CHECK` needs a deliberate cast to reach, since `Role` is a union type and `addMember` will not pass `"manager"` without one | [A §3](./slice-a-review.md) | Partly — the cascade and `removeMember` on a non-member are covered now |
 
 ### `src/queries.ts`
 
@@ -135,5 +134,6 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `remove-member-check-and-write-not-atomic` | [reference, `src/queries.ts`](./reference.md) | `removeMember` runs on one checked-out client, and the role lookup takes `for update`, so a concurrent transfer blocks rather than slipping between the check and the write. The race is reasoned, not demonstrated: no test in the suite goes red for it |
 | `cleared-count-includes-deleted-subtasks` | [reference, `src/queries.ts`](./reference.md) | `setTaskDueDate` still clears a deleted subtask's date, so a restored subtask cannot come back breaking the rule, but it counts only the rows the Lead can see. One statement, with `returning` in place of `rowCount` |
 | `positions-grow-until-they-overflow` | [reference, `src/queries.ts`](./reference.md) | `moveTask` treats the ceiling as one more way a candidate has no room; `createTask` renumbers first when the next position would not fit. Renumbering now lives in one place, `renumberTasks`, which both call |
+| `projects-cascade-unverified` | [A §2](./slice-a-review.md) | One test hard-deletes a project and asserts its memberships, tasks and subtasks all went — subtasks by two hops, through tasks — and that both users survived, because a cascade runs from parent to child only |
 | `deleted-task-still-editable` | [B §5](./slice-b-review.md) | `setSubtaskNotes` now requires its subtask's `task_id` to be among `visible_tasks`, and both notes writers throw on a row count of zero. Four tests, each seen failing first |
 | `move-task-across-projects` | [B §5](./slice-b-review.md) | `moveTask` refuses unless the task and both neighbours share a project — `eee74db` |
