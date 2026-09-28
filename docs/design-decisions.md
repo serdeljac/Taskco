@@ -530,8 +530,14 @@ midnight.
 optional ownership leaks into every list query and permission check as a second case that code can
 silently forget to handle.
 
-**Build order:** after the collaborative core works. Routines share nothing with the project model,
-so they can neither teach nor block the hard part.
+**Build order:** their own slice, whenever. Confirmed 2026-09-27 while scoping slice C. Routines
+share nothing with the project model, so they can neither teach nor block the hard part — which
+also means nothing is gained by bundling them with work that does.
+
+*Not blocked by authentication,* although it looks as though they should be. Streaks resolve
+"today" through the asker's timezone, and that timezone is a column on the user's row; every query
+in this project has taken a user id since slice A. Sessions change where the id comes from, not
+whether it is available.
 
 *Accepted consequence:* this does not remove recurrence from projects permanently. "Weekly status
 report" is real recurring project work. If it comes up, the materialize-versus-rule question

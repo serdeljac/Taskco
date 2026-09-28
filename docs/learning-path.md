@@ -1,9 +1,12 @@
 # Taskco — Learning path
 
-**Current step:** 3 complete and merged into `main` (2026-09-18), with its review written and the
-two fixes it called for done. Next is step 4 — slice C: invites, delete mode and routines. How the
-assignee rule is enforced was settled on 2026-09-27 and is recorded in
-[`design-decisions.md`](./design-decisions.md), section 7.
+**Current step:** 3 complete and merged into `main`, and the fixes pass after it done on 2026-09-27
+— five items closed, one migration, sixty-nine tests. Next is step 4 — slice C, rescoped that day
+to the assignee, invites and delete mode, with routines and account deletion moved to steps of
+their own. How the assignee rule is enforced was settled the same day, in
+[`design-decisions.md`](./design-decisions.md), section 7. Three questions are open before slice C
+can be specified: whether an invite can offer the Lead role, whether its email is matched
+case-insensitively, and whether the expiry is stored or computed.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -220,18 +223,60 @@ to see something.
 
 ---
 
-### Step 4 — Slice C: invites, delete mode, routines
+### Step 4 — Slice C: the assignee, invites, delete mode
 
-**Goal:** the remaining tables and the lifecycle rules.
+**Goal:** the assignee column the design now knows how to enforce, and the two lifecycle rules that
+model something waiting.
 
-**Done looks like:** an invite can be created, accepted, and refused when expired — with expiry
-derived rather than swept. A project can enter delete mode and be undone. A routine can be defined
-and completed, and a streak can be computed from the log.
+**Rescoped 2026-09-27.** This step used to carry routines as well, and account deletion sat
+implicitly inside "delete mode." Both moved out — see the two steps below. What is left is one
+lesson taught twice: an invite waits and its expiry is derived; a project in delete mode waits and
+its banner is derived. The two also interlock, because a pending invite is refused against the
+project's state at the moment it is accepted, so they cannot sensibly be built apart.
+
+**Done looks like:** a task can be assigned, and the database refuses an assignee whose membership
+belongs to another project. An invite can be created, accepted, and refused when expired — with
+expiry derived rather than swept. A project can enter delete mode, be undone, and be deleted
+permanently now.
 
 **Concepts involved:**
+- Composite foreign keys, and forcing two rows to agree about a third fact
 - Modelling something that waits: state fields and legal transitions
 - Derived state versus stored state
-- Computing over a log rather than mutating a counter
+- A second condition joining the first in the one place that decides what is visible
+
+---
+
+### Step 4b — Transfer of leadership and account deletion
+
+**Goal:** the largest lifecycle flow in the design, which composes what step 4 built.
+
+**Why separate.** Account deletion needs delete mode working first, then walks the Lead through
+every project they lead, offering transfer or deletion for each, and removes their memberships
+elsewhere through the shared remove-member operation. Transfer has its own trap already recorded:
+the one-Lead index is checked as each row is written, not at commit, so the outgoing Lead must be
+demoted before the new one is promoted, inside one transaction.
+
+**Done looks like:** leadership moves between members immediately, a project with no other members
+can only be deleted, and reopening an account within 30 days cancels delete mode on the projects
+it still leads.
+
+---
+
+### Step 4c — Routines
+
+**Goal:** the personal surface: a definition, a log, and streaks computed from it.
+
+**Why separate.** Routines share nothing with the project model — no membership, no positions, no
+soft deletion — so they can neither teach nor block the rest. They also teach a different lesson:
+computing over a log rather than mutating a counter.
+
+**Not blocked by authentication.** An earlier note here claimed streaks had to wait for sessions,
+because "today" depends on who is asking. That was wrong: the timezone lives on the user's row, and
+every query in this project has taken a user id since slice A. This step can be built whenever.
+
+**Done looks like:** a routine can be defined and completed, and a streak can be computed from the
+log — resolved through the asker's timezone, so it does not break at the server's midnight.
 
 ---
 
@@ -295,7 +340,9 @@ elsewhere. Roughly 30 hours a week at the top end.
 | 2. Slice A | 10–15 h | SQL, joins, constraints and testing all arrive at once. The steepest step |
 | Checkpoint | ~1 h | |
 | 3. Slice B | 12–18 h | Conceptually the hardest data work: positions, transactions, the cascade |
-| 4. Slice C | 10–15 h | Mostly repetition of A and B, plus state modelling |
+| 4. Slice C | 10–15 h | The assignee, invites and delete mode. Repetition of A and B, plus state modelling |
+| 4b. Transfer and account deletion | 8–12 h | Composes delete mode. The largest single flow in the design |
+| 4c. Routines | 6–10 h | A definition and a log. Shares nothing with the rest |
 | 5. HTTP layer | 12–20 h | All new. Middleware is a genuine concept, not a syntax detail |
 | 6. Authentication | 10–15 h | |
 | **Backend total** | **60–95 h** | |
