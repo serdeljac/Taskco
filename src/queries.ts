@@ -1,4 +1,5 @@
 import { pool } from "./db.js";
+import type { PoolClient } from "pg";
 
 export type User = {
     id: string;
@@ -192,23 +193,56 @@ export async function createTask(task: {
     title: string;
     dueDate?: string;
 }): Promise<Task> {
-    const { rows } = await pool.query<Task>(
-        `insert into tasks (project_id, title, due_date, position)
-        values (
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const highest = await client.query<{ highest: number }>(
+            `select coalesce(max(position), 0) as highest
+            from tasks
+            where project_id = $1`,
+            [task.projectId]
+        );
+
+        if ((highest.rows[0]?.highest ?? 0) + 65536 > 2147483647) {
+            const ordered = await client.query<{ id: string }>(
+                `select id
+                from tasks
+                where project_id = $1
+                order by position, id`,
+                [task.projectId]
+            );
+
+            await renumberTasks(client, ordered.rows.map((row) => row.id));
+        }
+
+        const { rows } = await client.query<Task>(
+            `insert into tasks (project_id, title, due_date, position)
+            values (
             $1,
             $2,
             $3,
             (select coalesce(max(position), 0) + 65536 from tasks where project_id = $1)
-        )
-        returning *`,
-        [task.projectId, task.title, task.dueDate ?? null]
-    );
+            )
+            returning *`,
+            [task.projectId, task.title, task.dueDate ?? null]
+        );
 
-    const created = rows[0];
-    if (!created) {
-        throw new Error("createTask: the insert returned no row");
+        const created = rows[0];
+        if (!created) {
+            throw new Error("createTask: the insert returned no row");
+        }
+
+        await client.query("commit");
+        return created;
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
     }
-    return created;
 }
 
 export async function listTasks(filter: { projectId: string; userId: string }): Promise<Task[]> {
@@ -379,14 +413,7 @@ export async function moveTask(move: {
             const afterIndex = move.afterTaskId ? ids.indexOf(move.afterTaskId) : -1;
             ids.splice(afterIndex + 1, 0, move.taskId);
 
-            for (const [index, id] of ids.entries()) {
-                await client.query(
-                    `update tasks
-                    set position = $1
-                    where id = $2`,
-                    [(index + 1) * 65536, id]
-                );
-            }
+            await renumberTasks(client, ids);
         }
 
         await client.query("commit");
@@ -542,5 +569,16 @@ async function refuseDueDateAfterParent(taskId: string, dueDate: string): Promis
 
     if (parentDueDate && dueDate > parentDueDate) {
         throw new Error("a subtask cannot be due after its task");
+    }
+}
+
+async function renumberTasks(client: PoolClient, ids: string[]): Promise<void> {
+    for (const [index, id] of ids.entries()) {
+        await client.query(
+            `update tasks
+            set position = $1
+            where id = $2`,
+            [(index + 1) * 65536, id]
+        );
     }
 }

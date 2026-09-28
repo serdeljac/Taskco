@@ -550,6 +550,22 @@ describe("tasks", () => {
         expect(tasks[0]?.position).toBe(65536);
         expect(tasks[1]?.position).toBe(131072);
     });
+
+    it("renumbers before adding a task when the last position is at the ceiling", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const first = await createTask({ projectId: project.id, title: "First" });
+
+        await pool.query("update tasks set position = 2147483647 where id = $1", [first.id]);
+
+        await createTask({ projectId: project.id, title: "Second" });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+
+        expect(tasks.map((task) => task.title)).toEqual(["First", "Second"]);
+        expect(tasks[0]?.position).toBe(65536);
+        expect(tasks[1]?.position).toBe(131072);
+    });
 });
 
 describe("subtasks", () => {
