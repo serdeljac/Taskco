@@ -120,6 +120,25 @@ describe("memberships", () => {
         ).rejects.toMatchObject({ message: "removeMember: membership not found" });
     });
 
+    it("refuses a membership that ended before it began", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+
+        await expect(
+            pool.query(
+                `update memberships
+                set ended_at = created_at - interval '1 day'
+                where user_id = $1`,
+                [other.id]
+            )
+        ).rejects.toMatchObject({
+            code: "23514",
+            constraint: "memberships_ended_after_created",
+        });
+    });
+
 });
 
 describe("projects", () => {
@@ -566,6 +585,24 @@ describe("tasks", () => {
         expect(tasks[0]?.position).toBe(65536);
         expect(tasks[1]?.position).toBe(131072);
     });
+
+    it("refuses a task deleted before it was created", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await expect(
+            pool.query(
+                `update tasks
+                set deleted_at = created_at - interval '1 day'
+                where id = $1`,
+                [task.id]
+            )
+        ).rejects.toMatchObject({
+            code: "23514",
+            constraint: "tasks_deleted_after_created",
+        });
+    });
 });
 
 describe("subtasks", () => {
@@ -894,5 +931,24 @@ describe("subtasks", () => {
         );
 
         expect(rows[0]?.due_date).toBeNull();
+    });
+
+    it("refuses a subtask deleted before it was created", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await expect(
+            pool.query(
+                `update subtasks
+                set deleted_at = created_at - interval '1 day'
+                where id = $1`,
+                [subtask.id]
+            )
+        ).rejects.toMatchObject({
+            code: "23514",
+            constraint: "subtasks_deleted_after_created",
+        });
     });
 });

@@ -807,7 +807,7 @@ Tasks and subtasks, with status, priority, due dates, soft deletion, manual orde
 one idea per piece, with each migration applied to both databases. The checkpoint is
 [`slice-b-review.md`](./slice-b-review.md).
 
-## Migrations 007–013
+## Migrations 007–014
 
 | File | What it adds |
 |---|---|
@@ -818,8 +818,11 @@ one idea per piece, with each migration applied to both databases. The checkpoin
 | `011_add_task_position.sql` | `position`; re-creates `visible_tasks` |
 | `012_create_subtask.sql` | `subtasks`: the task fields, with `task_id` → `tasks` as the parent; `visible_subtasks` |
 | `013_add_notes.sql` | `notes` on both tables, blank refused; re-creates both views |
+| `014_soft_delete_timestamp_unchecked.sql` | Three `CHECK` constraints: `ended_at` and `deleted_at` cannot fall before `created_at`. Named for the problem rather than the change, and it carries a stray line — see below |
 
 Three of them are worth reading for the pattern, not just the columns.
+
+**A mistake left in place — `014`.** Its first line is `update memberships set ended_at = '2020-01-01' where id = 1;`, copied in from a description of the problem and no part of the fix. It matched no rows in either database, and it is inert on a fresh clone too, since migrations run in order against empty tables. It stays because the file is applied, and applied migrations are never edited: `schema_migrations` records only the filename, so an edited file would never be noticed as different. Had it matched a row, the `check` three statements later would have refused to validate that row and the whole migration would have rolled back — the runner's one transaction per migration catching a mistake inside the migration.
 
 **The view — `010`**
 

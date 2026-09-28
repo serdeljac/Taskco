@@ -65,7 +65,7 @@ becomes a decision; an item here becomes a commit.
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `no-index-on-project-id` | "Who is in this project" scans the table, and the composite index cannot help because an index is only usable from its leading column | [A §3](./slice-a-review.md) | Open — add when a member list needs it |
-| `soft-delete-timestamps-unchecked` | `ended_at` and `deleted_at` can fall before `created_at`, and neither can be stopped from holding a future date, because a `CHECK` cannot call `now()` | [A §3](./slice-a-review.md), [B §1](./slice-b-review.md) | Open |
+| `soft-delete-timestamps-unchecked` | `ended_at` and `deleted_at` can still hold a future date, which no `CHECK` can refuse because a check expression must be immutable and `now()` is not. Every query tests `is null` rather than `<= now()`, so a future value reads as deleted straight away — it is a lie about *when*, not a state the app misreads | [A §3](./slice-a-review.md), [B §1](./slice-b-review.md) | Partly — migration `014` locks the ordering: neither can fall before `created_at` |
 | `membership-rules-untested` | The foreign keys, the role `CHECK`, the cascade, and `removeMember` on a non-member have no test | [A §3](./slice-a-review.md) | Partly — the test guard is covered now |
 
 ### `src/queries.ts`
@@ -89,7 +89,7 @@ becomes a decision; an item here becomes a commit.
 | `positions-can-repeat-or-go-negative` | Nothing constrains the column, and two tasks created at the same instant can read the same last position | [B §1](./slice-b-review.md) | Open |
 | `nothing-forces-reads-through-views` | "Reads go through `visible_tasks`" is a convention, not a lock — a query against the table sees everything | [B §3](./slice-b-review.md) | Open |
 | `titles-and-notes-have-no-length-limit` | Any length is accepted, on both tables | [B §1](./slice-b-review.md) | Open |
-| `three-names-no-longer-say-what-they-mean` | `deleteTask(taskID)`, the test called "oldest first" that orders by position, and migration `012_create_subtask` for a table called `subtasks` | [B](./slice-b-review.md) | Open — the migration name cannot change |
+| `three-names-no-longer-say-what-they-mean` | `deleteTask(taskID)`, the test called "oldest first" that orders by position, and migration `012_create_subtask` for a table called `subtasks`, and `014_soft_delete_timestamp_unchecked` named for the problem rather than the change | [B](./slice-b-review.md) | Open — the migration name cannot change |
 | `renumber-is-one-query-per-task` | `renumberTasks` writes one `update` per task, so renumbering a large project is that many round trips inside a transaction holding a lock on every row. A single statement over `unnest` would do it in one | [reference, `src/queries.ts`](./reference.md) | Open — invisible until a project is large |
 | `tasks-per-project-capped-by-position-spacing` | Renumbering writes `(index + 1) * 65536`, and only 32,767 of those fit in an `integer`, so a project with more tasks than that overflows while being renumbered. Renumbering reclaims space that churn wasted; it cannot create space that was never there | [reference, `src/queries.ts`](./reference.md) | Open — needs narrower spacing or a wider column, and `bigint` would arrive as a string |
 
