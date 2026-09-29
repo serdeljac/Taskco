@@ -158,6 +158,7 @@ describe("memberships", () => {
         expect(users.rowCount).toBe(2);
     });
 
+    
 });
 
 describe("projects", () => {
@@ -622,6 +623,123 @@ describe("tasks", () => {
             constraint: "tasks_deleted_after_created",
         });
     });
+
+    
+    it("assigns a task to a member of its own project", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        const membership = await pool.query<{ id: string }>(
+            `select id from memberships
+            where project_id = $1
+            and user_id = $2`,
+            [project.id, lead.id]
+        );
+        const membershipId = membership.rows[0]?.id;
+
+        await pool.query(
+            `update tasks
+            set assignee_membership_id = $1
+            where id = $2`,
+            [membershipId, task.id]
+        );
+
+        const after = await pool.query<{ assignee_membership_id: string | null }>(
+            `select assignee_membership_id from tasks where id = $1`,
+            [task.id]
+        );
+
+        expect(after.rows[0]?.assignee_membership_id).toBe(membershipId);
+    });
+
+    it("refuses an assignee whose membership belongs to another project", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const website = await createProject("Website", lead.id);
+        const newsletter = await createProject("Newsletter", lead.id);
+        const task = await createTask({ projectId: website.id, title: "Draft the homepage" });
+
+        const elsewhere = await pool.query<{ id: string }>(
+            `select id from memberships
+            where project_id = $1
+            and user_id = $2`,
+            [newsletter.id, lead.id]
+        );
+
+        await expect(
+            pool.query(
+                `update tasks
+                set assignee_membership_id = $1
+                where id = $2`,
+                [elsewhere.rows[0]?.id, task.id]
+            )
+        ).rejects.toMatchObject({
+            code: "23503",
+            constraint: "tasks_assignee_in_project",
+        });
+    });
+
+    it("empties the assignee when the membership is truly deleted, and keeps the task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        const membership = await pool.query<{ id: string }>(
+            `select id from memberships
+            where project_id = $1
+            and user_id = $2`,
+            [project.id, other.id]
+        );
+        const membershipId = membership.rows[0]?.id;
+
+        await pool.query(
+            `update tasks
+            set assignee_membership_id = $1
+            where id = $2`,
+            [membershipId, task.id]
+        );
+
+        await pool.query(`delete from memberships where id = $1`, [membershipId]);
+
+        const after = await pool.query<{ assignee_membership_id: string | null }>(
+            `select assignee_membership_id from tasks where id = $1`,
+            [task.id]
+        );
+
+        expect(after.rowCount).toBe(1);
+        expect(after.rows[0]?.assignee_membership_id).toBeNull();
+    });
+
+    it("shows the assignee through visible_tasks", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        const membership = await pool.query<{ id: string }>(
+            `select id from memberships
+            where project_id = $1
+            and user_id = $2`,
+            [project.id, lead.id]
+        );
+        const membershipId = membership.rows[0]?.id;
+
+        await pool.query(
+            `update tasks
+            set assignee_membership_id = $1
+            where id = $2`,
+            [membershipId, task.id]
+        );
+
+        const visible = await pool.query<{ assignee_membership_id: string | null }>(
+            `select assignee_membership_id from visible_tasks where id = $1`,
+            [task.id]
+        );
+
+        expect(visible.rows[0]?.assignee_membership_id).toBe(membershipId);
+    });
+    
 });
 
 describe("subtasks", () => {
