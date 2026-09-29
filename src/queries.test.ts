@@ -18,18 +18,12 @@ import {
     setSubtaskNotes,
 } from "./queries.js";
 
-async function setupUsers() {
-    console.log('TEST FUNCTION')
-}
-
-
 describe("users", () => {
     it("returns a row the database generated", async () => {
 
         //Create a user and add it into the database (taskco_test)
         //The function is pulled form queries.ts
         const user = await createUser("someone@example.com", "Europe/Zagreb");
-        setupUsers();
         //Compare values
         //The Rules in the .sql files fill in the id and created_at
         expect(user.email).toBe("someone@example.com");
