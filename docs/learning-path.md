@@ -4,9 +4,9 @@
 — five items closed, one migration, sixty-nine tests. Next is step 4 — slice C, rescoped that day
 to the assignee, invites and delete mode, with routines and account deletion moved to steps of
 their own. How the assignee rule is enforced was settled the same day, in
-[`design-decisions.md`](./design-decisions.md), section 7. Three questions are open before slice C
-can be specified: whether an invite can offer the Lead role, whether its email is matched
-case-insensitively, and whether the expiry is stored or computed.
+[`design-decisions.md`](./design-decisions.md), section 7. The three questions blocking slice C were
+settled on 2026-09-28, along with a fourth they turned up, in `design-decisions.md` section 5:
+no role column, the email compared lowered, the expiry stored, and no status column.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.

@@ -149,8 +149,9 @@ user, not security.
 An invite is **its own record**, not an event — it waits, it has a state, it can expire, so it
 needs somewhere to exist.
 
-It holds: the project, the recipient's email, the sender's user id, the role offered, when it was
-created, when it expires, and its status.
+It holds: the project, the recipient's email, the sender's user id, when it was created, and when
+it expires. **No role and no status** — both were in this list until 2026-09-28; the reasoning for
+dropping them is below.
 
 - **Targeted, not an open link.** The Lead selects a specific user by email address.
 - Only existing Taskco users can be invited. If no account matches: "No email found."
@@ -163,7 +164,59 @@ created, when it expires, and its status.
   server takes identity from the session, then checks the invite is pending, addressed to that
   person, and unexpired.
 - **Declined or expired:** destroyed silently, no notification.
-- **Accepted:** status set to confirmed, Lead notified, then destroyed.
+- **Accepted:** the membership is created and the invite destroyed, in one transaction. The Lead is
+  notified.
+
+### Four decisions, settled 2026-09-28 while scoping slice C
+
+**An invite offers no role. There is no role column.** Every invite makes an Associate.
+
+Offering the Lead role would mean accepting an invite silently demotes whoever currently leads the
+project — and because the one-Lead index is checked as each row is written, the demotion would have
+to happen before the promotion, inside the acceptance transaction. Section 6 already covers handing
+over leadership, and covers it better: transfer is immediate, restricted to existing members, and
+justified precisely because *"promotion without consent is acceptable here because an exit
+exists"* and *"they already opted into the project."* An invited outsider has opted into nothing,
+and the outgoing Lead would be demoted by someone else's click three days later.
+
+*Rejected — a role column defaulting to `'associate'`:* a column that can only hold one value is a
+question the schema keeps asking and always answers the same way. It also invites someone to allow
+the other value later without noticing what it collides with.
+
+**The email is matched case-insensitively, in three places:** the lookup that decides whether an
+account exists, the uniqueness constraint, and the check at acceptance that the invite is addressed
+to the person accepting it. Stored as typed, compared lowered — the same rule section 2 sets for
+users, enforced the same way, by a unique index on `(project_id, lower(email))`.
+
+This is where the `lower(email)` index from migration 002 finally gets a customer. Without it, a
+Lead typing `ana@example.com` is told "No email found" about an account stored as `Ana@Example.com`.
+
+**The expiry is stored, not computed from the creation time.** A value is only safe to derive if
+every input is stored, and `created_at + 3 days` hides an input: the `3`, which lives in code. If
+the rule ever changes, a computed expiry would retroactively move the deadline on every invite
+already in flight — altering a promise after it was made. Stored, the old invites keep the deadline
+they were issued with and the new rule applies to new ones.
+
+This does not soften "expiry is derived, not swept." Two different senses of *derived* sit a
+paragraph apart: the **state** is derived, at read time, from the stored **moment**. Every derived
+thing in this design has that shape — the routine done today, the deletion banner, this.
+
+**There is no status column.** Trace the paths: declined and expired invites are destroyed,
+accepted ones are destroyed, so `confirmed` is written and deleted inside one transaction and no
+query can ever observe it. Every row on disk says pending. The row existing *is* the invite
+pending, and existence plus `expires_at` gives all three states a reader needs — actionable,
+expired, gone.
+
+*Rejected — keeping it for the future:* if declined invites are ever kept, so the Lead can tell
+"they refused" from "they never looked," a status becomes real and arrives as a migration. Adding a
+column because something reads it is the right reason; adding one in case is how a filter that
+excludes nothing ends up in every query, looking load-bearing.
+
+**A consequence that needs code, not a constraint.** Nothing sweeps expired invites, so a dead row
+keeps occupying its project-and-address slot and blocks re-inviting that person. The tempting fix —
+a partial index on unexpired invites — is impossible: index predicates must be immutable, and
+`now()` is not, the same wall as a `CHECK` that wants to refuse a future date. So creating an invite
+deletes any existing invite for that project and address first, in the same transaction.
 
 The recipient is stored as an email rather than a user id because an invite may eventually be
 addressed to someone who has not registered yet. This is the one place email is the correct

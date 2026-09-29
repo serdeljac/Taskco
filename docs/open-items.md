@@ -49,7 +49,7 @@ becomes a decision; an item here becomes a commit.
 
 | Name | What | Explained in | Status |
 |---|---|---|---|
-| `email-lookup-must-lowercase` | The `lower(email)` index is only used by queries written `where lower(email) = lower($1)`, and nothing enforces that | [A §1](./slice-a-review.md) | Open — bites at step 6 |
+| `email-lookup-must-lowercase` | The `lower(email)` index is only used by queries written `where lower(email) = lower($1)`, and nothing enforces that | [A §1](./slice-a-review.md) | Open — **bites at slice C, not step 6.** Inviting looks a user up by address, which is the first query in the project that ever does |
 | `timezone-accepts-any-text` | `Mars/Olympus` inserts happily, and Postgres already knows the real names in `pg_timezone_names` | [A §1](./slice-a-review.md), [B](./slice-b-review.md) | Open |
 | `email-has-no-format-or-length-limit` | Zod covers the boundary at step 5; the database stays open to any other caller | [reference, 002](./reference.md) | Open |
 
