@@ -149,6 +149,7 @@ export async function removeMember(member: { projectId: string; userId: string }
     }
 }
 
+
 /***********************************
     PROJECTS
 ***********************************/
@@ -445,6 +446,48 @@ export async function moveTask(move: {
     }
 }
 
+export async function setTaskAssignee(change: {
+    taskId: string;
+    membershipId: string | null;
+}): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const task = await client.query<{ project_id: string }>(
+            `select project_id
+            from visible_tasks
+            where id = $1`,
+            [change.taskId]
+        );
+
+        const projectId = task.rows[0]?.project_id;
+
+        if (!projectId) {
+            throw new Error("setTaskAssignee: task not found");
+        }
+
+        if (change.membershipId !== null) {
+            await refuseUnlessCurrentMember(client, change.membershipId, projectId);
+        }
+
+        await client.query(
+            `update tasks
+            set assignee_membership_id = $1
+            where id = $2`,
+            [change.membershipId, change.taskId]
+        );
+
+        await client.query("commit");
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 /***********************************
     SUBTASKS
 ***********************************/
@@ -568,6 +611,49 @@ export async function setSubtaskDueDate(change: {
     );
 }
 
+export async function setSubtaskAssignee(change: {
+    subtaskId: string;
+    membershipId: string | null;
+}): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const parent = await client.query<{ project_id: string }>(
+            `select t.project_id
+            from visible_subtasks s
+            join visible_tasks t on t.id = s.task_id
+            where s.id = $1`,
+            [change.subtaskId]
+        );
+
+        const parentProjectId = parent.rows[0]?.project_id;
+
+        if (!parentProjectId) {
+            throw new Error("setSubtaskAssignee: subtask not found");
+        }
+
+        if (change.membershipId !== null) {
+            await refuseUnlessCurrentMember(client, change.membershipId, parentProjectId);
+        }
+
+        await client.query(
+            `update subtasks
+            set assignee_membership_id = $1
+            where id = $2`,
+            [change.membershipId, change.subtaskId]
+        );
+
+        await client.query("commit");
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 
 
 
@@ -604,5 +690,24 @@ async function renumberTasks(client: PoolClient, ids: string[]): Promise<void> {
             where id = $2`,
             [(index + 1) * 65536, id]
         );
+    }
+}
+
+async function refuseUnlessCurrentMember(
+    client: PoolClient,
+    membershipId: string,
+    projectId: string
+): Promise<void> {
+    const { rows } = await client.query<{ id: string }>(
+        `select id from memberships
+        where id = $1
+        and project_id = $2
+        and ended_at is null
+        for update`,
+        [membershipId, projectId]
+    );
+
+    if (rows.length === 0) {
+        throw new Error("the assignee must be a current member of the project");
     }
 }

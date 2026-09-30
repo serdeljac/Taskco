@@ -83,6 +83,8 @@ becomes a decision; an item here becomes a commit.
 | `writes-dont-check-who-is-asking` | Any caller can create, move or edit anything; permission is enforced from step 5 onward | [B §5](./slice-b-review.md) | Waits for step 5 |
 | `no-status-or-priority-functions` | The tests and `seed.ts` set both with raw SQL, because nothing else can | [B](./slice-b-review.md) | Waits for step 5 |
 | `subtask-limit-is-a-sign` | The cap of 50 holds only for writes through `createSubtask`, and two at once can both count 49 | [B §2](./slice-b-review.md) | Open |
+| `subtask-assignee-project-check-is-a-sign` | A subtask stores no `project_id`, so its assignee foreign key can only prove the membership exists. That it belongs to the parent task's project is checked in `refuseUnlessCurrentMember`, and only for writes that go through `setSubtaskAssignee` | [design — section 7](./design-decisions.md) | Open |
+| `assignee-not-current-is-a-sign` | "Has not left" cannot be a lock on either table: leaving sets `ended_at` and the row stays, so every foreign key remains satisfied. `refuseUnlessCurrentMember` and `removeMember`'s clearing are the whole of it | [design — section 7](./design-decisions.md) | Open |
 | `subtask-due-date-rule-is-a-sign` | "Not after its task" lives in `refuseDueDateAfterParent`, so a hand-written insert walks past it | [B §2](./slice-b-review.md) | Open |
 | `not-before-today-not-built` | The other half of the subtask date rule needs the asker's timezone, which arrives with sessions | [B](./slice-b-review.md) | Waits for step 6 |
 | `positions-can-repeat-or-go-negative` | Nothing constrains the column, and two tasks created at the same instant can read the same last position | [B §1](./slice-b-review.md) | Open |
