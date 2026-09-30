@@ -7,7 +7,8 @@ was written down.
 Companion to [`design-decisions.md`](./design-decisions.md) (what is being built and why),
 [`learning-path.md`](./learning-path.md) (how the build proceeds) and [`reference.md`](./reference.md)
 (what each file is). The checkpoint reviews — [`slice-a-review.md`](./slice-a-review.md),
-[`slice-b-review.md`](./slice-b-review.md) — are dated snapshots and no longer carry status.
+[`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md) — are dated
+snapshots and no longer carry status.
 
 ## How this file works
 
@@ -64,6 +65,15 @@ becomes a decision; an item here becomes a commit.
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `refuse-unless-current-member-locks-too-hard` | `refuseUnlessCurrentMember` takes `for update` on a membership it never modifies. `for share` would be correct, and would let two assignments to the same person proceed at once instead of queueing | [reference, `src/queries.ts`](./reference.md) | Open — stricter than needed, not wrong |
+| `scheduled-deletion-never-happens` | `deleteProject` sets a date thirty days out and nothing ever acts on it. The project stays in delete mode forever, which is the front half of the feature section 6 describes | [C](./slice-c-review.md) | Open — needs deciding, not just building: the design avoids sweeps everywhere else, and derivation cannot help because deletion destroys rather than answers |
+| `accept-can-collide-with-membership` | `acceptInvite` inserts a membership without checking the recipient has not been added directly since the invite was sent, so it raises `23505` instead of a sentence | [C](./slice-c-review.md) | Open |
+| `unacceptable-invites-are-still-listed` | `listInvitesForUser` does not exclude projects being deleted, so a user is shown an invite that acceptance will refuse | [C](./slice-c-review.md) | Open |
+| `delete-mode-helper-passes-unknown-projects` | `refuseIfProjectIsBeingDeleted` reads `rows[0]?.deletion_scheduled_at`, so a project that does not exist is falsy and passes. The write then fails later on a foreign key | [C](./slice-c-review.md) | Open |
+| `delete-now-refusal-untested` | `deleteProjectNow` refuses a project already in delete mode, and no test says so | [C](./slice-c-review.md) | Open |
+| `restore-ignores-the-leads-account` | Section 6 allows undo only while the Lead's account is active, and accounts cannot be deactivated yet | [C](./slice-c-review.md) | Open — step 4b |
+| `views-now-join-projects-on-every-read` | `visible_tasks` joins `projects` and `visible_subtasks` joins `tasks` and `projects`, on every read of either | [C](./slice-c-review.md) | Open — the price of the rule holding itself |
+| `expired-invites-are-never-removed` | Nothing deletes an expired invite except a re-invite to the same address, so dead rows accumulate | [C](./slice-c-review.md) | Open — belongs with purging, design section 12 |
+| `delete-mode-notifies-nobody` | Section 6 says members get a notification of the project's status, telling them to contact the Lead | [C](./slice-c-review.md) | Open — step 5 |
 | `invites-email-lookup-unindexed` | `listInvitesForUser` joins on `lower(email)`, which no index covers: the unique index on `invites` leads with `project_id`, so it cannot help. An index on `lower(email)` would | [reference, `src/queries.ts`](./reference.md) | Open — add it when the table is big enough to care, the same rule as `no-index-on-project-id` |
 | `no-index-on-project-id` | "Who is in this project" scans the table, and the composite index cannot help because an index is only usable from its leading column | [A §3](./slice-a-review.md) | Open — add when a member list needs it |
 | `soft-delete-timestamps-unchecked` | `ended_at` and `deleted_at` can still hold a future date, which no `CHECK` can refuse because a check expression must be immutable and `now()` is not. Every query tests `is null` rather than `<= now()`, so a future value reads as deleted straight away — it is a lie about *when*, not a state the app misreads | [A §3](./slice-a-review.md), [B §1](./slice-b-review.md) | Partly — migration `014` locks the ordering: neither can fall before `created_at` |
