@@ -12,6 +12,7 @@ export type Project = {
     id: string;
     name: string;
     created_at: Date;
+    deletion_scheduled_at: Date | null;
 };
 
 export type TaskStatus = "not_started" | "in_progress" | "on_hold" | "completed";
@@ -56,6 +57,9 @@ export type Invite = {
     created_at: Date;
     expires_at: Date;
 };
+
+
+
 
 
 
@@ -202,11 +206,58 @@ export async function listProjectsForUser(userId: string): Promise<Project[]> {
         join memberships m on m.project_id = p.id
         where m.user_id = $1
         and m.ended_at is null
-        order by p.created_at`,
+        and (p.deletion_scheduled_at is null or m.role = 'lead')
+        order by p.created_at, p.id`,
         [userId]
     );
     return rows;
 }
+
+export async function deleteProject(projectId: string): Promise<{ scheduledFor: Date }> {
+    const { rows } = await pool.query<{ deletion_scheduled_at: Date }>(
+        `update projects
+        set deletion_scheduled_at = now() + interval '30 days'
+        where id = $1
+        and deletion_scheduled_at is null
+        returning deletion_scheduled_at`,
+        [projectId]
+    );
+
+    const scheduled = rows[0];
+    if (!scheduled) {
+        throw new Error("deleteProject: project not found, or already being deleted");
+    }
+
+    return { scheduledFor: scheduled.deletion_scheduled_at };
+}
+
+export async function restoreProject(projectId: string): Promise<void> {
+    const restored = await pool.query(
+        `update projects
+        set deletion_scheduled_at = null
+        where id = $1
+        and deletion_scheduled_at is not null`,
+        [projectId]
+    );
+
+    if (restored.rowCount === 0) {
+        throw new Error("restoreProject: project not found, or not being deleted");
+    }
+}
+
+export async function deleteProjectNow(projectId: string): Promise<void> {
+    const deleted = await pool.query(
+        `delete from projects
+        where id = $1
+        and deletion_scheduled_at is null`,
+        [projectId]
+    );
+
+    if (deleted.rowCount === 0) {
+        throw new Error("deleteProjectNow: project not found, or already being deleted");
+    }
+}
+
 
 /***********************************
     TASKS
@@ -342,8 +393,7 @@ export async function setTaskNotes(change: {
     const updated = await pool.query(
         `update tasks
         set notes = $1
-        where id = $2
-        and deleted_at is null`,
+        where id in (select id from visible_tasks where id = $2)`,
         [notes, change.taskId]
     );
 

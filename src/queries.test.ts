@@ -22,6 +22,9 @@ import {
     acceptInvite,
     declineInvite,
     listInvitesForUser,
+    deleteProject,
+    restoreProject,
+    deleteProjectNow,
 } from "./queries.js";
 
 describe("users", () => {
@@ -326,6 +329,84 @@ describe("projects", () => {
         await expect(
             createUser("person@example.com", "Europe/Zagreb")
         ).rejects.toMatchObject({ code: "23505" });
+    });
+
+        it("schedules a deleted project thirty days out", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const { scheduledFor } = await deleteProject(project.id);
+
+        const days = (scheduledFor.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+
+        expect(days).toBeGreaterThan(29.9);
+        expect(days).toBeLessThan(30.1);
+    });
+
+    it("hides a project being deleted from an associate", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+
+        await deleteProject(project.id);
+
+        expect(await listProjectsForUser(other.id)).toEqual([]);
+    });
+
+    it("still shows a project being deleted to its Lead, with the date", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await deleteProject(project.id);
+
+        const projects = await listProjectsForUser(lead.id);
+
+        expect(projects.map((p) => p.id)).toEqual([project.id]);
+        expect(projects[0]?.deletion_scheduled_at).not.toBeNull();
+    });
+
+    it("gives a restored project back to everyone", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+
+        await deleteProject(project.id);
+        await restoreProject(project.id);
+
+        const forOther = await listProjectsForUser(other.id);
+
+        expect(forOther.map((p) => p.id)).toEqual([project.id]);
+        expect(forOther[0]?.deletion_scheduled_at).toBeNull();
+    });
+
+    it("refuses to delete a project that is already being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await deleteProject(project.id);
+
+        await expect(deleteProject(project.id)).rejects.toMatchObject({
+            message: "deleteProject: project not found, or already being deleted",
+        });
+    });
+
+    it("removes the project and everything under it when deleted now", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await deleteProjectNow(project.id);
+
+        const projects = await pool.query(`select id from projects where id = $1`, [project.id]);
+        const tasks = await pool.query(`select id from tasks where project_id = $1`, [project.id]);
+        const subtasks = await pool.query(`select id from subtasks where task_id = $1`, [task.id]);
+
+        expect(projects.rowCount).toBe(0);
+        expect(tasks.rowCount).toBe(0);
+        expect(subtasks.rowCount).toBe(0);
     });
 });
 
@@ -881,6 +962,28 @@ describe("tasks", () => {
 
         expect(task.assignee_membership_id).toBe(membership.rows[0]?.id);
     });
+
+    it("hides the tasks of a project being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await deleteProject(project.id);
+
+        expect(await listTasks({ projectId: project.id, userId: lead.id })).toEqual([]);
+    });
+
+    it("refuses to change a task's notes while its project is being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await deleteProject(project.id);
+
+        await expect(
+            setTaskNotes({ taskId: task.id, notes: "Call the printer first" })
+        ).rejects.toMatchObject({ message: "setTaskNotes: task not found" });
+    });
     
 });
 
@@ -1312,6 +1415,23 @@ describe("subtasks", () => {
 
         expect(subtasks[0]?.assignee_membership_id).toBe(task.assignee_membership_id);
         expect(subtasks[0]?.assignee_membership_id).not.toBe(membershipId);
+    });
+
+    it("refuses to change a subtask's due date while its project is being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-10-20",
+        });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        await deleteProject(project.id);
+
+        await expect(
+            setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2026-10-19" })
+        ).rejects.toMatchObject({ message: "setSubtaskDueDate: subtask not found" });
     });
 });
 

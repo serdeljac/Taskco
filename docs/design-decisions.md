@@ -129,7 +129,8 @@ lifecycle state**. It does not depend on who a task is assigned to.
 |---|---|
 | Lead | Everything in the project |
 | Associate | Change status and edit notes, on any task or subtask in the project |
-| Any member, while the project is pending deletion | Nothing — no read, no write |
+| Associate, while the project is pending deletion | Nothing — no read, no write |
+| Lead, while the project is pending deletion | Read only, plus clearing the deletion date |
 
 **This is role-level, not row-level.** "Can this user change a status?" is answerable from their
 membership alone, without loading the task. Assignment was originally going to gate permissions,
@@ -299,6 +300,23 @@ account that leads it.
 - Pending invites are rejected on acceptance even if their link is still valid — checked against the
   project's state at acceptance time, so nothing needs sweeping.
 - The Lead can still export.
+
+**What "pending deletion" allows**, settled 2026-09-30. Section 4 said no member could read or
+write, and this section says the Lead can export and undo. Both could not be true, since export
+reads every task. The resolution: the deletion date governs the project's *contents*, and the Lead
+keeps the project's *lifecycle*.
+
+- While `deletion_scheduled_at` is set, **nothing about the project can be altered** — no task,
+  subtask, membership or invite — with exactly one exception: clearing that date.
+- **Associates cannot see the project at all.** It leaves their list.
+- **The Lead can still read it**, and export it, and undo. Without that the thirty days are a
+  countdown nobody can stop rather than a safety net.
+
+*Consequence:* "what projects am I in" stops having one answer. A project being deleted is gone for
+an associate and present, marked, for the Lead — so the filter lives in the query, where the
+asker is known, and cannot move into a view. That is worth saying plainly, because tasks went the
+other way: task visibility depends only on the row, so a view can hold it. The pattern does not
+generalise, and the reason is whether the answer depends on who is asking.
 
 ### Deleting an account
 - The user is first shown **a list of every project they lead**, each with a dropdown of that

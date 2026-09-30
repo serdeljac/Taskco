@@ -807,7 +807,7 @@ Tasks and subtasks, with status, priority, due dates, soft deletion, manual orde
 one idea per piece, with each migration applied to both databases. The checkpoint is
 [`slice-b-review.md`](./slice-b-review.md).
 
-## Migrations 007–016
+## Migrations 007–017
 
 | File | What it adds |
 |---|---|
@@ -821,6 +821,7 @@ one idea per piece, with each migration applied to both databases. The checkpoin
 | `014_soft_delete_timestamp_unchecked.sql` | Three `CHECK` constraints: `ended_at` and `deleted_at` cannot fall before `created_at`. Named for the problem rather than the change, and it carries a stray line — see below |
 | `015_add_task_assignee.sql` | `assignee_membership_id` on both tables. A composite foreign key ties a task's assignee to a membership in the task's own project, which needs a redundant-looking unique constraint on `memberships (id, project_id)`; `on delete set null` takes a column list so it empties only the assignee. Subtasks get a plain reference, having no `project_id` to pair. Both views re-created |
 | `016_create_invites.sql` | `invites`: project, email, sender, created, expires. No role and no status — see `design-decisions.md` section 5. A unique index on `(project_id, lower(email))`, which also serves "every invite for this project" because `project_id` leads |
+| `017_add_project_delete_mode.sql` | `deletion_scheduled_at` on `projects`, holding when the project will be removed rather than when deletion began. Both views re-created to exclude anything in a project being deleted, which is how seven writers started refusing without being edited |
 
 Three of them are worth reading for the pattern, not just the columns.
 
