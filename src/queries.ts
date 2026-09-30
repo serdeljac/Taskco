@@ -95,11 +95,20 @@ export async function addMember(member: {
     userId: string;
     role: Role;
 }): Promise<void> {
-    await pool.query(
+    const added = await pool.query(
         `insert into memberships (user_id, project_id, role)
-        values ($1, $2, $3)`,
+        select $1, $2, $3
+        where exists (
+            select 1 from projects
+            where id = $2
+            and deletion_scheduled_at is null
+        )`,
         [member.userId, member.projectId, member.role]
     );
+
+    if (added.rowCount === 0) {
+        throw new Error("addMember: project not found, or being deleted");
+    }
 }
 
 export async function removeMember(member: { projectId: string; userId: string }): Promise<void> {
@@ -108,6 +117,8 @@ export async function removeMember(member: { projectId: string; userId: string }
 
     try {
         await client.query("begin");
+
+            await refuseIfProjectIsBeingDeleted(client, member.projectId);
 
             const { rows } = await client.query<{ id: string; role: Role }>(
             `select id, role from memberships
@@ -274,6 +285,8 @@ export async function createTask(task: {
     try {
         await client.query("begin");
 
+        await refuseIfProjectIsBeingDeleted(client, task.projectId);
+
         const highest = await client.query<{ highest: number }>(
             `select coalesce(max(position), 0) as highest
             from tasks
@@ -403,13 +416,16 @@ export async function setTaskNotes(change: {
 }
 
 export async function deleteTask(taskID: string): Promise<void> {
-    await pool.query(
+    const deleted = await pool.query(
         `update tasks
         set deleted_at = now()
-        where id = $1
-        and deleted_at is null`,
+        where id in (select id from visible_tasks where id = $1)`,
         [taskID]
     );
+
+    if (deleted.rowCount === 0) {
+        throw new Error("deleteTask: task not found");
+    }
 }
 
 export async function moveTask(move: {
@@ -726,6 +742,8 @@ export async function createInvite(invite: {
     try {
         await client.query("begin");
 
+        await refuseIfProjectIsBeingDeleted(client, invite.projectId);
+
         const recipient = await client.query<{ id: string }>(
             `select id from users
             where lower(email) = lower($1)`,
@@ -807,6 +825,8 @@ export async function acceptInvite(accept: {
         if (invite.expired) {
             throw new Error("acceptInvite: this invite has expired");
         }
+
+        await refuseIfProjectIsBeingDeleted(client, invite.project_id);
 
         await client.query(
             `insert into memberships (user_id, project_id, role)
@@ -917,5 +937,22 @@ async function refuseUnlessCurrentMember(
 
     if (rows.length === 0) {
         throw new Error("the assignee must be a current member of the project");
+    }
+}
+
+async function refuseIfProjectIsBeingDeleted(
+    client: PoolClient,
+    projectId: string
+): Promise<void> {
+    const { rows } = await client.query<{ deletion_scheduled_at: Date | null }>(
+        `select deletion_scheduled_at
+        from projects
+        where id = $1
+        for share`,
+        [projectId]
+    );
+
+    if (rows[0]?.deletion_scheduled_at) {
+        throw new Error("the project is being deleted");
     }
 }

@@ -287,6 +287,48 @@ describe("memberships", () => {
             message: "the assignee must be a current member of the project",
         });
     });
+
+        it("refuses to add a member while the project is being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await deleteProject(project.id);
+
+        await expect(
+            addMember({ projectId: project.id, userId: other.id, role: "associate" })
+        ).rejects.toMatchObject({
+            message: "addMember: project not found, or being deleted",
+        });
+
+        const members = await pool.query(
+            `select id from memberships where project_id = $1`,
+            [project.id]
+        );
+
+        expect(members.rowCount).toBe(1);
+    });
+
+    it("refuses to remove a member while the project is being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+
+        await deleteProject(project.id);
+
+        await expect(
+            removeMember({ projectId: project.id, userId: other.id })
+        ).rejects.toMatchObject({ message: "the project is being deleted" });
+
+        const still = await pool.query(
+            `select id from memberships
+            where project_id = $1 and user_id = $2 and ended_at is null`,
+            [project.id, other.id]
+        );
+
+        expect(still.rowCount).toBe(1);
+    });
     
 });
 
@@ -984,6 +1026,40 @@ describe("tasks", () => {
             setTaskNotes({ taskId: task.id, notes: "Call the printer first" })
         ).rejects.toMatchObject({ message: "setTaskNotes: task not found" });
     });
+
+        it("refuses to create a task while the project is being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await deleteProject(project.id);
+
+        await expect(
+            createTask({ projectId: project.id, title: "Draft the homepage" })
+        ).rejects.toMatchObject({ message: "the project is being deleted" });
+
+        const tasks = await pool.query(`select id from tasks where project_id = $1`, [project.id]);
+
+        expect(tasks.rowCount).toBe(0);
+    });
+
+    it("refuses to delete a task while its project is being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await deleteProject(project.id);
+
+        await expect(deleteTask(task.id)).rejects.toMatchObject({
+            message: "deleteTask: task not found",
+        });
+
+        const { rows } = await pool.query<{ deleted_at: Date | null }>(
+            `select deleted_at from tasks where id = $1`,
+            [task.id]
+        );
+
+        expect(rows[0]?.deleted_at).toBeNull();
+    });
     
 });
 
@@ -1679,5 +1755,48 @@ describe("invites", () => {
         );
 
         expect(await listInvitesForUser(ana.id)).toEqual([]);
+    });
+
+        it("refuses to send an invite while the project is being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await deleteProject(project.id);
+
+        await expect(
+            createInvite({
+                projectId: project.id,
+                email: "ana@example.com",
+                invitedByUserId: lead.id,
+            })
+        ).rejects.toMatchObject({ message: "the project is being deleted" });
+
+        const invites = await pool.query(`select id from invites where project_id = $1`, [
+            project.id,
+        ]);
+
+        expect(invites.rowCount).toBe(0);
+    });
+
+    it("refuses an invite accepted after the project starts being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        await deleteProject(project.id);
+
+        await expect(
+            acceptInvite({ inviteId: invite.id, userId: ana.id })
+        ).rejects.toMatchObject({ message: "the project is being deleted" });
+
+        expect(await listProjectsForUser(ana.id)).toEqual([]);
+        const left = await pool.query(`select id from invites where id = $1`, [invite.id]);
+        expect(left.rowCount).toBe(1);
     });
 });
