@@ -729,6 +729,92 @@ export async function createInvite(invite: {
     }
 }
 
+export async function acceptInvite(accept: {
+    inviteId: string;
+    userId: string;
+}): Promise<{ projectId: string }> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const found = await client.query<{ project_id: string; expired: boolean }>(
+            `select i.project_id, i.expires_at <= now() as expired
+            from invites i
+            join users u on lower(u.email) = lower(i.email)
+            where i.id = $1
+            and u.id = $2
+            for update of i`,
+            [accept.inviteId, accept.userId]
+        );
+
+        const invite = found.rows[0];
+
+        if (!invite) {
+            throw new Error("acceptInvite: invite not found");
+        }
+
+        if (invite.expired) {
+            throw new Error("acceptInvite: this invite has expired");
+        }
+
+        await client.query(
+            `insert into memberships (user_id, project_id, role)
+            values ($1, $2, 'associate')`,
+            [accept.userId, invite.project_id]
+        );
+
+        await client.query(`delete from invites where id = $1`, [accept.inviteId]);
+
+        await client.query("commit");
+        return { projectId: invite.project_id };
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+export async function declineInvite(decline: {
+    inviteId: string;
+    userId: string;
+}): Promise<void> {
+    const deleted = await pool.query(
+        `delete from invites
+        where id = $1
+        and lower(email) = (select lower(email) from users where id = $2)`,
+        [decline.inviteId, decline.userId]
+    );
+
+    if (deleted.rowCount === 0) {
+        throw new Error("declineInvite: invite not found");
+    }
+}
+
+export async function listInvitesForUser(userId: string): Promise<Invite[]> {
+    const { rows } = await pool.query<Invite>(
+        `select i.*
+        from invites i
+        join users u on lower(u.email) = lower(i.email)
+        where u.id = $1
+        and i.expires_at > now()
+        order by i.created_at, i.id`,
+        [userId]
+    );
+    return rows;
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 

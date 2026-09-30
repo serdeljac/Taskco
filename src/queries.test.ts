@@ -19,6 +19,9 @@ import {
     setTaskAssignee,
     setSubtaskAssignee,
     createInvite,
+    acceptInvite,
+    declineInvite,
+    listInvitesForUser,
 } from "./queries.js";
 
 describe("users", () => {
@@ -1313,6 +1316,7 @@ describe("subtasks", () => {
 });
 
 describe("invites", () => {
+
     it("creates an invite that expires three days out", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         await createUser("ana@example.com", "Europe/Zagreb");
@@ -1425,5 +1429,135 @@ describe("invites", () => {
             code: "23505",
             constraint: "invites_one_per_project_email_idx",
         });
+    });
+
+    it("makes the recipient an associate and destroys the invite", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        const result = await acceptInvite({ inviteId: invite.id, userId: ana.id });
+
+        const projects = await listProjectsForUser(ana.id);
+        const role = await pool.query<{ role: string }>(
+            `select role from memberships
+            where project_id = $1 and user_id = $2 and ended_at is null`,
+            [project.id, ana.id]
+        );
+        const left = await pool.query(`select id from invites where id = $1`, [invite.id]);
+
+        expect(result.projectId).toBe(project.id);
+        expect(projects.map((p) => p.id)).toEqual([project.id]);
+        expect(role.rows[0]?.role).toBe("associate");
+        expect(left.rowCount).toBe(0);
+    });
+
+    it("refuses an invite addressed to someone else", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        await createUser("ana@example.com", "Europe/Zagreb");
+        const bruno = await createUser("bruno@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        await expect(
+            acceptInvite({ inviteId: invite.id, userId: bruno.id })
+        ).rejects.toMatchObject({ message: "acceptInvite: invite not found" });
+
+        expect(await listProjectsForUser(bruno.id)).toEqual([]);
+    });
+
+    it("refuses an invite that has expired", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        await pool.query(
+            `update invites
+            set created_at = now() - interval '4 days',
+                expires_at = now() - interval '1 day'
+            where id = $1`,
+            [invite.id]
+        );
+
+        await expect(
+            acceptInvite({ inviteId: invite.id, userId: ana.id })
+        ).rejects.toMatchObject({ message: "acceptInvite: this invite has expired" });
+
+        expect(await listProjectsForUser(ana.id)).toEqual([]);
+    });
+
+    it("destroys a declined invite without adding anyone", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        await declineInvite({ inviteId: invite.id, userId: ana.id });
+
+        const left = await pool.query(`select id from invites where id = $1`, [invite.id]);
+
+        expect(left.rowCount).toBe(0);
+        expect(await listProjectsForUser(ana.id)).toEqual([]);
+    });
+
+    it("lists the invites waiting for a user", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const website = await createProject("Website", lead.id);
+        const newsletter = await createProject("Newsletter", lead.id);
+
+        await createInvite({
+            projectId: website.id,
+            email: "ANA@EXAMPLE.COM",
+            invitedByUserId: lead.id,
+        });
+        await createInvite({
+            projectId: newsletter.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        const waiting = await listInvitesForUser(ana.id);
+
+        expect(waiting.map((i) => i.project_id)).toEqual([website.id, newsletter.id]);
+    });
+
+    it("leaves an expired invite out of the list", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        await pool.query(
+            `update invites
+            set created_at = now() - interval '4 days',
+                expires_at = now() - interval '1 day'
+            where id = $1`,
+            [invite.id]
+        );
+
+        expect(await listInvitesForUser(ana.id)).toEqual([]);
     });
 });
