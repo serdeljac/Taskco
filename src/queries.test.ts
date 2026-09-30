@@ -158,6 +158,46 @@ describe("memberships", () => {
         expect(users.rowCount).toBe(2);
     });
 
+        it("empties a departing member's assignments, on tasks and subtasks", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        const membership = await pool.query<{ id: string }>(
+            `select id from memberships
+            where project_id = $1
+            and user_id = $2`,
+            [project.id, other.id]
+        );
+        const membershipId = membership.rows[0]?.id;
+
+        await pool.query(`update tasks set assignee_membership_id = $1 where id = $2`, [
+            membershipId,
+            task.id,
+        ]);
+        await pool.query(`update subtasks set assignee_membership_id = $1 where id = $2`, [
+            membershipId,
+            subtask.id,
+        ]);
+
+        await removeMember({ projectId: project.id, userId: other.id });
+
+        const after = await pool.query<{ assignee_membership_id: string | null }>(
+            `select assignee_membership_id from tasks where id = $1
+            union all
+            select assignee_membership_id from subtasks where id = $2`,
+            [task.id, subtask.id]
+        );
+
+        expect(after.rows).toEqual([
+            { assignee_membership_id: null },
+            { assignee_membership_id: null },
+        ]);
+    });
     
 });
 
@@ -739,6 +779,22 @@ describe("tasks", () => {
 
         expect(visible.rows[0]?.assignee_membership_id).toBe(membershipId);
     });
+
+    it("assigns a new task to the project's Lead", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        const membership = await pool.query<{ id: string }>(
+            `select id from memberships
+            where project_id = $1
+            and user_id = $2`,
+            [project.id, lead.id]
+        );
+
+        expect(task.assignee_membership_id).toBe(membership.rows[0]?.id);
+    });
     
 });
 
@@ -1087,5 +1143,33 @@ describe("subtasks", () => {
             code: "23514",
             constraint: "subtasks_deleted_after_created",
         });
+    });
+
+    it("gives a new subtask the same assignee as its task", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        expect(subtask.assignee_membership_id).toBe(task.assignee_membership_id);
+        expect(subtask.assignee_membership_id).not.toBeNull();
+    });
+
+    it("gives a new subtask no assignee when its task has none", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await pool.query(
+            `update tasks
+            set assignee_membership_id = null
+            where id = $1`,
+            [task.id]
+        );
+
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        expect(subtask.assignee_membership_id).toBeNull();
     });
 });

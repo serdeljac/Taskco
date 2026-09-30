@@ -29,6 +29,7 @@ export type Task = {
     position: number;
     created_at: Date;
     deleted_at: Date | null;
+    assignee_membership_id: string | null;
 };
 
 export type Subtask = {
@@ -42,6 +43,7 @@ export type Subtask = {
     position: number;
     created_at: Date;
     deleted_at: Date | null;
+    assignee_membership_id: string | null;
 };
 
 export type Role = "lead" | "associate";
@@ -96,8 +98,8 @@ export async function removeMember(member: { projectId: string; userId: string }
     try {
         await client.query("begin");
 
-            const { rows } = await client.query<{ role: Role }>(
-            `select role from memberships
+            const { rows } = await client.query<{ id: string; role: Role }>(
+            `select id, role from memberships
             where project_id = $1
             and user_id = $2
             and ended_at is null
@@ -122,6 +124,20 @@ export async function removeMember(member: { projectId: string; userId: string }
             and user_id = $2
             and ended_at is null`,
             [member.projectId, member.userId]
+        );
+
+        await client.query(
+            `update tasks
+            set assignee_membership_id = null
+            where assignee_membership_id = $1`,
+            [membership.id]
+        );
+
+        await client.query(
+            `update subtasks
+            set assignee_membership_id = null
+            where assignee_membership_id = $1`,
+            [membership.id]
         );
 
         await client.query("commit");
@@ -219,12 +235,16 @@ export async function createTask(task: {
         }
 
         const { rows } = await client.query<Task>(
-            `insert into tasks (project_id, title, due_date, position)
+            `insert into tasks (project_id, title, due_date, position, assignee_membership_id)
             values (
             $1,
             $2,
             $3,
-            (select coalesce(max(position), 0) + 65536 from tasks where project_id = $1)
+            (select coalesce(max(position), 0) + 65536 from tasks where project_id = $1),
+            (select id from memberships
+                where project_id = $1
+                and role = 'lead'
+                and ended_at is null)
             )
             returning *`,
             [task.projectId, task.title, task.dueDate ?? null]
@@ -434,14 +454,17 @@ export async function createSubtask(subtask: {
     title: string;
     dueDate?: string;
 }): Promise<Subtask> {
-    const parent = await pool.query<{ id: string }>(
-        `select id
+    
+    const parent = await pool.query<{ id: string; assignee_membership_id: string | null }>(
+        `select id, assignee_membership_id
         from visible_tasks
         where id = $1`,
         [subtask.taskId]
     );
 
-    if (parent.rowCount === 0) {
+    const parentTask = parent.rows[0];
+
+    if (!parentTask) {
         throw new Error("createSubtask: task not found");
     }
 
@@ -461,15 +484,16 @@ export async function createSubtask(subtask: {
     }
 
     const { rows } = await pool.query<Subtask>(
-        `insert into subtasks (task_id, title, due_date, position)
+        `insert into subtasks (task_id, title, due_date, position, assignee_membership_id)
         values (
             $1,
             $2,
             $3,
-            (select coalesce(max(position), 0) + 65536 from subtasks where task_id = $1)
+            (select coalesce(max(position), 0) + 65536 from subtasks where task_id = $1),
+            $4
         )
         returning *`,
-        [subtask.taskId, subtask.title, subtask.dueDate ?? null]
+        [subtask.taskId, subtask.title, subtask.dueDate ?? null, parentTask.assignee_membership_id]
     );
 
     const created = rows[0];

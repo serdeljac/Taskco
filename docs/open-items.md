@@ -72,7 +72,7 @@ becomes a decision; an item here becomes a commit.
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `projects-order-no-tiebreaker` | `listProjectsForUser` can return two same-microsecond projects in either order, and Postgres is not obliged to be consistent between runs | [A §2](./slice-a-review.md) | Open |
-| `project-type-drift` | `select p.*` returns whatever the table has while `Project` claims three columns. They agree today | [A §4](./slice-a-review.md) | Open |
+| `project-type-drift` | `select *` returns whatever the table has while the row type claims a fixed list. Applies to `Project`, `Task` and `Subtask` alike | [A §4](./slice-a-review.md) | Open — **no longer hypothetical.** Migration `015` added a column to `tasks` and `subtasks`; the types went on claiming the old shape, and nothing noticed until a test read the field. The drift starts when the migration runs and stays invisible until something reaches for the missing piece |
 | `writes-cannot-report-no-such-row` | `deleteTask` cannot tell "done" from "no such row", which step 5 needs to choose between success and 404 | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | Partly — every writer but `deleteTask` reports a missing row now |
 | `untyped-queries-return-any` | A query with no row type returns `any` rows, which `noUncheckedIndexedAccess` cannot check | [reference, `src/queries.ts`](./reference.md) | Partly — `removeMember` declares its row type now; the test "gives the creator the lead role" is what is left |
 
