@@ -18,6 +18,7 @@ import {
     setSubtaskNotes,
     setTaskAssignee,
     setSubtaskAssignee,
+    createInvite,
 } from "./queries.js";
 
 describe("users", () => {
@@ -1308,5 +1309,121 @@ describe("subtasks", () => {
 
         expect(subtasks[0]?.assignee_membership_id).toBe(task.assignee_membership_id);
         expect(subtasks[0]?.assignee_membership_id).not.toBe(membershipId);
+    });
+});
+
+describe("invites", () => {
+    it("creates an invite that expires three days out", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        const days =
+            (invite.expires_at.getTime() - invite.created_at.getTime()) / (1000 * 60 * 60 * 24);
+
+        expect(invite.email).toBe("ana@example.com");
+        expect(invite.project_id).toBe(project.id);
+        expect(invite.invited_by_user_id).toBe(lead.id);
+        expect(days).toBeCloseTo(3, 5);
+    });
+
+    it("refuses an address with no account", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await expect(
+            createInvite({
+                projectId: project.id,
+                email: "nobody@example.com",
+                invitedByUserId: lead.id,
+            })
+        ).rejects.toMatchObject({ message: "No email found" });
+    });
+
+    it("finds the account whatever the case of the address", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ANA@EXAMPLE.COM",
+            invitedByUserId: lead.id,
+        });
+
+        expect(invite.email).toBe("ANA@EXAMPLE.COM");
+    });
+
+    it("refuses someone who is already a member", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+
+        await expect(
+            createInvite({
+                projectId: project.id,
+                email: "other@example.com",
+                invitedByUserId: lead.id,
+            })
+        ).rejects.toMatchObject({
+            message: "createInvite: they are already a member of this project",
+        });
+    });
+
+    it("replaces an earlier invite to the same address", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        const first = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        const second = await createInvite({
+            projectId: project.id,
+            email: "ANA@EXAMPLE.COM",
+            invitedByUserId: lead.id,
+        });
+
+        const all = await pool.query<{ id: string }>(
+            `select id from invites where project_id = $1`,
+            [project.id]
+        );
+
+        expect(all.rowCount).toBe(1);
+        expect(all.rows[0]?.id).toBe(second.id);
+        expect(second.id).not.toBe(first.id);
+    });
+
+    it("refuses a duplicate invite written straight to the table", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        await expect(
+            pool.query(
+                `insert into invites (project_id, email, invited_by_user_id, expires_at)
+                values ($1, $2, $3, now() + interval '3 days')`,
+                [project.id, "Ana@Example.com", lead.id]
+            )
+        ).rejects.toMatchObject({
+            code: "23505",
+            constraint: "invites_one_per_project_email_idx",
+        });
     });
 });

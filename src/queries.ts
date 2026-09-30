@@ -48,7 +48,14 @@ export type Subtask = {
 
 export type Role = "lead" | "associate";
 
-
+export type Invite = {
+    id: string;
+    project_id: string;
+    email: string;
+    invited_by_user_id: string;
+    created_at: Date;
+    expires_at: Date;
+};
 
 
 
@@ -655,7 +662,72 @@ export async function setSubtaskAssignee(change: {
 }
 
 
+/***********************************
+    INVITES
+***********************************/
 
+export async function createInvite(invite: {
+    projectId: string;
+    email: string;
+    invitedByUserId: string;
+}): Promise<Invite> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const recipient = await client.query<{ id: string }>(
+            `select id from users
+            where lower(email) = lower($1)`,
+            [invite.email]
+        );
+
+        const recipientId = recipient.rows[0]?.id;
+
+        if (!recipientId) {
+            throw new Error("No email found");
+        }
+
+        const member = await client.query<{ id: string }>(
+            `select id from memberships
+            where project_id = $1
+            and user_id = $2
+            and ended_at is null`,
+            [invite.projectId, recipientId]
+        );
+
+        if (member.rows.length > 0) {
+            throw new Error("createInvite: they are already a member of this project");
+        }
+
+        await client.query(
+            `delete from invites
+            where project_id = $1
+            and lower(email) = lower($2)`,
+            [invite.projectId, invite.email]
+        );
+
+        const { rows } = await client.query<Invite>(
+            `insert into invites (project_id, email, invited_by_user_id, expires_at)
+            values ($1, $2, $3, now() + interval '3 days')
+            returning *`,
+            [invite.projectId, invite.email, invite.invitedByUserId]
+        );
+
+        const created = rows[0];
+        if (!created) {
+            throw new Error("createInvite: the insert returned no row");
+        }
+
+        await client.query("commit");
+        return created;
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
 
 
 
