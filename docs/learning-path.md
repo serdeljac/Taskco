@@ -1,12 +1,10 @@
 # Taskco — Learning path
 
-**Current step:** 3 complete and merged into `main`, and the fixes pass after it done on 2026-09-27
-— five items closed, one migration, sixty-nine tests. Next is step 4 — slice C, rescoped that day
-to the assignee, invites and delete mode, with routines and account deletion moved to steps of
-their own. How the assignee rule is enforced was settled the same day, in
-[`design-decisions.md`](./design-decisions.md), section 7. The three questions blocking slice C were
-settled on 2026-09-28, along with a fourth they turned up, in `design-decisions.md` section 5:
-no role column, the email compared lowered, the expiry stored, and no status column.
+**Current step:** 4 complete on `main` on 2026-09-30, and the fixes pass after it done on
+2026-10-03 on branch `slice-c-fixes` — three items closed, one hand-run script, one hundred and
+seventeen tests — not yet merged. Merging it comes first. Next is step 4b — transfer of leadership
+and account deletion, which composes the delete mode slice C built. Step 4c, routines, is
+unblocked and can be taken whenever.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -466,4 +464,73 @@ hide the very bug a test is looking for. That rules come as locks and signs: a `
 so anything that counts rows or reads a parent lives in code and only guards the writes that go
 through it. And that a checkpoint review is a list of claims that can each be checked — which found
 notes missing from the schema, and two real bugs that fifty passing tests had nothing to say about.
+
+**After slice B — the fixes pass.** Completed 2026-09-27, directly on `main`. Five items closed and
+one migration: a subtask under a deleted task could still take notes; `removeMember` checked the
+role and ended the membership in two separate trips; the count of cleared subtask dates included
+rows the Lead could not see; positions only ever climbed, until the integer ceiling refused the
+write; and the cascade from projects down to subtasks had never once fired. Migration `014` forbids
+a soft delete dated before its row was created. Sixty-nine tests. Slice C was rescoped the same day,
+with routines moved to step 4c and transfer and account deletion to step 4b.
+
+*Learned:* that a transaction gives atomicity, not isolation — a writer can still land between two
+statements inside one, and `for update` is what stops it. That hidden is not exempt: skipping
+deleted subtasks when clearing dates would let a restored one come back already breaking the rule.
+That one statement is atomic for free and three are not, which is why `createTask` gained a
+transaction the moment it stopped being one statement. That a cascade runs from parent to child
+only, so deleting a project takes the membership and leaves the person. And that a migration's
+checks cannot go red first, because the migration has to be applied before a test can watch it
+refuse anything.
+
+**Step 4 — Slice C: the assignee, invites, delete mode.** Completed 2026-09-30, directly on `main` —
+the `slice-c` branch was created and never used. Migrations 015–017. A task's assignee is a
+*membership*, not a user, and a composite foreign key makes an assignee from another project
+unwritable; a subtask, having no `project_id`, gets a plain reference and a check in code.
+`invites` holds no role and no status column, stores its expiry, and compares the address lowered —
+the first customer for migration 002's index. `deletion_scheduled_at` puts a project into delete
+mode, and both views now exclude it. Nine new functions and two helpers in `queries.ts`. One hundred
+and ten tests. The checkpoint is [`slice-c-review.md`](./slice-c-review.md): nine items, none from a
+failing test — the third review in a row where reading found more than the suite.
+
+*Changed decisions:* how "an assignee must be a current member" is enforced, split into a lock and a
+sign; an invite offers no role and has no status column; the expiry stored rather than computed;
+sections 4 and 6 reconciled, so the deletion date governs the project's contents and the Lead keeps
+its lifecycle; project visibility kept out of the views, because it depends on who is asking. All
+in `design-decisions.md`.
+
+*Learned, in the order the slice met them:* that a foreign key must point at a declared unique
+constraint on exactly its columns, which is why `memberships (id, project_id)` needed one although
+`id` alone is already unique — and that `on delete set null` needs a column list, or it empties
+`project_id` too and the delete fails. That a scalar subquery finding two rows is a runtime error,
+so defaulting a task to the Lead is only safe because migration `006` guarantees there is one. That
+a value is only safe to derive if every input is stored, and `created_at + 3 days` hides the `3`.
+That an index predicate, like a `check`, must be immutable, so "one unexpired invite per address"
+cannot be an index. That "not yours" and "not found" should be the same answer. That `for share`
+lets many writers hold a row that `for update` would make them queue for. And that one view
+deciding visibility pays: six writers refused a project being deleted without being edited, while
+`setTaskNotes`, filtering the table directly, kept writing until a test caught it.
+
+**After slice C — the fixes pass.** Completed 2026-10-03 on branch `slice-c-fixes`. Three items
+closed. `acceptInvite` refuses someone who has become a member since the invite was sent, with a
+sentence instead of `23505`. A code review of every file found `setTaskDueDate` still changing
+dates — and clearing subtask dates — in a project being deleted; the slice B and slice C reviews had
+both listed it as protected by the view, and neither had read its `where` clause. And the thirty
+days now mean something: past its date a project is gone from every answer, and
+`purgeDeletedProjects`, run by hand as `npm run purge`, removes the rows. One hundred and seventeen
+tests, and four new open items logged.
+
+*Changed decisions:* scheduled deletion split into a derived answer and a purge, with a principle
+added to section 13 — a job that only removes what every answer already treats as gone is cleanup,
+not state. And how the work proceeds: Claude gives the code and Stjepan types it in, corrected in
+the rules above after this file had said the opposite.
+
+*Learned:* that a test which passes from the start has never been shown to watch anything, so it
+gets broken on purpose — removing `ended_at is null` — and seen to go red. That the right refusal
+can wear the wrong words: `23505` from an index is correct and unhelpful. That a review's claim is
+only as good as the line someone actually read. That `null > now()` is unknown rather than false,
+so `> now()` covers "not being deleted" for free. That deriving an answer and destroying rows are
+two problems, and a late job is harmless once the answer no longer depends on it. And that the test
+count is a check of its own: 113 where 112 was expected is how a duplicated test showed itself —
+while a command pasted into a source file reached a commit because the suite was not run before
+committing.
 
