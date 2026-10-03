@@ -37,6 +37,7 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `npm run preview` | Writes `preview.html` from **taskco_dev**, as user 1 sees it |
 | `npx tsx src/preview.ts 2` | The same page, as user 2 sees it |
 | `Invoke-Item preview.html` | Opens the page in your browser |
+| `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it |
 
 **Every new migration needs both migrate commands.** Nothing does this for you.
 
@@ -1002,6 +1003,16 @@ Both exist to look at the data before there is a frontend, and are meant to be d
 
 - `seed.ts` sets status and priority with raw SQL, because no function does it yet.
 - `preview.ts` fetches subtasks with one query per task — fine for four tasks, not for a real page.
+
+## `src/purge.ts`
+
+**`npm run purge`** calls `purgeDeletedProjects` once against **taskco_dev** and prints how many
+projects it removed. A project past its deletion date is already gone from every answer the app
+gives; the purge only removes the rows, and the cascades take its memberships, tasks, subtasks and
+invites.
+
+Unlike `seed.ts` and `preview.ts` it is not throwaway. It is the hand-run trigger until a server, or
+the host's scheduler, calls the same function. Reasoning in `design-decisions.md`, section 6.
 
 ---
 

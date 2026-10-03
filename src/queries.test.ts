@@ -25,6 +25,7 @@ import {
     deleteProject,
     restoreProject,
     deleteProjectNow,
+    purgeDeletedProjects,
 } from "./queries.js";
 
 describe("users", () => {
@@ -450,6 +451,46 @@ describe("projects", () => {
         expect(tasks.rowCount).toBe(0);
         expect(subtasks.rowCount).toBe(0);
     });
+
+    it("hides a project past its deletion date from its Lead", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await deleteProject(project.id);
+        await pool.query(
+            `update projects
+            set deletion_scheduled_at = now() - interval '1 day'
+            where id = $1`,
+            [project.id]
+        );
+
+        expect(await listProjectsForUser(lead.id)).toEqual([]);
+    });
+
+    it("refuses to restore a project past its deletion date", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await deleteProject(project.id);
+        await pool.query(
+            `update projects
+            set deletion_scheduled_at = now() - interval '1 day'
+            where id = $1`,
+            [project.id]
+        );
+
+        await expect(restoreProject(project.id)).rejects.toMatchObject({
+            message: "restoreProject: project not found, or not inside its deletion window",
+        });
+
+        const { rows } = await pool.query<{ deletion_scheduled_at: Date | null }>(
+            `select deletion_scheduled_at from projects where id = $1`,
+            [project.id]
+        );
+
+        expect(rows[0]?.deletion_scheduled_at).not.toBeNull();
+    });
+
 });
 
 describe("tasks", () => {
@@ -1092,6 +1133,66 @@ describe("tasks", () => {
         );
 
         expect(rows[0]?.deleted_at).toBeNull();
+    });
+
+        it("purges only the projects past their deletion date", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const expired = await createProject("Website", lead.id);
+        const waiting = await createProject("Newsletter", lead.id);
+        const active = await createProject("Mobile app", lead.id);
+
+        await deleteProject(expired.id);
+        await deleteProject(waiting.id);
+        await pool.query(
+            `update projects
+            set deletion_scheduled_at = now() - interval '1 day'
+            where id = $1`,
+            [expired.id]
+        );
+
+        const { purged } = await purgeDeletedProjects();
+
+        const left = await pool.query<{ id: string }>(`select id from projects order by id`);
+
+        expect(purged).toBe(1);
+        expect(left.rows.map((p) => p.id)).toEqual([waiting.id, active.id]);
+    });
+
+    it("takes a purged project's members, tasks, subtasks and invites with it", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await createSubtask({ taskId: task.id, title: "Write the headline" });
+        await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        await deleteProject(project.id);
+        await pool.query(
+            `update projects
+            set deletion_scheduled_at = now() - interval '1 day'
+            where id = $1`,
+            [project.id]
+        );
+
+        await purgeDeletedProjects();
+
+        const memberships = await pool.query(`select id from memberships where project_id = $1`, [
+            project.id,
+        ]);
+        const tasks = await pool.query(`select id from tasks where project_id = $1`, [project.id]);
+        const subtasks = await pool.query(`select id from subtasks where task_id = $1`, [task.id]);
+        const invites = await pool.query(`select id from invites where project_id = $1`, [
+            project.id,
+        ]);
+
+        expect(memberships.rowCount).toBe(0);
+        expect(tasks.rowCount).toBe(0);
+        expect(subtasks.rowCount).toBe(0);
+        expect(invites.rowCount).toBe(0);
     });
     
 });

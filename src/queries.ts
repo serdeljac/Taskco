@@ -217,7 +217,10 @@ export async function listProjectsForUser(userId: string): Promise<Project[]> {
         join memberships m on m.project_id = p.id
         where m.user_id = $1
         and m.ended_at is null
-        and (p.deletion_scheduled_at is null or m.role = 'lead')
+        and (
+            p.deletion_scheduled_at is null
+            or (m.role = 'lead' and p.deletion_scheduled_at > now())
+        )
         order by p.created_at, p.id`,
         [userId]
     );
@@ -247,12 +250,12 @@ export async function restoreProject(projectId: string): Promise<void> {
         `update projects
         set deletion_scheduled_at = null
         where id = $1
-        and deletion_scheduled_at is not null`,
+        and deletion_scheduled_at > now()`,
         [projectId]
     );
 
     if (restored.rowCount === 0) {
-        throw new Error("restoreProject: project not found, or not being deleted");
+        throw new Error("restoreProject: project not found, or not inside its deletion window");
     }
 }
 
@@ -267,6 +270,16 @@ export async function deleteProjectNow(projectId: string): Promise<void> {
     if (deleted.rowCount === 0) {
         throw new Error("deleteProjectNow: project not found, or already being deleted");
     }
+}
+
+export async function purgeDeletedProjects(): Promise<{ purged: number }> {
+    const { rows } = await pool.query<{ id: string }>(
+        `delete from projects
+        where deletion_scheduled_at <= now()
+        returning id`
+    );
+
+    return { purged: rows.length };
 }
 
 

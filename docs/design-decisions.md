@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
-**Status:** design complete, stack chosen, slices A and B built, each with its review done. Last
-updated 2026-09-27.
+**Status:** design complete, stack chosen, slices A, B and C built, each with its review done. Last
+updated 2026-10-03.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -317,6 +317,35 @@ an associate and present, marked, for the Lead — so the filter lives in the qu
 asker is known, and cannot move into a view. That is worth saying plainly, because tasks went the
 other way: task visibility depends only on the row, so a view can hold it. The pattern does not
 generalise, and the reason is whether the answer depends on who is asking.
+
+**When the thirty days run out**, settled 2026-10-03, closing the first item of the slice C review.
+Until then the date did nothing: past it, the Lead still saw the project and could still restore
+it, and every row stayed on disk. That is two problems, and they need different mechanisms.
+
+- **What the app answers is derived.** A project whose `deletion_scheduled_at` has passed is
+  *gone*. The Lead's list drops it and `restoreProject` refuses it. Nothing else had to change:
+  the views, the writers and `addMember` all refuse whenever the date is set, which covers waiting
+  and gone alike. The boundary is `> now()` for "still inside the window" and `<= now()` for
+  "gone" — exact complements, so there is no moment a project is neither restorable nor removable.
+- **Removing the rows is a purge.** No query can destroy rows by reading them, so
+  `purgeDeletedProjects` deletes every project past its date, and `on delete cascade` takes its
+  memberships, tasks, subtasks and invites. Until there is a server it runs when someone types
+  `npm run purge`; once there is one, a timer or the host's scheduler calls the same function.
+
+*Why this is not the sweep section 13 warns against.* A job that changes what the app *answers* is
+the dangerous kind: the app answers wrongly for as long as the job is late. This one runs after the
+answer has already changed. Whether it runs on the first of the month, the twentieth or never,
+nobody sees anything different — lateness costs disk space and delays the promise that the data is
+removed. It is cleanup, not state.
+
+*Rejected — never deleting, only hiding:* breaks this section's promise that the project and all
+its data are removed.
+
+*Rejected — purging as a side effect of reads:* makes reading data destroy data, and puts a delete
+inside whichever request happens to look.
+
+*Accepted cost:* until something runs the purge on a schedule, a project past its date is gone from
+every answer and still on disk.
 
 ### Deleting an account
 - The user is first shown **a list of every project they lead**, each with a dropdown of that
@@ -709,8 +738,10 @@ section 7, under Assignee.
 2. **Rate limiting invites.** Limit how many *distinct* addresses one person can invite in a window,
    to stop the "No email found" response being used to harvest which addresses have accounts.
    *(at build time)*
-3. **Purging.** Soft deletion means nothing is ever truly gone. Delete mode covers projects and
-   accounts; tasks and ended memberships still accumulate. *(at build time)*
+3. **Purging.** Soft deletion means nothing is ever truly gone. Projects past their deletion date
+   now have a purge, `purgeDeletedProjects` (section 6), run by hand until there is a server.
+   Accounts arrive with step 4b; soft-deleted tasks, ended memberships and expired invites still
+   accumulate, and that purge is the natural place for them. *(at build time)*
 4. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
    non-goal. *(at build time)*
 
@@ -728,6 +759,8 @@ The reusable part. These outlast this app.
 - **Anything that waits needs a record.** If you catch yourself saying "pending," it is a record.
 - **Prefer computing an answer from stored facts** over running background jobs that change stored
   facts. Fewer moving parts, nothing to fall out of sync.
+- **A job that only removes what every answer already treats as gone is cleanup, not state.**
+  Derive the answer first; then a late or missed run costs disk space, never correctness.
 - **Prefer adding a fact over destroying one.** Destroyed information is the only mistake that is
   not a migration.
 - **When several features need the same underlying operation, build the operation once.** Writing
