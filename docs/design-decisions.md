@@ -633,8 +633,9 @@ skills; comfort is in JavaScript, HTML and CSS. Everything under Backend and Tes
 guidance should assume the *concepts* are new and explain them; syntax can be looked up.
 
 **How the build proceeds:** one step at a time. Each step is specified — what it must do, what
-"done" looks like, what to watch for — then written by Stjepan on his own branch, then reviewed.
-Nothing is built without explicit confirmation first.
+"done" looks like, what to watch for — and Claude gives the code for it. Stjepan types it in
+himself on his own branch, and it is then reviewed. Nothing is built without explicit confirmation
+first.
 
 ### Frontend
 | Piece | Role |

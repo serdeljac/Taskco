@@ -23,7 +23,8 @@ Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-revi
 Build Taskco to professional standards as a way of gaining engineering experience. The app running
 matters less than understanding why it is built the way it is. Real-world use is optional.
 
-Claude's role is mentor: specify each step, explain the concepts, review the work. Not write it.
+Claude's role is mentor: specify each step, explain the concepts, give the code, review the work.
+Stjepan types the code in himself — Claude does not edit the source files.
 
 ---
 
@@ -31,11 +32,14 @@ Claude's role is mentor: specify each step, explain the concepts, review the wor
 
 1. **Claude specifies the step** — what it must do, what "done" looks like, which concepts are
    involved, and what usually goes wrong.
-2. **Stjepan builds it** on his own branch.
-3. **Stjepan shows the result** — a diff, a branch, or pasted code.
-4. **Claude reviews** for correctness, for structure, against the standards below, and against
+2. **Claude gives the code** — in small pieces, each with the file and line it goes at and the
+   reason it is written that way. Tests come first, with what the failure should look like.
+3. **Stjepan implements it** on his own branch, typing each piece in by hand rather than having it
+   applied for him.
+4. **Stjepan shows the result** — a diff, a branch, or pasted code.
+5. **Claude reviews** for correctness, for structure, against the standards below, and against
    `design-decisions.md`.
-5. **Anything learned gets recorded** — in that document if it changes a decision, in the progress
+6. **Anything learned gets recorded** — in that document if it changes a decision, in the progress
    log here otherwise.
 
 ### Rules
@@ -45,7 +49,11 @@ Claude's role is mentor: specify each step, explain the concepts, review the wor
   time; looking up a method signature is not.
 - **Stuck for twenty minutes is learning. Stuck for three hours is attrition.** Say so and ask for
   more — up to and including writing it together. There is nothing to prove by struggling.
-- **No code gets written for Stjepan by default.** He can always ask for it.
+- **Claude gives the code; Stjepan types it in.** Implementing it by hand is the learning, so Claude
+  hands over code with its file, line and reasoning, and never edits the source files itself. A
+  description with no code is not a specification. *Corrected 2026-09-30:* this rule used to read
+  "no code gets written for Stjepan by default," which was never how the work was done, and it
+  produced a spec with no code in it the first time a fresh session took it at its word.
 
 ### Starting a fresh session
 
