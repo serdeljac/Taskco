@@ -1027,6 +1027,39 @@ describe("tasks", () => {
         ).rejects.toMatchObject({ message: "setTaskNotes: task not found" });
     });
 
+        it("refuses to change a task's date while its project is being deleted, and leaves its subtasks alone", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({
+            projectId: project.id,
+            title: "Draft the homepage",
+            dueDate: "2026-10-20",
+        });
+        const subtask = await createSubtask({
+            taskId: task.id,
+            title: "Write the headline",
+            dueDate: "2026-10-19",
+        });
+
+        await deleteProject(project.id);
+
+        await expect(
+            setTaskDueDate({ taskId: task.id, dueDate: "2026-10-10" })
+        ).rejects.toMatchObject({ message: "setTaskDueDate: task not found" });
+
+        const taskAfter = await pool.query<{ due_date: string | null }>(
+            `select due_date from tasks where id = $1`,
+            [task.id]
+        );
+        const subtaskAfter = await pool.query<{ due_date: string | null }>(
+            `select due_date from subtasks where id = $1`,
+            [subtask.id]
+        );
+
+        expect(taskAfter.rows[0]?.due_date).toBe("2026-10-20");
+        expect(subtaskAfter.rows[0]?.due_date).toBe("2026-10-19");
+    });
+
         it("refuses to create a task while the project is being deleted", async () => {
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
         const project = await createProject("Website", lead.id);

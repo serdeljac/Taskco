@@ -363,8 +363,7 @@ export async function setTaskDueDate(change: {
         const updated = await client.query(
             `update tasks
             set due_date = $1
-            where id = $2
-            and deleted_at is null`,
+            where id in (select id from visible_tasks where id = $2)`,
             [change.dueDate, change.taskId]
         );
 
