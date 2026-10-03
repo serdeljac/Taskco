@@ -233,6 +233,12 @@ update's own row count, before any subtask is touched. `moveTask` also refuses u
 neighbours share a project, and renumbers the moved task's own project. Six new tests, each seen
 failing before its fix — fifty-six in all.
 
+*Corrected 2026-10-03:* `setTaskDueDate` did not go through the view. Its `update` tested
+`deleted_at is null` on `tasks` itself, which refused a deleted task as described but nothing else.
+That held while "deleted" was the only thing the view hid; once slice C added delete mode to the
+view, this function missed it. It reads through `visible_tasks` now — see
+`due-date-writer-ignores-delete-mode` in [`open-items.md`](./open-items.md).
+
 ---
 
 ## Other notes

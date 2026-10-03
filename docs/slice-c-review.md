@@ -100,6 +100,13 @@ one. A hand-written insert would be refused by the index rather than replacing a
 - `deleteProject` cannot extend a window already running, and `restoreProject` cannot clear a date
   that is not set. Both put the precondition in the `where` clause, so neither can be raced.
 
+*Corrected 2026-10-03:* the breakdown in the first bullet is wrong. When this review was written,
+thirteen functions refused, not fifteen: four through `refuseIfProjectIsBeingDeleted`
+(`createTask`, `removeMember`, `createInvite`, `acceptInvite`), eight through the views
+(`deleteTask`, `setTaskNotes`, `moveTask`, `setTaskAssignee`, `createSubtask`, `setSubtaskNotes`,
+`setSubtaskDueDate`, `setSubtaskAssignee`), and `addMember` through its `where exists`.
+`setTaskDueDate` did not refuse at all — see section 4. It does now, which makes fourteen.
+
 **Doesn't protect**
 
 - **The thirty days do nothing.** Nothing in the project ever removes a project whose date has
@@ -120,6 +127,13 @@ decision that "one place decides what is visible" was argued; here it paid.
 
 **Doesn't protect** — `setTaskNotes` filtered the table directly and silently kept writing until a
 test caught it. That is `nothing-forces-reads-through-views`, demonstrated rather than predicted.
+
+*Corrected 2026-10-03:* `setTaskDueDate` does not belong in the list above. Its `update` filtered
+`tasks` on `deleted_at is null`, the same shape `setTaskNotes` had, so it went on changing a task's
+date — and clearing its subtasks' dates — in a project being deleted. No test covered it, so the
+claim stood until a code review read the `where` clause. Six writers picked the rule up untouched,
+not seven, and two had to be fixed by hand. `setTaskDueDate` now reads through `visible_tasks`; the
+item is `due-date-writer-ignores-delete-mode`.
 
 **Assumes** — that both views are re-created whenever either table gains a column, and that
 `visible_subtasks`'s two joins stay in step with `visible_tasks`'s one. *(item 7)*

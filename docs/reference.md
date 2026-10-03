@@ -818,14 +818,14 @@ one idea per piece, with each migration applied to both databases. The checkpoin
 | `011_add_task_position.sql` | `position`; re-creates `visible_tasks` |
 | `012_create_subtask.sql` | `subtasks`: the task fields, with `task_id` → `tasks` as the parent; `visible_subtasks` |
 | `013_add_notes.sql` | `notes` on both tables, blank refused; re-creates both views |
-| `014_soft_delete_timestamp_unchecked.sql` | Three `CHECK` constraints: `ended_at` and `deleted_at` cannot fall before `created_at`. Named for the problem rather than the change, and it carries a stray line — see below |
+| `014_soft_delete_timestamp_unchecked.sql` | Three `CHECK` constraints: `ended_at` and `deleted_at` cannot fall before `created_at`. Named for the problem rather than the change |
 | `015_add_task_assignee.sql` | `assignee_membership_id` on both tables. A composite foreign key ties a task's assignee to a membership in the task's own project, which needs a redundant-looking unique constraint on `memberships (id, project_id)`; `on delete set null` takes a column list so it empties only the assignee. Subtasks get a plain reference, having no `project_id` to pair. Both views re-created |
 | `016_create_invites.sql` | `invites`: project, email, sender, created, expires. No role and no status — see `design-decisions.md` section 5. A unique index on `(project_id, lower(email))`, which also serves "every invite for this project" because `project_id` leads |
-| `017_add_project_delete_mode.sql` | `deletion_scheduled_at` on `projects`, holding when the project will be removed rather than when deletion began. Both views re-created to exclude anything in a project being deleted, which is how seven writers started refusing without being edited |
+| `017_add_project_delete_mode.sql` | `deletion_scheduled_at` on `projects`, holding when the project will be removed rather than when deletion began. Both views re-created to exclude anything in a project being deleted, which is how six writers started refusing without being edited. `setTaskDueDate` was meant to be a seventh and was not, because it filtered `tasks` directly — fixed 2026-10-03 |
 
 Three of them are worth reading for the pattern, not just the columns.
 
-**A mistake left in place — `014`.** Its first line is `update memberships set ended_at = '2020-01-01' where id = 1;`, copied in from a description of the problem and no part of the fix. It matched no rows in either database, and it is inert on a fresh clone too, since migrations run in order against empty tables. It stays because the file is applied, and applied migrations are never edited: `schema_migrations` records only the filename, so an edited file would never be noticed as different. Had it matched a row, the `check` three statements later would have refused to validate that row and the whole migration would have rolled back — the runner's one transaction per migration catching a mistake inside the migration.
+**Corrected 2026-10-03 — `014` carries no stray line.** This page, and the commit message that added the file, used to describe an `update memberships set ended_at = '2020-01-01' where id = 1;` copied into it by mistake. `git log -p` shows the committed file has only ever held its three `alter table` statements, so a fresh clone runs exactly those. Whether a draft with the extra line was ever applied to `taskco_dev` or `taskco_test` cannot be told from here, because `schema_migrations` records only the filename — which is also why an applied migration is never edited: a changed file would never be noticed as different.
 
 **The view — `010`**
 
@@ -877,7 +877,7 @@ Summarised rather than reproduced: they are long, and the file is the source of 
 | `listTasks({ projectId, userId })` | the project's tasks, in position order | `visible_tasks`, current membership | no | — an outsider gets an empty list |
 | `deleteTask(taskId)` | sets `deleted_at`; deleting twice keeps the first time | — | no | — |
 | `moveTask({ taskId, afterTaskId?, beforeTaskId? })` | places a task between neighbours, or at either end; renumbers the project when there is no room | `visible_tasks` | yes | task or neighbour missing or deleted; a neighbour in another project |
-| `setTaskDueDate({ taskId, dueDate })` | sets the date, clears subtask dates past it, returns `{ clearedSubtasks }` | — | yes | task missing or deleted |
+| `setTaskDueDate({ taskId, dueDate })` | sets the date, clears subtask dates past it, returns `{ clearedSubtasks }` | `visible_tasks` | yes | task missing or deleted, or its project being deleted |
 | `setTaskNotes({ taskId, notes })` | blank text becomes empty | — | no | — deleted tasks are skipped |
 | `createSubtask({ taskId, title, dueDate? })` | appends a subtask within its task | `visible_tasks`, `visible_subtasks` | no | task missing or deleted; 50 already; due after the task |
 | `listSubtasks({ taskId, userId })` | the task's subtasks, in position order | both views, current membership | no | — |
