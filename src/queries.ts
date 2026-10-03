@@ -815,7 +815,7 @@ export async function acceptInvite(accept: {
             for update of i`,
             [accept.inviteId, accept.userId]
         );
-git add src/queries.ts src/queries.test.ts docs/open-items.md
+
         const invite = found.rows[0];
 
         if (!invite) {
