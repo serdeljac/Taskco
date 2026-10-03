@@ -329,7 +329,7 @@ describe("memberships", () => {
 
         expect(still.rowCount).toBe(1);
     });
-    
+
 });
 
 describe("projects", () => {
@@ -1798,5 +1798,58 @@ describe("invites", () => {
         expect(await listProjectsForUser(ana.id)).toEqual([]);
         const left = await pool.query(`select id from invites where id = $1`, [invite.id]);
         expect(left.rowCount).toBe(1);
+    });
+
+    it("refuses an invite when the recipient has become a member since", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+        await addMember({ projectId: project.id, userId: ana.id, role: "associate" });
+
+        await expect(
+            acceptInvite({ inviteId: invite.id, userId: ana.id })
+        ).rejects.toMatchObject({
+            message: "acceptInvite: you are already a member of this project",
+        });
+
+        const active = await pool.query(
+            `select id from memberships
+            where project_id = $1 and user_id = $2 and ended_at is null`,
+            [project.id, ana.id]
+        );
+        const left = await pool.query(`select id from invites where id = $1`, [invite.id]);
+
+        expect(active.rowCount).toBe(1);
+        expect(left.rowCount).toBe(1);
+    });
+
+        it("lets someone who left the project accept a new invite", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: ana.id, role: "associate" });
+        await removeMember({ projectId: project.id, userId: ana.id });
+        const invite = await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        await acceptInvite({ inviteId: invite.id, userId: ana.id });
+
+        const memberships = await pool.query<{ ended: boolean }>(
+            `select ended_at is not null as ended
+            from memberships
+            where project_id = $1 and user_id = $2
+            order by id`,
+            [project.id, ana.id]
+        );
+
+        expect(memberships.rows.map((m) => m.ended)).toEqual([true, false]);
     });
 });

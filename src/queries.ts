@@ -815,7 +815,7 @@ export async function acceptInvite(accept: {
             for update of i`,
             [accept.inviteId, accept.userId]
         );
-
+git add src/queries.ts src/queries.test.ts docs/open-items.md
         const invite = found.rows[0];
 
         if (!invite) {
@@ -827,6 +827,18 @@ export async function acceptInvite(accept: {
         }
 
         await refuseIfProjectIsBeingDeleted(client, invite.project_id);
+
+        const member = await client.query<{ id: string }>(
+            `select id from memberships
+            where project_id = $1
+            and user_id = $2
+            and ended_at is null`,
+            [invite.project_id, accept.userId]
+        );
+
+        if (member.rows.length > 0) {
+            throw new Error("acceptInvite: you are already a member of this project");
+        }
 
         await client.query(
             `insert into memberships (user_id, project_id, role)
