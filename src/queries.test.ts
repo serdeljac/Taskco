@@ -26,6 +26,7 @@ import {
     restoreProject,
     deleteProjectNow,
     purgeDeletedProjects,
+    transferLeadership,
 } from "./queries.js";
 
 describe("users", () => {
@@ -329,6 +330,95 @@ describe("memberships", () => {
         );
 
         expect(still.rowCount).toBe(1);
+    });
+
+        it("hands leadership to a member, and keeps the old Lead as an associate", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: ana.id, role: "associate" });
+
+        await transferLeadership({ projectId: project.id, toUserId: ana.id, outgoing: "stay" });
+
+        const roles = await pool.query<{ user_id: string; role: string }>(
+            `select user_id, role from memberships
+            where project_id = $1 and ended_at is null
+            order by user_id`,
+            [project.id]
+        );
+
+        expect(roles.rows).toEqual([
+            { user_id: lead.id, role: "associate" },
+            { user_id: ana.id, role: "lead" },
+        ]);
+    });
+
+    it("lets the old Lead leave in the same transfer, and empties their assignments", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: ana.id, role: "associate" });
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        await transferLeadership({ projectId: project.id, toUserId: ana.id, outgoing: "leave" });
+
+        const roles = await pool.query<{ user_id: string; role: string }>(
+            `select user_id, role from memberships
+            where project_id = $1 and ended_at is null`,
+            [project.id]
+        );
+        const after = await pool.query<{ assignee_membership_id: string | null }>(
+            `select assignee_membership_id from tasks where id = $1`,
+            [task.id]
+        );
+
+        expect(roles.rows).toEqual([{ user_id: ana.id, role: "lead" }]);
+        expect(after.rows[0]?.assignee_membership_id).toBeNull();
+    });
+
+    it("refuses to make someone Lead who is not a member", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const stranger = await createUser("stranger@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        await expect(
+            transferLeadership({ projectId: project.id, toUserId: stranger.id, outgoing: "stay" })
+        ).rejects.toMatchObject({
+            message: "transferLeadership: the new Lead must be a current member of the project",
+        });
+
+        const roles = await pool.query<{ user_id: string; role: string }>(
+            `select user_id, role from memberships
+            where project_id = $1 and ended_at is null`,
+            [project.id]
+        );
+
+        expect(roles.rows).toEqual([{ user_id: lead.id, role: "lead" }]);
+    });
+
+    it("refuses a transfer while the project is being deleted", async () => {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: ana.id, role: "associate" });
+
+        await deleteProject(project.id);
+
+        await expect(
+            transferLeadership({ projectId: project.id, toUserId: ana.id, outgoing: "stay" })
+        ).rejects.toMatchObject({ message: "the project is being deleted" });
+
+        const roles = await pool.query<{ user_id: string; role: string }>(
+            `select user_id, role from memberships
+            where project_id = $1 and ended_at is null
+            order by user_id`,
+            [project.id]
+        );
+
+        expect(roles.rows).toEqual([
+            { user_id: lead.id, role: "lead" },
+            { user_id: ana.id, role: "associate" },
+        ]);
     });
 
 });
