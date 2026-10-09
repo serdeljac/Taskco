@@ -1,5 +1,6 @@
 import { pool } from "./db.js";
 import type { PoolClient } from "pg";
+import { countStreak } from "./streak.js";
 
 export type User = {
     id: string;
@@ -1162,7 +1163,38 @@ export async function undoCompletion(undo: {
     }
 }
 
+export async function getStreak(ask: {
+    routineId: string;
+    userId: string;
+}): Promise<number> {
+    const found = await pool.query<{ today: string; started: string; weekdays: number[] }>(
+        `select t.today, (r.created_at at time zone u.timezone)::date as started, r.weekdays
+        from routines r
+        join users u on u.id = r.user_id
+        join user_today t on t.user_id = r.user_id
+        where r.id = $1
+        and r.user_id = $2`,
+        [ask.routineId, ask.userId]
+    );
 
+    const routine = found.rows[0];
+
+    if (!routine) {
+        throw new Error("getStreak: routine not found");
+    }
+
+    const log = await pool.query<{ done_on: string }>(
+        `select done_on from completions where routine_id = $1`,
+        [ask.routineId]
+    );
+
+    return countStreak({
+        today: routine.today,
+        started: routine.started,
+        weekdays: routine.weekdays,
+        doneOn: log.rows.map((row) => row.done_on),
+    });
+}
 
 
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { pool } from "../db.js";
+
 import {
     createUser,
     createRoutine,
@@ -8,6 +9,7 @@ import {
     undoCompletion,
     deleteAccount,
     purgeDeletedAccounts,
+    getStreak,
 } from "../queries.js";
 
 describe("routines", () => {
@@ -137,5 +139,36 @@ describe("routines", () => {
 
         expect(routines.rowCount).toBe(0);
         expect(completions.rowCount).toBe(0);
+    });
+
+    it("counts a streak from the owner's own today", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+        await pool.query(`update routines set created_at = now() - interval '10 days' where id = $1`, [routine.id]);
+        for (const daysAgo of [1, 2]) {
+            await pool.query(
+                `insert into completions (routine_id, done_on)
+                select $1, today - $3::int from user_today where user_id = $2`,
+                [routine.id, ana.id, daysAgo]
+            );
+        }
+
+        //TEST
+        expect(await getStreak({ routineId: routine.id, userId: ana.id })).toBe(2);
+        await completeRoutine({ routineId: routine.id, userId: ana.id });
+        expect(await getStreak({ routineId: routine.id, userId: ana.id })).toBe(3);
+    });
+
+    it("keeps one person's streak from another", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const bruno = await createUser("bruno@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+
+        //TEST
+        await expect(
+            getStreak({ routineId: routine.id, userId: bruno.id })
+        ).rejects.toMatchObject({ message: "getStreak: routine not found" });
     });
 });
