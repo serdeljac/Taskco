@@ -51,7 +51,7 @@ becomes a decision; an item here becomes a commit.
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `email-lookup-must-lowercase` | The `lower(email)` index is only used by queries written `where lower(email) = lower($1)`, and nothing enforces that | [A §1](./slice-a-review.md) | Partly — `createInvite` is the first such lookup and does it correctly. Step 6's login is the next one, and would silently fail to find a real account if it forgot |
-| `timezone-accepts-any-text` | `Mars/Olympus` inserts happily, and Postgres already knows the real names in `pg_timezone_names` | [A §1](./slice-a-review.md), [B](./slice-b-review.md) | Open |
+| `timezone-accepts-any-text` | `Mars/Olympus` inserts happily, and Postgres already knows the real names in `pg_timezone_names` | [A §1](./slice-a-review.md), [B](./slice-b-review.md) | Open — **no longer only a lie, since step 4c.** Every routine function reads today through `user_today`, which converts through the timezone, so for a user with `Mars/Olympus` listing routines fails with `22023 time zone not recognized`, while their projects still list. Worth fixing before routines reach anyone |
 | `email-has-no-format-or-length-limit` | Zod covers the boundary at step 5; the database stays open to any other caller | [reference, 002](./reference.md) | Open |
 | `deactivated-accounts-can-still-be-invited-or-added` | Nothing reads `users.deletion_scheduled_at` except `restoreProject`, `reopenAccount` and the purge. So `createInvite` still finds an account being deleted, `addMember` still adds it, and `acceptInvite` still lets it join — a membership the purge then removes thirty days later | Doc pass, 2026-10-08 — this row is the record | Open — needs deciding: treat it as "No email found", or let the act reopen the account. Step 6's login is where it meets a real person |
 
@@ -120,6 +120,14 @@ becomes a decision; an item here becomes a commit.
 | `guard-throws-on-invalid-url` | A malformed address stops the run with "Invalid URL" rather than the guard's own message. It still refuses to run | [reference, `src/testing/guard.ts`](./reference.md) | Open |
 | `assignee-tests-set-what-is-already-there` | "assigns a task to a member of its own project" and "shows the assignee through visible_tasks" write the Lead's membership as the assignee, which `createTask` has set by default since `7acc1a3`, so their `update` changes nothing. Both still prove something — the first because `createTask`'s insert already passed the key, the second because the view must carry the column — but neither exercises the step it sets up. Assigning another member would | Code review, 2026-10-03 — no review file; this row is the record | Open |
 
+### Routines — migration 019
+
+| Name | What | Explained in | Status |
+|---|---|---|---|
+| `routines-cannot-be-edited-or-deleted` | No function renames a routine, changes its days, or deletes it. Deleting is simple — completions cascade. Changing the days is not: `getStreak` reads the *current* days for the whole history, so turning a weekday routine into an every-day one would make every past weekend a miss and cut the streak short. The same shape as the invite expiry: an input the past depends on, stored only as its latest value | [design §9](./design-decisions.md) | Waits — decide what a change of days does to the past before building it |
+| `streaks-are-one-query-per-routine` | `getStreak` answers for one routine, in two queries. A screen showing every routine's streak calls it once per routine | [reference, `src/queries.ts`](./reference.md) | Open — fine for a handful; step 5 or 7 decides whether `listRoutines` carries the streak |
+| `weekday-numbering-written-twice` | "Which weekday is this date" is written twice: `extract(isodow …)` in `listRoutines` and `isoWeekday` in `streak.ts`. Both use 1 for Monday and 7 for Sunday today; nothing makes them agree | [reference, `src/streak.ts`](./reference.md) | Open — a test that checks both on the same dates would hold them together |
+
 ### Across files
 
 | Name | What | Explained in | Status |
@@ -132,7 +140,6 @@ becomes a decision; an item here becomes a commit.
 |---|---|---|---|
 | `preview-queries-per-task` | `preview.ts` fetches subtasks with one query per task — fine for four, not for a page | [reference, `src/preview.ts`](./reference.md) | Open — deleted at step 7 |
 | `account-deletion-list-not-built` | Section 6 starts account deletion by showing every project the user leads, each with that project's other members to choose from. No query answers that yet; `transferLeadership` and `deleteAccount` are the writes it would drive | [design §6](./design-decisions.md) | Waits for step 5 |
-| `routines-must-cascade-with-the-account` | Section 6 purges routines with the account. When step 4c builds them, their foreign key to `users` needs `on delete cascade`, or `purgeDeletedAccounts` will be refused by the rows pointing at the account | [design §6](./design-decisions.md) | Waits for step 4c |
 | `purge-runs-only-by-hand` | `purgeDeletedProjects` and `purgeDeletedAccounts` run only when someone types `npm run purge`. Until something calls them on a schedule, a project or account past its date is gone from every answer but still on disk | [design §6](./design-decisions.md) | Waits for step 5, or for hosting |
 
 ---
@@ -163,6 +170,7 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `test-independence-unproven` | [A §6](./slice-a-review.md) | `npx vitest run --sequence.shuffle` passed all 128 tests with three different seeds on 2026-10-08, across the seven test files. Demonstrated rather than assumed, which is what the item asked for |
 | `transfer-accepts-an-account-being-deleted` | [4b](./step-4b-review.md) | `transferLeadership` reads the new Lead's account in the same statement as their membership and refuses one being deleted, with its own message rather than "not a member". It locks only the membership row: a concurrent `deleteAccount` of the same person must end that same membership, so the two queue on one lock. One test, which fails against the old code with the promise resolving. The wider question — whether such an account can join a project at all — stays with `deactivated-accounts-can-still-be-invited-or-added` |
 | `memberships-end-in-frozen-projects-untested` | [4b](./step-4b-review.md) | One test: Ana's membership in a project being deleted ends when she deletes her account. Shown to be watching by adding the delete-mode check to `deleteAccount`'s loop, which turns it red with "the project is being deleted" |
+| `routines-must-cascade-with-the-account` | [design §6](./design-decisions.md) | Migration `019` gives `routines.user_id` `on delete cascade`, and `completions` cascades from `routines`, so `purgeDeletedAccounts` takes both. One test purges an account and finds neither left |
 | `due-date-writer-ignores-delete-mode` | Code review, 2026-10-03, against [C §4](./slice-c-review.md) | `setTaskDueDate`'s `update` filtered `tasks` on `deleted_at is null`, so it went on changing dates — and clearing subtask dates past the new one — in a project being deleted. Slice B's review said it went through the view and slice C's counted it among the writers the view protected; neither had read the `where` clause. It now selects through `visible_tasks`, the shape `setTaskNotes` uses. One test, which fails against the old clause with the promise resolving `{ clearedSubtasks: 1 }` |
 | `writes-cannot-report-no-such-row` | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | `deleteTask` was the last writer that could not tell "done" from "no such row". It now throws on a row count of zero |
 | `deleted-task-still-editable` | [B §5](./slice-b-review.md) | `setSubtaskNotes` now requires its subtask's `task_id` to be among `visible_tasks`, and both notes writers throw on a row count of zero. Four tests, each seen failing first |

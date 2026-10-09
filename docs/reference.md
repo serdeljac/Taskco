@@ -639,10 +639,11 @@ Runs **per test file**, not per test.
 
 *Moved 2026-10-08.* The tests used to live in one file, `src/queries.test.ts`. They are now split
 into `src/test_queries`, one file per table — `1_users`, `2_memberships`, `3_projects`, `4_tasks`,
-`5_subtasks`, `6_invites`, plus `guard.test.ts` — so a test's group is also its file. The numbers
-are for reading order only: Vitest decides the order files run in, which is safe because every test
-empties the tables first. Each test is laid out in two parts, `//CREATE` for the setup and `//TEST`
-for the act and the checks. 128 tests in all on 2026-10-08.
+`5_subtasks`, `6_invites`, `7_routines` — plus two that never touch the database, `guard.test.ts`
+and `streak.test.ts`. A test's group is also its file. The numbers are for reading order only:
+Vitest decides the order files run in, which is safe because every test empties the tables first.
+Each test is laid out in two parts, `//CREATE` for the setup and `//TEST` for the act and the
+checks. 146 tests in nine files after step 4c.
 
 This section covers slice A's ten tests; the task and subtask tests are listed under step 3. The
 listing below shows the groups as slice A left them — the email test has since moved to `users`.
@@ -818,7 +819,7 @@ Tasks and subtasks, with status, priority, due dates, soft deletion, manual orde
 one idea per piece, with each migration applied to both databases. The checkpoint is
 [`slice-b-review.md`](./slice-b-review.md).
 
-## Migrations 007–018
+## Migrations 007–019
 
 | File | What it adds |
 |---|---|
@@ -834,6 +835,7 @@ one idea per piece, with each migration applied to both databases. The checkpoin
 | `016_create_invites.sql` | `invites`: project, email, sender, created, expires. No role and no status — see `design-decisions.md` section 5. A unique index on `(project_id, lower(email))`, which also serves "every invite for this project" because `project_id` leads |
 | `017_add_project_delete_mode.sql` | `deletion_scheduled_at` on `projects`, holding when the project will be removed rather than when deletion began. Both views re-created to exclude anything in a project being deleted, which is how six writers started refusing without being edited. `setTaskDueDate` was meant to be a seventh and was not, because it filtered `tasks` directly — fixed 2026-10-03 |
 | `018_add_account_deletion.sql` | `deletion_scheduled_at` on `users`, with the same meaning as on `projects`: when the account will be removed, empty while it is active. Step 4b |
+| `019_create_routines.sql` | `routines` — owner, name, the weekdays it is scheduled on as an `integer[]` checked to hold only 1 to 7 — and `completions`, keyed on `(routine_id, done_on)` so a day can be done only once. Both cascade, from the user down. And the view `user_today`, the one place that says what today is for each user. Step 4c |
 
 Three of them are worth reading for the pattern, not just the columns.
 
@@ -949,6 +951,11 @@ statement, which is atomic for free.
 | `deleteAccount(userId)` | thirty days on the account and on every project it still leads; ends its memberships elsewhere | not found, or already being deleted |
 | `reopenAccount(userId)` | clears the account's date, and the date on every project it still leads that is inside its window | not found, or past its date |
 | `purgeDeletedAccounts()` | removes every account past its date that no longer leads a project; returns `{ purged }` | — |
+| `createRoutine({ userId, name, weekdays })` | a routine for its owner, on the given weekdays (1 Monday to 7 Sunday) | blank name; no days; a day outside 1–7 (`23514`) |
+| `listRoutines(userId)` | the owner's routines, oldest first, each with `due_today` and `done_today` | — |
+| `completeRoutine({ routineId, userId })` | records today, on the owner's calendar, and returns `{ doneOn }`; a second completion that day does nothing | not the owner's routine, or no such routine |
+| `undoCompletion({ routineId, userId })` | removes today's completion only | nothing completed today |
+| `getStreak({ routineId, userId })` | fetches today, the start day, the weekdays and the log, and hands them to `countStreak` | not the owner's routine, or no such routine |
 
 Three helpers are not exported: `refuseUnlessCurrentMember`, the assignee rule;
 `refuseIfProjectIsBeingDeleted`, which takes `for share` so many writers can hold a project row at
@@ -1047,11 +1054,31 @@ Both exist to look at the data before there is a frontend, and are meant to be d
 **`npm run purge`** calls `purgeDeletedProjects` and then `purgeDeletedAccounts` against
 **taskco_dev**, and prints how many of each it removed. A project or account past its deletion date
 is already gone from every answer the app gives; the purge only removes the rows. The cascades take
-a project's memberships, tasks, subtasks and invites, and an account's memberships and the invites
-it sent. Projects go first because the account purge skips anyone who still leads one.
+a project's memberships, tasks, subtasks and invites, and an account's memberships, the invites it
+sent, and its routines with their completions. Projects go first because the account purge skips
+anyone who still leads one.
 
 Unlike `seed.ts` and `preview.ts` it is not throwaway. It is the hand-run trigger until a server, or
 the host's scheduler, calls the same function. Reasoning in `design-decisions.md`, section 6.
+
+## `src/streak.ts`
+
+**`countStreak({ today, started, weekdays, doneOn })`** — the five streak rules from
+`design-decisions.md` section 9, as a pure function: plain values in, a number out, no database.
+It walks back one day at a time from `today` to `started`, skips days the routine is not scheduled
+on, adds one for each scheduled day that was done, and stops at the first scheduled day that was
+missed — unless that day is today, which is still open.
+
+Dates go in and out as `"2026-10-08"` labels, compared as text. Its two private helpers turn a label
+into a UTC moment only to step back a day or read the weekday, then straight back into a label: UTC
+has no daylight saving, so a day there is always 24 hours. `getUTCDay` numbers Sunday 0, so
+`isoWeekday` makes it 7, to match the routine's numbering.
+
+`getStreak` in `queries.ts` is its only caller. The tests in `streak.test.ts` call it directly, with
+fixed October 2026 dates, one test per rule.
+
+**Open** — `weekday-numbering-written-twice`: `isoWeekday` here and `extract(isodow …)` in
+`listRoutines` answer the same question in two places.
 
 ---
 
@@ -1140,12 +1167,36 @@ Nothing references `subtasks`, which is what keeps nesting to one level.
 Index: `invites_one_per_project_email_idx`, unique, on `(project_id, lower(email))`. No role and no
 status column: a row existing is the invite pending.
 
+### `routines`
+
+| Column | Type | Rules |
+|---|---|---|
+| `id` | bigint | identity, primary key |
+| `user_id` | bigint | not null, → `users(id)`, on delete cascade |
+| `name` | text | not null, non-blank |
+| `weekdays` | integer[] | not null; at least one day, and only 1 (Monday) to 7 (Sunday) |
+| `created_at` | timestamptz | not null, defaults to `now()`; on the owner's calendar, it is the day a streak can start |
+
+Index: `routines_user_id_idx` on `(user_id)`.
+
+### `completions`
+
+| Column | Type | Rules |
+|---|---|---|
+| `routine_id` | bigint | not null, → `routines(id)`, on delete cascade |
+| `done_on` | date | not null — the owner's calendar day, set by the server |
+| `created_at` | timestamptz | not null, defaults to `now()` |
+
+Primary key `(routine_id, done_on)`, and no `id`: the pair is the row's identity, and it is what
+makes a day impossible to record twice.
+
 ### Views
 
 | View | Shows |
 |---|---|
 | `visible_tasks` | every column of `tasks`, for rows where `deleted_at is null` and the project has no `deletion_scheduled_at` |
 | `visible_subtasks` | every column of `subtasks`, for rows where `deleted_at is null` and the project, through the task, has no `deletion_scheduled_at`. It does not check whether the task itself is deleted — readers join `visible_tasks` for that |
+| `user_today` | `user_id` and `today` for every user — `(now() at time zone timezone)::date`. Fresh on every read, so it changes with nothing written. A timezone Postgres does not recognise makes it fail for that user |
 
 ### `schema_migrations`
 
@@ -1163,6 +1214,8 @@ Five characters, stable across versions — which is why tests assert the code a
 | `23514` | check violation | blank project name or title, a status or priority not on its list, blank notes |
 | `23503` | foreign key violation | a task in a project that does not exist |
 | `23502` | not-null violation | every new task, between adding `position` and `createTask` supplying one |
+| `22003` | number out of range | a task position past 2,147,483,647, before moves and creates learned to renumber |
+| `22023` | invalid parameter value | `time zone "Mars/Olympus" not recognized`, reading `user_today` for a user whose timezone is not real |
 
 Several rules can raise the same code. The error's `constraint` field names the one that did.
 

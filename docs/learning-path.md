@@ -1,9 +1,9 @@
 # Taskco — Learning path
 
-**Current step:** 4b complete on 2026-10-08 on branch `step-4b` — transfer of leadership and
-account deletion, one migration, one hundred and twenty-eight tests in seven files — and reviewed
-the same day in [`step-4b-review.md`](./step-4b-review.md), whose two items worth fixing are fixed —
-one hundred and thirty tests. Not yet merged; merging comes next. After that, step 4c — routines.
+**Current step:** 4c complete on 2026-10-08 on branch `step-4c` — routines, completions and
+streaks, one migration, one hundred and forty-six tests in nine files — not yet merged. Step 4b is
+merged into `main`. Next is the step 4c checkpoint review, on the branch, then merging. After that,
+step 5 — the HTTP layer.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -562,4 +562,43 @@ JavaScript `Date` keeps milliseconds and Postgres keeps microseconds, so compari
 JavaScript can call different dates equal — proven by moving one a microsecond and watching only the
 SQL comparison notice. And that moving tests in the same commit as a feature hides the new tests
 inside two thousand moved lines; a move wants its own commit, before the build.
+
+**After step 4b — the review and its two fixes.** Completed 2026-10-08, then merged into `main`.
+The checkpoint is [`step-4b-review.md`](./step-4b-review.md): five items, and for the first time
+every behaviour it claims was run against the database before it was written down. The worst: a
+project could be handed to an account being deleted, which the purge would then skip for ever.
+`transferLeadership` now refuses that, and the frozen-project decision has a test pinning it. The
+shuffled suite passed on three seeds, closing `test-independence-unproven` after a month open. One
+hundred and thirty tests.
+
+*Learned:* that a test which passes the first time is proven by breaking the code on purpose in the
+one way it exists to catch — and that the red from that experiment is the success, not a failure.
+That when a row a statement is waiting on changes, Postgres checks it against the `where` clause
+again, which is how a transfer racing another transfer comes back as "project not found". That the
+type check and the tests answer different questions, so the cheaper one runs first. And that a merge
+nobody watched succeed may not have happened: `git switch main` twice left step 4b off `main` until
+`git log` said so.
+
+**Step 4c — Routines.** Completed 2026-10-08 on branch `step-4c`, in two commits. Migration `019`:
+`routines`, with the weekdays they are scheduled on, and `completions`, one row per routine per day
+by primary key, both going with the account; and the view `user_today`, the one place that says what
+today is for each user. `createRoutine`, `listRoutines` with "due today" and "done today",
+`completeRoutine`, which takes no date and returns the one it used, and `undoCompletion`, for today
+only. Streaks follow five rules agreed before a line was written, in `countStreak`, a pure function
+in `src/streak.ts` that `getStreak` feeds. One hundred and forty-six tests in nine files; one open
+item closed and three logged.
+
+*Changed decisions:* the recurrence rule is a set of weekdays; the server dates every completion;
+completing twice does nothing; the five streak rules; and the streak computed by a function that
+never touches the database. All in `design-decisions.md`, section 9, with the new view in section 8.
+
+*Learned, in the order the step met them:* that a column can hold a list, and `<@` asks whether one
+list sits inside another. That a primary key can be two columns, when the pair is what identifies the
+row. That a view can hold a rule about time — `user_today` changes at each user's midnight with
+nothing written. That two users twenty-five hours apart can never share a calendar day, which makes a
+timezone test that cannot pass by luck. That `on conflict do nothing` turns a second tap into nothing
+rather than an error. That a rule written as a pure function can be tested with fixed dates, on any
+day. That date arithmetic on a label belongs in UTC, where every day is twenty-four hours. And that
+`timezone-accepts-any-text`, logged in slice A as a lie about data, became a real failure the moment
+something converted through the timezone.
 

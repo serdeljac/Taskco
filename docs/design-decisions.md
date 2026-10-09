@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
-**Status:** design complete, stack chosen, slices A, B and C built, each with its review done, and
-step 4b built. Last updated 2026-10-08.
+**Status:** design complete, stack chosen, slices A, B and C and step 4b built, each with its review
+done, and step 4c built. Last updated 2026-10-08.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -644,6 +644,12 @@ one rule behind three separate questions:
 Streaks are the sensitive one — a streak that resets at the server's midnight instead of the user's
 breaks at 7pm, and users read that as the app being broken.
 
+**The rule has one home**, built in step 4c: a view, `user_today`, giving every user's today as
+`(now() at time zone timezone)::date`. It is the same move as `visible_tasks` — one place decides,
+and every query reads through it — with one difference worth noticing: this view's answer changes
+with nothing written, because a view stores no rows and `now()` is fresh on every read. The subtask
+and overdue questions above can read through it when they are built.
+
 ---
 
 ## 9. Daily routines
@@ -685,6 +691,38 @@ whether it is available.
 *Accepted consequence:* this does not remove recurrence from projects permanently. "Weekly status
 report" is real recurring project work. If it comes up, the materialize-versus-rule question
 returns — and deferring it is only cheap until recurring project data exists.
+
+**Built in step 4c**, 2026-10-08. Decisions made while building it:
+
+- **The recurrence rule is a set of weekdays**, numbered 1 for Monday to 7 for Sunday — the ISO
+  numbering Postgres's `isodow` uses — stored as an `integer[]` with a check that it is non-empty
+  and holds only 1 to 7. That covers "every day", "weekdays" and "Mon/Wed/Fri". *Not covered:*
+  "every other day" or "monthly", which need a start date and an interval, and can arrive as a
+  second kind of rule if they are ever wanted.
+- **One completion per routine per day is a lock**: `completions` has no id of its own, and its
+  primary key is `(routine_id, done_on)`.
+- **The server dates a completion**, as today on the owner's calendar. The client says "done", never
+  when — section 13's rule about time. There is no backdating. Completing twice in a day does
+  nothing the second time, and undo removes only today's completion; yesterday is history.
+- **"Due today" and "done today" are both derived on every read**, from the weekdays and the log.
+  Nothing is reset at midnight, as this section promised.
+- **A streak follows five rules**, agreed 2026-10-08: it is the run of consecutive *scheduled* days,
+  counting back from today, on which the routine was done; unscheduled days neither count nor break
+  it, so a weekday routine survives the weekend; today does not break it until today is over; the
+  count stops at the day the routine was created; and a completion on an unscheduled day is kept but
+  not counted.
+- **The streak is a pure function**, `countStreak` in `src/streak.ts`: plain values in, a number out,
+  no database. `getStreak` fetches its inputs. That split is what lets its tests use fixed dates and
+  give the same answer on any day — a rule tested against the real clock is a rule tested on
+  whatever day the suite happens to run.
+- **Routines go with the account.** Their foreign key to `users` cascades, and completions cascade
+  from routines, so the account purge takes both — section 6's "routines are purged with the
+  account".
+
+*Accepted cost:* a streak is computed with the routine's *current* days and the owner's *current*
+timezone, across its whole history. Nothing can change the days yet, so the first cannot happen;
+the second can, and section 8 already chose it — the timezone lives on the user and is never copied
+onto anything, completions included.
 
 ## 10. Notifications
 
@@ -805,6 +843,8 @@ The reusable part. These outlast this app.
   facts. Fewer moving parts, nothing to fall out of sync.
 - **A job that only removes what every answer already treats as gone is cleanup, not state.**
   Derive the answer first; then a late or missed run costs disk space, never correctness.
+- **Separate the rule from the fetching.** A rule that takes plain values can be tested with fixed
+  inputs, on any day; the query that feeds it only has to fetch them.
 - **Prefer adding a fact over destroying one.** Destroyed information is the only mistake that is
   not a migration.
 - **When several features need the same underlying operation, build the operation once.** Writing
