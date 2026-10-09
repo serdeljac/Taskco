@@ -2,8 +2,8 @@
 
 **Current step:** 4b complete on 2026-10-08 on branch `step-4b` — transfer of leadership and
 account deletion, one migration, one hundred and twenty-eight tests in seven files — and reviewed
-the same day in [`step-4b-review.md`](./step-4b-review.md). Not yet merged: the review's two items
-worth fixing come first, then merging. After that, step 4c — routines.
+the same day in [`step-4b-review.md`](./step-4b-review.md), whose two items worth fixing are fixed —
+one hundred and thirty tests. Not yet merged; merging comes next. After that, step 4c — routines.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
