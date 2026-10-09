@@ -173,4 +173,25 @@ describe("users", () => {
         expect(purged).toBe(0);
         expect(leads.rowCount).toBe(1);
     });
+
+    it("ends an account's membership even in a project being deleted", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: ana.id, role: "associate" });
+
+        //TEST
+        await deleteProject(project.id);
+        await deleteAccount(ana.id);
+
+        const membership = await pool.query<{ ended: boolean }>(
+            `select ended_at is not null as ended
+            from memberships
+            where project_id = $1 and user_id = $2`,
+            [project.id, ana.id]
+        );
+
+        expect(membership.rows).toEqual([{ ended: true }]);
+    });
 });

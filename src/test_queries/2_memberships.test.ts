@@ -12,6 +12,7 @@ import {
     listTasks,
     deleteProject,
     transferLeadership,
+    deleteAccount,
 } from "../queries.js";
 
 
@@ -396,6 +397,33 @@ describe("memberships", () => {
         await expect(
             transferLeadership({ projectId: project.id, toUserId: ana.id, outgoing: "stay" })
         ).rejects.toMatchObject({ message: "the project is being deleted" });
+
+        const roles = await pool.query<{ user_id: string; role: string }>(
+            `select user_id, role from memberships
+            where project_id = $1 and ended_at is null
+            order by user_id`,
+            [project.id]
+        );
+
+        expect(roles.rows).toEqual([
+            { user_id: lead.id, role: "lead" },
+            { user_id: ana.id, role: "associate" },
+        ]);
+    });
+
+    it("refuses to hand leadership to an account being deleted", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        //TEST
+        await deleteAccount(ana.id);
+        await addMember({ projectId: project.id, userId: ana.id, role: "associate" });
+
+        await expect(
+            transferLeadership({ projectId: project.id, toUserId: ana.id, outgoing: "stay" })
+        ).rejects.toMatchObject({ message: "transferLeadership: the new Lead's account is being deleted" });
 
         const roles = await pool.query<{ user_id: string; role: string }>(
             `select user_id, role from memberships

@@ -268,12 +268,14 @@ export async function transferLeadership(transfer: {
             throw new Error("transferLeadership: project not found");
         }
 
-        const next = await client.query<{ id: string; role: Role }>(
-            `select id, role from memberships
-            where project_id = $1
-            and user_id = $2
-            and ended_at is null
-            for update`,
+        const next = await client.query<{ id: string; role: Role; leaving: boolean }>(
+            `select m.id, m.role, u.deletion_scheduled_at is not null as leaving
+            from memberships m
+            join users u on u.id = m.user_id
+            where m.project_id = $1
+            and m.user_id = $2
+            and m.ended_at is null
+            for update of m`,
             [transfer.projectId, transfer.toUserId]
         );
 
@@ -281,6 +283,10 @@ export async function transferLeadership(transfer: {
 
         if (!recipient) {
             throw new Error("transferLeadership: the new Lead must be a current member of the project");
+        }
+
+        if (recipient.leaving) {
+            throw new Error("transferLeadership: the new Lead's account is being deleted");
         }
 
         if (recipient.role === "lead") {
