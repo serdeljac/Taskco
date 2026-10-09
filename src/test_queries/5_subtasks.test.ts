@@ -378,6 +378,27 @@ describe("subtasks", () => {
         });
     });
 
+    it("refuses a subtask deleted in the future", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        //TEST
+        await expect(
+            pool.query(
+                `update subtasks
+                set deleted_at = now() + interval '1 day'
+                where id = $1`,
+                [subtask.id]
+            )
+        ).rejects.toMatchObject({
+            code: "23514",
+            constraint: "subtasks_deleted_not_in_future",
+        });
+    });
+
     it("gives a new subtask the same assignee as its task", async () => {
         //CREATE
         const lead = await createUser("lead@example.com", "Europe/Zagreb");

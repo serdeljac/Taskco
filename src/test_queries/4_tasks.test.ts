@@ -455,6 +455,26 @@ describe("4_tasks", () => {
         });
     });
 
+    it("refuses a task deleted in the future", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        //TEST
+        await expect(
+            pool.query(
+                `update tasks
+                set deleted_at = now() + interval '1 day'
+                where id = $1`,
+                [task.id]
+            )
+        ).rejects.toMatchObject({
+            code: "23514",
+            constraint: "tasks_deleted_not_in_future",
+        });
+    });
+
     it("assigns a task to a member of its own project", async () => {
         //CCREATE
         const lead = await createUser("lead@example.com", "Europe/Zagreb");

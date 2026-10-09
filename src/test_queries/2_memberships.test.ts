@@ -128,6 +128,27 @@ describe("memberships", () => {
         });
     });
 
+    it("refuses a membership that ends in the future", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const other = await createUser("other@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await addMember({ projectId: project.id, userId: other.id, role: "associate" });
+
+        //TEST
+        await expect(
+            pool.query(
+                `update memberships
+                set ended_at = now() + interval '1 day'
+                where user_id = $1`,
+                [other.id]
+            )
+        ).rejects.toMatchObject({
+            code: "23514",
+            constraint: "memberships_ended_not_in_future",
+        });
+    });
+
     it("takes memberships, tasks and subtasks with it when a project is truly deleted", async () => {
         //CREATE
         const lead = await createUser("lead@example.com", "Europe/Zagreb");

@@ -38,6 +38,13 @@ describe("users", () => {
         ).rejects.toMatchObject({ code: "23505" });
     });
 
+    it("refuses a timezone Postgres does not know", async () => {
+        //TEST
+        await expect(
+            createUser("mars@example.com", "Mars/Olympus")
+        ).rejects.toMatchObject({ code: "23514", constraint: "users_timezone_known" });
+    });
+
     it("puts the projects an account leads into delete mode, on the account's date", async () => {
         //CREATE
         const lead = await createUser("lead@example.com", "Europe/Zagreb");
@@ -194,4 +201,5 @@ describe("users", () => {
 
         expect(membership.rows).toEqual([{ ended: true }]);
     });
+    
 });
