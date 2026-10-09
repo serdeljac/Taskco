@@ -27,6 +27,7 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `npm run migrate:test` | Applies pending migrations to **taskco_test** |
 | `npm test` | Runs the test suite once |
 | `npx vitest run -t "second lead"` | Runs only the tests whose name contains that text |
+| `npx vitest run src/test_queries/1_users.test.ts` | Runs one test file |
 | `npx vitest list` | Shows which tests exist, without running them |
 | `npx vitest run --sequence.shuffle` | Random order, to prove the tests are independent |
 | `npx vitest` | Watch mode — re-runs on save |
@@ -37,7 +38,7 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `npm run preview` | Writes `preview.html` from **taskco_dev**, as user 1 sees it |
 | `npx tsx src/preview.ts 2` | The same page, as user 2 sees it |
 | `Invoke-Item preview.html` | Opens the page in your browser |
-| `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it |
+| `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it, then every account past its date that no longer leads a project |
 
 **Every new migration needs both migrate commands.** Nothing does this for you.
 
@@ -634,10 +635,17 @@ Runs **per test file**, not per test.
   Setting `isolate: false` for speed would make files share a pool, and the first to finish would
   close it underneath the others.
 
-## `src/queries.test.ts`
+## The slice A tests — now in `src/test_queries`
 
-This section covers slice A's ten tests. The file has since grown to 53 tests in five groups; the
-task and subtask tests are listed under step 3.
+*Moved 2026-10-08.* The tests used to live in one file, `src/queries.test.ts`. They are now split
+into `src/test_queries`, one file per table — `1_users`, `2_memberships`, `3_projects`, `4_tasks`,
+`5_subtasks`, `6_invites`, plus `guard.test.ts` — so a test's group is also its file. The numbers
+are for reading order only: Vitest decides the order files run in, which is safe because every test
+empties the tables first. Each test is laid out in two parts, `//CREATE` for the setup and `//TEST`
+for the act and the checks. 128 tests in all on 2026-10-08.
+
+This section covers slice A's ten tests; the task and subtask tests are listed under step 3. The
+listing below shows the groups as slice A left them — the email test has since moved to `users`.
 
 Of slice A's ten, **six assert that something is refused**, which is the unusual and valuable half.
 
@@ -763,7 +771,9 @@ catch; a function that returns `true` or `false` can be asserted.
 - An address that is not a valid URL makes `new URL` throw, so the tests stop with "Invalid URL"
   rather than the guard's message. They still refuse to run, which is the part that matters.
 
-## `src/testing/guard.test.ts`
+## `src/test_queries/guard.test.ts`
+
+*Moved 2026-10-08* from `src/testing`, with the other test files; it imports `../testing/guard.js`.
 
 ```
 isTestDatabase
@@ -808,7 +818,7 @@ Tasks and subtasks, with status, priority, due dates, soft deletion, manual orde
 one idea per piece, with each migration applied to both databases. The checkpoint is
 [`slice-b-review.md`](./slice-b-review.md).
 
-## Migrations 007–017
+## Migrations 007–018
 
 | File | What it adds |
 |---|---|
@@ -823,6 +833,7 @@ one idea per piece, with each migration applied to both databases. The checkpoin
 | `015_add_task_assignee.sql` | `assignee_membership_id` on both tables. A composite foreign key ties a task's assignee to a membership in the task's own project, which needs a redundant-looking unique constraint on `memberships (id, project_id)`; `on delete set null` takes a column list so it empties only the assignee. Subtasks get a plain reference, having no `project_id` to pair. Both views re-created |
 | `016_create_invites.sql` | `invites`: project, email, sender, created, expires. No role and no status — see `design-decisions.md` section 5. A unique index on `(project_id, lower(email))`, which also serves "every invite for this project" because `project_id` leads |
 | `017_add_project_delete_mode.sql` | `deletion_scheduled_at` on `projects`, holding when the project will be removed rather than when deletion began. Both views re-created to exclude anything in a project being deleted, which is how six writers started refusing without being edited. `setTaskDueDate` was meant to be a seventh and was not, because it filtered `tasks` directly — fixed 2026-10-03 |
+| `018_add_account_deletion.sql` | `deletion_scheduled_at` on `users`, with the same meaning as on `projects`: when the account will be removed, empty while it is active. Step 4b |
 
 Three of them are worth reading for the pattern, not just the columns.
 
@@ -917,9 +928,36 @@ Not in the review:
   its task — but the count is what the Lead's confirmation shows, and it would include subtasks the
   Lead cannot see. Nothing soft-deletes a subtask yet, so it cannot happen today.
 
-## `src/queries.test.ts` — the slice B tests
+## `src/queries.ts` — the slice C and step 4b functions
 
-53 tests in the file — `users` 1, `projects` 4, `memberships` 5, `tasks` 26, `subtasks` 17 — plus 3 in
+The same summary, for what came after. Every one runs in a transaction unless it is a single
+statement, which is atomic for free.
+
+| Function | What it does | Refuses when |
+|---|---|---|
+| `setTaskAssignee({ taskId, membershipId })` | sets or empties a task's assignee | task missing, deleted, or in a project being deleted; assignee not a current member of the task's project |
+| `setSubtaskAssignee({ subtaskId, membershipId })` | the same for a subtask — the project check is code only | the same |
+| `createInvite({ projectId, email, invitedByUserId })` | replaces any earlier invite to that address, expires three days out | project being deleted; no account with that address ("No email found"); already a member |
+| `acceptInvite({ inviteId, userId })` | makes the recipient an associate and destroys the invite | not theirs, or gone ("invite not found"); expired; project being deleted; already a member |
+| `declineInvite({ inviteId, userId })` | destroys the invite | not theirs, or gone |
+| `listInvitesForUser(userId)` | the unexpired invites addressed to the user, oldest first | — |
+| `deleteProject(projectId)` | delete mode for thirty days; returns `{ scheduledFor }` | not found, or already being deleted |
+| `restoreProject(projectId)` | takes a project out of delete mode | not found, past its date, or its Lead's account is being deleted |
+| `deleteProjectNow(projectId)` | removes the project and everything under it | not found, or already in delete mode |
+| `purgeDeletedProjects()` | removes every project past its date; returns `{ purged }` | — |
+| `transferLeadership({ projectId, toUserId, outgoing })` | demotes the Lead, then promotes a member; `"leave"` also ends the old Lead's membership | project being deleted, or not found; recipient not a current member, or already the Lead |
+| `deleteAccount(userId)` | thirty days on the account and on every project it still leads; ends its memberships elsewhere | not found, or already being deleted |
+| `reopenAccount(userId)` | clears the account's date, and the date on every project it still leads that is inside its window | not found, or past its date |
+| `purgeDeletedAccounts()` | removes every account past its date that no longer leads a project; returns `{ purged }` | — |
+
+Three helpers are not exported: `refuseUnlessCurrentMember`, the assignee rule;
+`refuseIfProjectIsBeingDeleted`, which takes `for share` so many writers can hold a project row at
+once; and `endMembership`, the one way a membership ends, which takes the caller's client so it can
+only run inside the caller's transaction.
+
+## The slice B tests — now in `src/test_queries`
+
+When slice B ended there were 53 tests in the file — `users` 1, `projects` 4, `memberships` 5, `tasks` 26, `subtasks` 17 — plus 3 in
 `guard.test.ts`, for 56 in all.
 
 ```
@@ -1006,10 +1044,11 @@ Both exist to look at the data before there is a frontend, and are meant to be d
 
 ## `src/purge.ts`
 
-**`npm run purge`** calls `purgeDeletedProjects` once against **taskco_dev** and prints how many
-projects it removed. A project past its deletion date is already gone from every answer the app
-gives; the purge only removes the rows, and the cascades take its memberships, tasks, subtasks and
-invites.
+**`npm run purge`** calls `purgeDeletedProjects` and then `purgeDeletedAccounts` against
+**taskco_dev**, and prints how many of each it removed. A project or account past its deletion date
+is already gone from every answer the app gives; the purge only removes the rows. The cascades take
+a project's memberships, tasks, subtasks and invites, and an account's memberships and the invites
+it sent. Projects go first because the account purge skips anyone who still leads one.
 
 Unlike `seed.ts` and `preview.ts` it is not throwaway. It is the hand-run trigger until a server, or
 the host's scheduler, calls the same function. Reasoning in `design-decisions.md`, section 6.
@@ -1031,6 +1070,7 @@ Two databases, both owned by `taskco_app`, a role with no privileges beyond logi
 | `email` | text | not null, non-blank, unique on `lower(email)` |
 | `timezone` | text | not null, non-blank |
 | `created_at` | timestamptz | not null, defaults to `now()` |
+| `deletion_scheduled_at` | timestamptz | nullable — **empty means active**; otherwise when the account will be removed |
 
 ### `projects`
 
@@ -1039,6 +1079,7 @@ Two databases, both owned by `taskco_app`, a role with no privileges beyond logi
 | `id` | bigint | identity, primary key |
 | `name` | text | not null, non-blank |
 | `created_at` | timestamptz | not null, defaults to `now()` |
+| `deletion_scheduled_at` | timestamptz | nullable — **empty means not being deleted**; past it, the project is gone |
 
 ### `memberships`
 
@@ -1049,11 +1090,13 @@ Two databases, both owned by `taskco_app`, a role with no privileges beyond logi
 | `project_id` | bigint | not null, → `projects(id)`, on delete cascade |
 | `role` | text | not null, `'lead'` or `'associate'` |
 | `created_at` | timestamptz | not null, defaults to `now()` |
-| `ended_at` | timestamptz | nullable — **null means still a member** |
+| `ended_at` | timestamptz | nullable — **null means still a member**; not before `created_at` |
 
 Indexes: `memberships_user_id_idx` on `(user_id)`; `memberships_one_active_idx`, unique, on
 `(user_id, project_id) where ended_at is null`; `memberships_one_lead_idx`, unique, on
-`(project_id) where role = 'lead' and ended_at is null`.
+`(project_id) where role = 'lead' and ended_at is null`. Constraint `memberships_id_project_key`,
+unique on `(id, project_id)` — redundant as a rule, and there only so the task assignee's composite
+foreign key has something to point at.
 
 ### `tasks`
 
@@ -1068,7 +1111,8 @@ Indexes: `memberships_user_id_idx` on `(user_id)`; `memberships_one_active_idx`,
 | `notes` | text | nullable, non-blank |
 | `position` | integer | not null |
 | `created_at` | timestamptz | not null, defaults to `now()` |
-| `deleted_at` | timestamptz | nullable — **empty means not deleted** |
+| `deleted_at` | timestamptz | nullable — **empty means not deleted**; not before `created_at` |
+| `assignee_membership_id` | bigint | nullable — **empty means nobody**; `(assignee_membership_id, project_id)` → `memberships(id, project_id)`, on delete set null for the assignee only |
 
 Index: `tasks_project_id_idx` on `(project_id)`.
 
@@ -1077,14 +1121,31 @@ Index: `tasks_project_id_idx` on `(project_id)`.
 The same columns and rules as `tasks`, with **`task_id`** bigint, not null, → `tasks(id)`, on delete
 cascade, in place of `project_id`. Index: `subtasks_task_id_idx` on `(task_id)`.
 
+Its `assignee_membership_id` is a plain reference → `memberships(id)`, on delete set null. A subtask
+has no `project_id` to pair with, so "in the task's project" is checked in code only.
+
 Nothing references `subtasks`, which is what keeps nesting to one level.
+
+### `invites`
+
+| Column | Type | Rules |
+|---|---|---|
+| `id` | bigint | identity, primary key |
+| `project_id` | bigint | not null, → `projects(id)`, on delete cascade |
+| `email` | text | not null, non-blank; stored as typed, compared lowered |
+| `invited_by_user_id` | bigint | not null, → `users(id)`, on delete cascade |
+| `created_at` | timestamptz | not null, defaults to `now()` |
+| `expires_at` | timestamptz | not null, after `created_at` |
+
+Index: `invites_one_per_project_email_idx`, unique, on `(project_id, lower(email))`. No role and no
+status column: a row existing is the invite pending.
 
 ### Views
 
 | View | Shows |
 |---|---|
-| `visible_tasks` | every column of `tasks`, for rows where `deleted_at is null` |
-| `visible_subtasks` | every column of `subtasks`, for rows where `deleted_at is null` |
+| `visible_tasks` | every column of `tasks`, for rows where `deleted_at is null` and the project has no `deletion_scheduled_at` |
+| `visible_subtasks` | every column of `subtasks`, for rows where `deleted_at is null` and the project, through the task, has no `deletion_scheduled_at`. It does not check whether the task itself is deleted — readers join `visible_tasks` for that |
 
 ### `schema_migrations`
 

@@ -53,6 +53,7 @@ becomes a decision; an item here becomes a commit.
 | `email-lookup-must-lowercase` | The `lower(email)` index is only used by queries written `where lower(email) = lower($1)`, and nothing enforces that | [A §1](./slice-a-review.md) | Partly — `createInvite` is the first such lookup and does it correctly. Step 6's login is the next one, and would silently fail to find a real account if it forgot |
 | `timezone-accepts-any-text` | `Mars/Olympus` inserts happily, and Postgres already knows the real names in `pg_timezone_names` | [A §1](./slice-a-review.md), [B](./slice-b-review.md) | Open |
 | `email-has-no-format-or-length-limit` | Zod covers the boundary at step 5; the database stays open to any other caller | [reference, 002](./reference.md) | Open |
+| `deactivated-accounts-can-still-be-invited-or-added` | Nothing reads `users.deletion_scheduled_at` except `restoreProject`, `reopenAccount` and the purge. So `createInvite` still finds an account being deleted, `addMember` still adds it, and `acceptInvite` still lets it join — a membership the purge then removes thirty days later | Doc pass, 2026-10-08 — this row is the record | Open — needs deciding: treat it as "No email found", or let the act reopen the account. Step 6's login is where it meets a real person |
 
 ### `projects` — migration 003
 
@@ -69,9 +70,9 @@ becomes a decision; an item here becomes a commit.
 | `unacceptable-invites-are-still-listed` | `listInvitesForUser` does not exclude projects being deleted, nor invites whose recipient has since been added directly, so a user is shown an invite that acceptance will refuse | [C](./slice-c-review.md) | Open |
 | `delete-mode-helper-passes-unknown-projects` | `refuseIfProjectIsBeingDeleted` reads `rows[0]?.deletion_scheduled_at`, so a project that does not exist is falsy and passes. The write then fails later on a foreign key | [C](./slice-c-review.md) | Open |
 | `delete-now-refusal-untested` | `deleteProjectNow` refuses a project already in delete mode, and no test says so | [C](./slice-c-review.md) | Open |
-| `restore-ignores-the-leads-account` | Section 6 allows undo only while the Lead's account is active, and accounts cannot be deactivated yet | [C](./slice-c-review.md) | Open — step 4b |
 | `views-now-join-projects-on-every-read` | `visible_tasks` joins `projects` and `visible_subtasks` joins `tasks` and `projects`, on every read of either | [C](./slice-c-review.md) | Open — the price of the rule holding itself |
 | `expired-invites-are-never-removed` | Nothing deletes an expired invite except a re-invite to the same address, so dead rows accumulate | [C](./slice-c-review.md) | Open — belongs with purging, design section 12, and `purgeDeletedProjects` is the natural place for it |
+| `transfer-notifies-nobody` | Section 6 says the new Lead is notified. There are no notifications; the durable signal, their role in the members list, is already right | [design §6](./design-decisions.md) | Open — step 5 |
 | `delete-mode-notifies-nobody` | Section 6 says members get a notification of the project's status, telling them to contact the Lead | [C](./slice-c-review.md) | Open — step 5 |
 | `invites-email-lookup-unindexed` | `listInvitesForUser` joins on `lower(email)`, which no index covers: the unique index on `invites` leads with `project_id`, so it cannot help. An index on `lower(email)` would | [reference, `src/queries.ts`](./reference.md) | Open — add it when the table is big enough to care, the same rule as `no-index-on-project-id` |
 | `no-index-on-project-id` | "Who is in this project" scans the table, and the composite index cannot help because an index is only usable from its leading column | [A §3](./slice-a-review.md) | Open — add when a member list needs it |
@@ -108,13 +109,12 @@ becomes a decision; an item here becomes a commit.
 
 | Name | What | Explained in | Status |
 |---|---|---|---|
-| `email-test-in-wrong-describe` | A users test sits under `projects`, and the describe path is what you read when something fails | [A §6](./slice-a-review.md) | Open |
-| `test-grouping-axis-inconsistent` | `users` and `projects` are tables, but `memberships` holds tests that are really about `listProjectsForUser` | [A §6](./slice-a-review.md) | Open |
+| `test-grouping-axis-inconsistent` | `users` and `projects` are tables, but `memberships` holds tests that are really about `listProjectsForUser` | [A §6](./slice-a-review.md) | Partly — since 2026-10-08 the tests sit in `src/test_queries`, one file per table, but `2_memberships.test.ts` still holds `listProjectsForUser`, the hard-delete cascade and the task assignee tests |
 | `test-independence-unproven` | Independence is assumed by construction; `npx vitest run --sequence.shuffle` would demonstrate it | [A §6](./slice-a-review.md) | Open |
 | `tests-only-exercise-queries-ts` | Every test goes through the functions that hold the signs, which is exactly what makes a sign look like a lock from inside the suite | [B §6](./slice-b-review.md) | Open |
 | `env-config-result-discarded` | A missing `.env.test` surfaces as a different complaint than the one that actually happened | [reference, `src/testing/env.ts`](./reference.md) | Open |
 | `truncate-misses-unreferenced-tables` | `cascade` follows foreign keys only, so a table referencing none of the three would survive. Nothing in the design is shaped that way | [reference, `src/testing/setup.ts`](./reference.md) | Open |
-| `pool-close-depends-on-file-isolation` | Setting `isolate: false` for speed would let the first file to finish close the pool underneath the others | [reference, `src/testing/setup.ts`](./reference.md) | Open |
+| `pool-close-depends-on-file-isolation` | Setting `isolate: false` for speed would let the first file to finish close the pool underneath the others — and there are seven files now, not two | [reference, `src/testing/setup.ts`](./reference.md) | Open |
 | `guard-throws-on-invalid-url` | A malformed address stops the run with "Invalid URL" rather than the guard's own message. It still refuses to run | [reference, `src/testing/guard.ts`](./reference.md) | Open |
 | `assignee-tests-set-what-is-already-there` | "assigns a task to a member of its own project" and "shows the assignee through visible_tasks" write the Lead's membership as the assignee, which `createTask` has set by default since `7acc1a3`, so their `update` changes nothing. Both still prove something — the first because `createTask`'s insert already passed the key, the second because the view must carry the column — but neither exercises the step it sets up. Assigning another member would | Code review, 2026-10-03 — no review file; this row is the record | Open |
 
@@ -122,15 +122,16 @@ becomes a decision; an item here becomes a commit.
 
 | Name | What | Explained in | Status |
 |---|---|---|---|
-| `explanations-still-in-comments` | `migrate.ts`, `queries.test.ts` and migrations 002 and 004 still carry the kind of notes `db.ts` shed. The two migrations are applied, so clearing theirs means editing an applied file | `ea5427c` | Open — the migrations need a decision first |
+| `explanations-still-in-comments` | `migrate.ts` and migrations 002 and 004 still carry the kind of notes `db.ts` shed. The two migrations are applied, so clearing theirs means editing an applied file | `ea5427c` | Partly — the test notes went when the tests moved to `src/test_queries`; the migrations need a decision first |
 
 ### Throwaway tools, and work not started
 
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `preview-queries-per-task` | `preview.ts` fetches subtasks with one query per task — fine for four, not for a page | [reference, `src/preview.ts`](./reference.md) | Open — deleted at step 7 |
-| `purge-runs-only-by-hand` | `purgeDeletedProjects` runs only when someone types `npm run purge`. Until something calls it on a schedule, a project past its date is gone from every answer but still on disk | [design §6](./design-decisions.md) | Waits for step 5, or for hosting |
-| `transfer-must-demote-before-promote` | `memberships_one_lead_idx` is checked as each row is written, not at commit, so transfer must demote before it promotes, inside one transaction | [reference, 006](./reference.md) | Waits for transfer |
+| `account-deletion-list-not-built` | Section 6 starts account deletion by showing every project the user leads, each with that project's other members to choose from. No query answers that yet; `transferLeadership` and `deleteAccount` are the writes it would drive | [design §6](./design-decisions.md) | Waits for step 5 |
+| `routines-must-cascade-with-the-account` | Section 6 purges routines with the account. When step 4c builds them, their foreign key to `users` needs `on delete cascade`, or `purgeDeletedAccounts` will be refused by the rows pointing at the account | [design §6](./design-decisions.md) | Waits for step 4c |
+| `purge-runs-only-by-hand` | `purgeDeletedProjects` and `purgeDeletedAccounts` run only when someone types `npm run purge`. Until something calls them on a schedule, a project or account past its date is gone from every answer but still on disk | [design §6](./design-decisions.md) | Waits for step 5, or for hosting |
 
 ---
 
@@ -154,6 +155,9 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `writes-outside-the-views-ignore-delete-mode` | [design §6](./design-decisions.md) | `createTask`, `removeMember` and `createInvite` call the helper; `deleteTask` reads through `visible_tasks`; `addMember` puts the condition in an `insert ... select ... where exists`, one statement with no gap |
 | `accept-can-collide-with-membership` | [C](./slice-c-review.md) | `acceptInvite` asks whether the recipient already holds an active membership, after the delete-mode check and before the insert, and refuses with a sentence. Two tests: the refusal, which failed first on the database's own duplicate-key message; and someone who left accepting a new invite, which goes red if `ended_at is null` is dropped from the check. A sign in front of a lock: a direct add landing between the check and the insert still raises `23505`, and the index keeps the data right either way. The refused invite stays, because a throw rolls the transaction back — see `unacceptable-invites-are-still-listed` |
 | `scheduled-deletion-never-happens` | [C](./slice-c-review.md) | Split in two, decided in design section 6. *Gone* is derived: past `deletion_scheduled_at`, `listProjectsForUser` drops the project for its Lead and `restoreProject` refuses it, both by testing `> now()`. *Removed* is `purgeDeletedProjects`, which deletes every project at `<= now()` and lets the cascades take the rest — its test is the first to prove invites go with their project. Run by hand for now; see `purge-runs-only-by-hand`. Four tests, each of which fails against the code before it |
+| `transfer-must-demote-before-promote` | [reference, 006](./reference.md) | `transferLeadership` locks the Lead's row and then the new Lead's, demotes, then promotes, inside one transaction. Swapping the two updates makes two tests fail with `23505` from `memberships_one_lead_idx`, which is exactly the trap this row recorded in slice A |
+| `restore-ignores-the-leads-account` | [C](./slice-c-review.md) | `restoreProject` adds a `not exists` for a current Lead whose account is being deleted, in the same statement as the write, reading the date migration `018` gave accounts. One test; it goes red if the condition is removed |
+| `email-test-in-wrong-describe` | [A §6](./slice-a-review.md) | Moved into `1_users.test.ts` when the tests were split into `src/test_queries`, one file per table |
 | `due-date-writer-ignores-delete-mode` | Code review, 2026-10-03, against [C §4](./slice-c-review.md) | `setTaskDueDate`'s `update` filtered `tasks` on `deleted_at is null`, so it went on changing dates — and clearing subtask dates past the new one — in a project being deleted. Slice B's review said it went through the view and slice C's counted it among the writers the view protected; neither had read the `where` clause. It now selects through `visible_tasks`, the shape `setTaskNotes` uses. One test, which fails against the old clause with the promise resolving `{ clearedSubtasks: 1 }` |
 | `writes-cannot-report-no-such-row` | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | `deleteTask` was the last writer that could not tell "done" from "no such row". It now throws on a row count of zero |
 | `deleted-task-still-editable` | [B §5](./slice-b-review.md) | `setSubtaskNotes` now requires its subtask's `task_id` to be among `visible_tasks`, and both notes writers throw on a row count of zero. Four tests, each seen failing first |

@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
-**Status:** design complete, stack chosen, slices A, B and C built, each with its review done. Last
-updated 2026-10-03.
+**Status:** design complete, stack chosen, slices A, B and C built, each with its review done, and
+step 4b built. Last updated 2026-10-08.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -59,7 +59,7 @@ Seven kinds of record:
 
 | Record | Belongs to | Notes |
 |---|---|---|
-| **User** | — | A person with an account. Holds their timezone. |
+| **User** | — | A person with an account. Holds their timezone, and while the account is being deleted, the date it will be removed. |
 | **Project** | — | Created by a user, who becomes Lead. |
 | **Membership** | user + project | One per person-per-project. Holds the role. Soft-deleted when it ends, so former members stay recoverable. |
 | **Task** | one project | |
@@ -264,6 +264,14 @@ commit, so transfer must demote the outgoing Lead before promoting the new one, 
 - The outgoing Lead chooses to **stay as an associate** or **leave the project**.
 - Other members' roles are unaffected.
 
+**Built in step 4b**, 2026-10-03, as `transferLeadership({ projectId, toUserId, outgoing })`. It
+takes no "from": it finds the current Lead itself, so a caller cannot name the wrong one, and a
+project with no Lead row is a project that does not exist. It locks the Lead's membership and then
+the new Lead's, demotes, then promotes — the order section 6 recorded in slice A, because the
+one-Lead index is checked as each row is written. `outgoing: "leave"` ends the old Lead's
+membership through the shared operation below, in the same transaction. Like every other change to
+a project's roles, it is refused while the project is being deleted.
+
 ### Removing a member
 One shared operation, called by every path that removes someone — a Lead removing an associate, a
 member leaving voluntarily, an outgoing Lead choosing to leave, or account deletion.
@@ -271,6 +279,11 @@ member leaving voluntarily, an outgoing Lead choosing to leave, or account delet
 - The membership is **soft-deleted**: the row is kept and the date it ended is recorded.
 - Any task or subtask they were assigned to has its assignee set to **None**.
 - This maintains the invariant: *an assignee must be a current member of the project.*
+
+**Built as `endMembership`**, 2026-10-03: a helper that takes the caller's client rather than the
+pool, so it can only run inside someone else's transaction — the same shape as `renumberTasks`.
+`removeMember` wraps it in a transaction and the delete-mode check; `transferLeadership` calls it
+when the outgoing Lead leaves; `deleteAccount` calls it for every membership elsewhere.
 
 ### Membership history
 Because memberships are soft-deleted rather than removed, "everyone who has ever been in this
@@ -364,6 +377,36 @@ every answer and still on disk.
 *Accepted asymmetry:* reopening restores the projects they led, but **not** their memberships in
 other people's projects — those were removed at request time and need re-invitation. The membership
 history is what makes that one click rather than an act of memory.
+
+**Built in step 4b**, 2026-10-03 to 2026-10-08. `users` gained `deletion_scheduled_at`, with the
+same meaning it has on `projects`: the moment the account will be removed, empty while it is
+active. Four decisions came with it.
+
+- **Transfers happen one at a time, before the account is deleted**, each through
+  `transferLeadership` — the per-row change button above. `deleteAccount` then puts every project
+  the user still leads into delete mode, on the account's own date: both are written as
+  `now() + interval '30 days'` inside one transaction, and `now()` does not move within a
+  transaction. A project already being deleted keeps its earlier date.
+- **Memberships in other people's projects end even when that project is in delete mode.** This is
+  the one exception to "nothing about the project can be altered" while it waits, and it follows
+  the rule under Membership history: when an account deletion and the history want different
+  things, the deletion request wins.
+- **Reopening cancels delete mode on every project the user still leads that is inside its window**
+  — including one they deleted on its own before deleting the account. Decided 2026-10-03, taking
+  this section's wording literally. A project already past its date stays gone, the same rule
+  `restoreProject` follows.
+  *Rejected — restoring only what the account deletion put into delete mode:* it needs a stored
+  reason on every project in delete mode. And the two mistakes are not symmetrical: bringing back
+  too much costs the Lead one click to delete it again, while bringing back too little destroys data
+  that can never be recovered.
+  *Accepted cost:* a project deleted deliberately a week before the account comes back with it.
+- **The account purge waits for the projects.** Deleting a user cascades to their memberships, so
+  purging a Lead before their project would leave that project with no Lead for a moment — "at least
+  one" is code, here as everywhere. `purgeDeletedAccounts` skips anyone who still leads a project,
+  and `npm run purge` runs the project purge first, so both normally go in one run.
+
+"Undo only while the Lead's account is active", from Delete mode above, is now real:
+`restoreProject` refuses a project whose current Lead has an account being deleted.
 
 ### Export
 - The Lead can export the project's tasks to **CSV at any time**. The delete confirmation mentions
@@ -740,8 +783,9 @@ section 7, under Assignee.
    *(at build time)*
 3. **Purging.** Soft deletion means nothing is ever truly gone. Projects past their deletion date
    now have a purge, `purgeDeletedProjects` (section 6), run by hand until there is a server.
-   Accounts arrive with step 4b; soft-deleted tasks, ended memberships and expired invites still
-   accumulate, and that purge is the natural place for them. *(at build time)*
+   Accounts have one too, `purgeDeletedAccounts`, which waits for the projects they lead (section 6).
+   Soft-deleted tasks, ended memberships and expired invites still accumulate, and the same script
+   is the natural place for them. *(at build time)*
 4. **Email notifications.** In-app popups only for now; email is a deliberate deferral, not a
    non-goal. *(at build time)*
 

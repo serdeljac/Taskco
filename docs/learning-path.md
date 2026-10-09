@@ -1,10 +1,8 @@
 # Taskco — Learning path
 
-**Current step:** 4 complete on `main` on 2026-09-30, and the fixes pass after it done on
-2026-10-03 on branch `slice-c-fixes` — three items closed, one hand-run script, one hundred and
-seventeen tests — not yet merged. Merging it comes first. Next is step 4b — transfer of leadership
-and account deletion, which composes the delete mode slice C built. Step 4c, routines, is
-unblocked and can be taken whenever.
+**Current step:** 4b complete on 2026-10-08 on branch `step-4b` — transfer of leadership and
+account deletion, one migration, one hundred and twenty-eight tests in seven files — not yet
+merged. Next is its checkpoint review, on the branch, then merging. After that, step 4c — routines.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -533,4 +531,33 @@ two problems, and a late job is harmless once the answer no longer depends on it
 count is a check of its own: 113 where 112 was expected is how a duplicated test showed itself —
 while a command pasted into a source file reached a commit because the suite was not run before
 committing.
+
+**Step 4b — Transfer of leadership and account deletion.** Completed 2026-10-08 on branch
+`step-4b`, in two commits. `transferLeadership` hands a project to an existing member, demoting the
+old Lead before promoting the new one, and lets the old Lead stay or leave. Removing a member became
+`endMembership`, one helper that `removeMember`, a leaving Lead and account deletion all call.
+Migration `018` gave accounts a deletion date; `deleteAccount` puts every project the user still
+leads into delete mode on that date and ends their memberships elsewhere, `reopenAccount` undoes it
+inside the window, `restoreProject` now refuses while the Lead's account is going, and
+`purgeDeletedAccounts` joins the hand-run purge, after the projects. The tests moved from one file
+into `src/test_queries`, one file per table, laid out as `//CREATE` and `//TEST`. One hundred and
+twenty-eight tests; three open items closed and four logged.
+
+*Changed decisions:* reopening an account brings back every project the user still leads inside its
+window, including one deleted on its own beforehand — the literal reading of section 6, chosen
+because bringing back too much costs a click and bringing back too little destroys data. Transfers
+happen one at a time before an account is deleted. Memberships in other people's projects end even
+when that project is in delete mode. And an account is purged only once the projects it led are
+gone. All in `design-decisions.md`, section 6.
+
+*Learned, in the order the step met them:* that a refactor is proven by the tests that already
+exist — six `removeMember` tests stayed green while its body moved into `endMembership`. That the
+one-Lead index is checked row by row, so swapping the demote and the promote fails with `23505`.
+That `now()` is fixed for a whole transaction, which is what gives an account and its projects the
+same date without passing one along. That a subquery inside an `update` can refer to the row being
+updated, which is how `restoreProject` asks about the Lead without a second statement. That a
+JavaScript `Date` keeps milliseconds and Postgres keeps microseconds, so comparing two moments in
+JavaScript can call different dates equal — proven by moving one a microsecond and watching only the
+SQL comparison notice. And that moving tests in the same commit as a feature hides the new tests
+inside two thousand moved lines; a move wants its own commit, before the build.
 
