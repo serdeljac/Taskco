@@ -7,8 +7,8 @@ was written down.
 Companion to [`design-decisions.md`](./design-decisions.md) (what is being built and why),
 [`learning-path.md`](./learning-path.md) (how the build proceeds) and [`reference.md`](./reference.md)
 (what each file is). The checkpoint reviews — [`slice-a-review.md`](./slice-a-review.md),
-[`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md) — are dated
-snapshots and no longer carry status.
+[`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
+[`step-4b-review.md`](./step-4b-review.md) — are dated snapshots and no longer carry status.
 
 ## How this file works
 
@@ -66,6 +66,9 @@ becomes a decision; an item here becomes a commit.
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `refuse-unless-current-member-locks-too-hard` | `refuseUnlessCurrentMember` takes `for update` on a membership it never modifies. `for share` would be correct, and would let two assignments to the same person proceed at once instead of queueing | [reference, `src/queries.ts`](./reference.md) | Open — stricter than needed, not wrong |
+| `transfer-accepts-an-account-being-deleted` | `transferLeadership` never reads the new Lead's account. An account being deleted can be added to a project and then made its Lead; past its date, `purgeDeletedAccounts` skips it because it leads a project, so it is never purged, and the project is led by a departing account without being in delete mode itself | [4b](./step-4b-review.md) | Open — **worth fixing before merging**: refuse a new Lead whose account is being deleted |
+| `concurrent-transfer-reads-as-project-not-found` | A transfer that waits on another transfer's lock finds the Lead row no longer says `lead` once it gets it, returns nothing, and is refused as "project not found". Safe, and the wrong words | [4b](./step-4b-review.md) | Open |
+| `end-membership-errors-name-remove-member` | `endMembership` throws `removeMember: membership not found` whoever called it. `deleteAccount` racing a removal of the same person fails with exactly that, and rolls back correctly | [4b](./step-4b-review.md) | Open |
 | `lead-cannot-read-tasks-in-delete-mode` | `visible_tasks` and `visible_subtasks` hide every project with a deletion date from everyone, so `listTasks` and `listSubtasks` give the Lead empty lists. Section 6 says the Lead can still read and export. A view cannot tell the Lead from an associate, so the Lead's read will have to go around the views. The test "hides the tasks of a project being deleted" asserts the gap, for the Lead | [design §6](./design-decisions.md) | Open — export, design section 12, will hit it first |
 | `unacceptable-invites-are-still-listed` | `listInvitesForUser` does not exclude projects being deleted, nor invites whose recipient has since been added directly, so a user is shown an invite that acceptance will refuse | [C](./slice-c-review.md) | Open |
 | `delete-mode-helper-passes-unknown-projects` | `refuseIfProjectIsBeingDeleted` reads `rows[0]?.deletion_scheduled_at`, so a project that does not exist is falsy and passes. The write then fails later on a foreign key | [C](./slice-c-review.md) | Open |
@@ -110,7 +113,8 @@ becomes a decision; an item here becomes a commit.
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `test-grouping-axis-inconsistent` | `users` and `projects` are tables, but `memberships` holds tests that are really about `listProjectsForUser` | [A §6](./slice-a-review.md) | Partly — since 2026-10-08 the tests sit in `src/test_queries`, one file per table, but `2_memberships.test.ts` still holds `listProjectsForUser`, the hard-delete cascade and the task assignee tests |
-| `test-independence-unproven` | Independence is assumed by construction; `npx vitest run --sequence.shuffle` would demonstrate it | [A §6](./slice-a-review.md) | Open |
+| `memberships-end-in-frozen-projects-untested` | Section 6 decided that deleting an account ends its memberships even in a project being deleted. It does — checked against the database — and no test says so, so the decision could be reversed without anything going red | [4b](./step-4b-review.md) | Open — **worth fixing before merging**: one test |
+| `step-4b-refusals-untested` | Six behaviours hold and have no test: deleting an account twice, reopening one never deleted, transferring to the current Lead, transferring in a project that does not exist, a project past its date staying gone when its Lead reopens, and an earlier project date surviving account deletion | [4b](./step-4b-review.md) | Open |
 | `tests-only-exercise-queries-ts` | Every test goes through the functions that hold the signs, which is exactly what makes a sign look like a lock from inside the suite | [B §6](./slice-b-review.md) | Open |
 | `env-config-result-discarded` | A missing `.env.test` surfaces as a different complaint than the one that actually happened | [reference, `src/testing/env.ts`](./reference.md) | Open |
 | `truncate-misses-unreferenced-tables` | `cascade` follows foreign keys only, so a table referencing none of the three would survive. Nothing in the design is shaped that way | [reference, `src/testing/setup.ts`](./reference.md) | Open |
@@ -158,6 +162,7 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `transfer-must-demote-before-promote` | [reference, 006](./reference.md) | `transferLeadership` locks the Lead's row and then the new Lead's, demotes, then promotes, inside one transaction. Swapping the two updates makes two tests fail with `23505` from `memberships_one_lead_idx`, which is exactly the trap this row recorded in slice A |
 | `restore-ignores-the-leads-account` | [C](./slice-c-review.md) | `restoreProject` adds a `not exists` for a current Lead whose account is being deleted, in the same statement as the write, reading the date migration `018` gave accounts. One test; it goes red if the condition is removed |
 | `email-test-in-wrong-describe` | [A §6](./slice-a-review.md) | Moved into `1_users.test.ts` when the tests were split into `src/test_queries`, one file per table |
+| `test-independence-unproven` | [A §6](./slice-a-review.md) | `npx vitest run --sequence.shuffle` passed all 128 tests with three different seeds on 2026-10-08, across the seven test files. Demonstrated rather than assumed, which is what the item asked for |
 | `due-date-writer-ignores-delete-mode` | Code review, 2026-10-03, against [C §4](./slice-c-review.md) | `setTaskDueDate`'s `update` filtered `tasks` on `deleted_at is null`, so it went on changing dates — and clearing subtask dates past the new one — in a project being deleted. Slice B's review said it went through the view and slice C's counted it among the writers the view protected; neither had read the `where` clause. It now selects through `visible_tasks`, the shape `setTaskNotes` uses. One test, which fails against the old clause with the promise resolving `{ clearedSubtasks: 1 }` |
 | `writes-cannot-report-no-such-row` | [A §4](./slice-a-review.md), [B §5](./slice-b-review.md) | `deleteTask` was the last writer that could not tell "done" from "no such row". It now throws on a row count of zero |
 | `deleted-task-still-editable` | [B §5](./slice-b-review.md) | `setSubtaskNotes` now requires its subtask's `task_id` to be among `visible_tasks`, and both notes writers throw on a row count of zero. Four tests, each seen failing first |
