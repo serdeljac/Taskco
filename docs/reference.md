@@ -312,9 +312,11 @@ while a second *active* membership for the same person and project is impossible
 - **Fixed before slice B — one lead per project.** Nothing used to enforce it: `addMember` could add
   a second lead and `removeMember` could remove the only one. *At most one* is now migration `006`;
   *at least one* is a check in `removeMember`, because no constraint can require that a row exists.
-- `ended_at` can be earlier than `created_at`. A `CHECK` would forbid it.
-- `ended_at` can be in the future, and a `CHECK` **cannot** forbid it — check expressions must be
-  immutable and `now()` is not.
+- `ended_at` can be earlier than `created_at`. A `CHECK` would forbid it — and migration `014` does.
+- **Fixed by migration `020` — `ended_at` in the future.** This note used to say a `CHECK` *cannot*
+  forbid it, because check expressions must be immutable. That was wrong: Postgres only assumes a
+  check is immutable, and runs it once, when the row is written. "Not in the future" never flips, so
+  `check (ended_at <= now())` is safe.
 - No index on `project_id`. "Who is in this project" would scan the table, and the composite index
   cannot help because an index is only usable from its leading column onward. Add it when slice B's
   member list needs it.
@@ -643,7 +645,8 @@ into `src/test_queries`, one file per table — `1_users`, `2_memberships`, `3_p
 and `streak.test.ts`. A test's group is also its file. The numbers are for reading order only:
 Vitest decides the order files run in, which is safe because every test empties the tables first.
 Each test is laid out in two parts, `//CREATE` for the setup and `//TEST` for the act and the
-checks. 146 tests in nine files after step 4c.
+checks. 150 tests in nine files after the step 4c review's fixes — about twelve seconds, since every
+new user costs a timezone lookup.
 
 This section covers slice A's ten tests; the task and subtask tests are listed under step 3. The
 listing below shows the groups as slice A left them — the email test has since moved to `users`.
@@ -819,7 +822,7 @@ Tasks and subtasks, with status, priority, due dates, soft deletion, manual orde
 one idea per piece, with each migration applied to both databases. The checkpoint is
 [`slice-b-review.md`](./slice-b-review.md).
 
-## Migrations 007–019
+## Migrations 007–020
 
 | File | What it adds |
 |---|---|
@@ -836,6 +839,7 @@ one idea per piece, with each migration applied to both databases. The checkpoin
 | `017_add_project_delete_mode.sql` | `deletion_scheduled_at` on `projects`, holding when the project will be removed rather than when deletion began. Both views re-created to exclude anything in a project being deleted, which is how six writers started refusing without being edited. `setTaskDueDate` was meant to be a seventh and was not, because it filtered `tasks` directly — fixed 2026-10-03 |
 | `018_add_account_deletion.sql` | `deletion_scheduled_at` on `users`, with the same meaning as on `projects`: when the account will be removed, empty while it is active. Step 4b |
 | `019_create_routines.sql` | `routines` — owner, name, the weekdays it is scheduled on as an `integer[]` checked to hold only 1 to 7 — and `completions`, keyed on `(routine_id, done_on)` so a day can be done only once. Both cascade, from the user down. And the view `user_today`, the one place that says what today is for each user. Step 4c |
+| `020_check_timezones_and_soft_delete_dates.sql` | Four locks from the step 4c review. `users_timezone_known` calls a new function, `is_known_timezone`, which asks Postgres's own `pg_timezone_names`; and `ended_at` on `memberships`, `deleted_at` on `tasks` and `subtasks`, may no longer be in the future. Adding them validated every existing row, which is why the test tables had to be emptied first |
 
 Three of them are worth reading for the pattern, not just the columns.
 
@@ -1095,7 +1099,7 @@ Two databases, both owned by `taskco_app`, a role with no privileges beyond logi
 |---|---|---|
 | `id` | bigint | identity, primary key |
 | `email` | text | not null, non-blank, unique on `lower(email)` |
-| `timezone` | text | not null, non-blank |
+| `timezone` | text | not null, non-blank, a name Postgres knows exactly — `Europe/Zagreb`, not `europe/zagreb` (`users_timezone_known`) |
 | `created_at` | timestamptz | not null, defaults to `now()` |
 | `deletion_scheduled_at` | timestamptz | nullable — **empty means active**; otherwise when the account will be removed |
 
@@ -1117,7 +1121,7 @@ Two databases, both owned by `taskco_app`, a role with no privileges beyond logi
 | `project_id` | bigint | not null, → `projects(id)`, on delete cascade |
 | `role` | text | not null, `'lead'` or `'associate'` |
 | `created_at` | timestamptz | not null, defaults to `now()` |
-| `ended_at` | timestamptz | nullable — **null means still a member**; not before `created_at` |
+| `ended_at` | timestamptz | nullable — **null means still a member**; not before `created_at`, not in the future |
 
 Indexes: `memberships_user_id_idx` on `(user_id)`; `memberships_one_active_idx`, unique, on
 `(user_id, project_id) where ended_at is null`; `memberships_one_lead_idx`, unique, on
@@ -1138,7 +1142,7 @@ foreign key has something to point at.
 | `notes` | text | nullable, non-blank |
 | `position` | integer | not null |
 | `created_at` | timestamptz | not null, defaults to `now()` |
-| `deleted_at` | timestamptz | nullable — **empty means not deleted**; not before `created_at` |
+| `deleted_at` | timestamptz | nullable — **empty means not deleted**; not before `created_at`, not in the future |
 | `assignee_membership_id` | bigint | nullable — **empty means nobody**; `(assignee_membership_id, project_id)` → `memberships(id, project_id)`, on delete set null for the assignee only |
 
 Index: `tasks_project_id_idx` on `(project_id)`.
@@ -1198,6 +1202,12 @@ makes a day impossible to record twice.
 | `visible_subtasks` | every column of `subtasks`, for rows where `deleted_at is null` and the project, through the task, has no `deletion_scheduled_at`. It does not check whether the task itself is deleted — readers join `visible_tasks` for that |
 | `user_today` | `user_id` and `today` for every user — `(now() at time zone timezone)::date`. Fresh on every read, so it changes with nothing written. A timezone Postgres does not recognise makes it fail for that user |
 
+### Functions
+
+| Function | What it answers |
+|---|---|
+| `is_known_timezone(tz)` | whether `tz` is a name in `pg_timezone_names`. Marked `stable`, not `immutable`: it reads data, so it promises the same answer only within one statement. A `CHECK` cannot hold a subquery, which is why the question lives here |
+
 ### `schema_migrations`
 
 Created by the runner, not by a migration. `filename` text primary key, `applied_at` timestamptz.
@@ -1216,6 +1226,7 @@ Five characters, stable across versions — which is why tests assert the code a
 | `23502` | not-null violation | every new task, between adding `position` and `createTask` supplying one |
 | `22003` | number out of range | a task position past 2,147,483,647, before moves and creates learned to renumber |
 | `22023` | invalid parameter value | `time zone "Mars/Olympus" not recognized`, reading `user_today` for a user whose timezone is not real |
+| `42P17` | invalid object definition | `functions in index predicate must be marked IMMUTABLE` — an index `where x > now()`, tried for the step 4c review. A check accepts the same expression |
 
 Several rules can raise the same code. The error's `constraint` field names the one that did.
 
@@ -1232,10 +1243,17 @@ Several rules can raise the same code. The error's `constraint` field names the 
 - Applied migrations are never edited. A mistake becomes the next migration.
 - Save a migration before applying it. An empty file is recorded as applied and never runs again.
 - Creating a unique index or a `CHECK` validates the rows already there, and fails if any break it.
+  In `taskco_test` that includes whatever the last test left behind, since tables are emptied
+  *before* each test — so after a red run that wrote rows the new rule refuses, empty the tables
+  before `migrate:test`.
 - A transaction must run on one checked-out client from `pool.connect()`, never on `pool.query`.
 - `not null` does not mean "not empty." Text columns accept `''`.
-- A `CHECK` sees one row, through immutable functions only. Other rows, other tables, and `now()` are
-  all out of reach.
+- A `CHECK` sees one row and cannot hold a subquery. Postgres *assumes* its answer never changes for
+  that row, and runs it only when the row is written — but does not enforce that, so a check may call
+  `now()`, or a function that reads another table. It is safe only when its answer cannot flip later:
+  "not in the future" cannot; "the parent row exists" can, which is why that is a foreign key.
+  *(Corrected 2026-10-09: this rule used to say `now()` was out of a check's reach.)*
+- An index predicate, unlike a check, must be immutable. Postgres refuses `now()` there with `42P17`.
 - "At most one" is a constraint; "at least one" is code. No constraint can require that a row exists.
 - `truncate ... cascade` also empties every table that references the ones named, all the way down.
 - `rows[0]` may be `undefined`. Rows typed `any` are never checked.

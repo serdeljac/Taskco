@@ -1,10 +1,9 @@
 # Taskco — Learning path
 
-**Current step:** 4c complete on 2026-10-08 on branch `step-4c` — routines, completions and
-streaks, one migration, one hundred and forty-six tests in nine files — and reviewed on 2026-10-09
-in [`step-4c-review.md`](./step-4c-review.md). Not yet merged: the review's two items worth fixing
-come first — a timezone check, and correcting what the docs say about `CHECK` and `now()`. Step 4b
-is merged into `main`. After step 4c merges, step 5 — the HTTP layer.
+**Current step:** 4c complete on 2026-10-08 on branch `step-4c`, reviewed on 2026-10-09 in
+[`step-4c-review.md`](./step-4c-review.md), and both of the review's items worth fixing fixed the
+same day — migration `020`, one hundred and fifty tests. Not yet merged; merging comes next. After
+that, step 5 — the HTTP layer.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -416,6 +415,13 @@ be, because no constraint can require a row to exist. And that a test which has 
 been shown to be watching anything — proven by deleting one `where` clause and watching exactly one
 test go red.
 
+*Corrected 2026-10-09:* the `CHECK` lesson above was half wrong. A check cannot hold a subquery, and
+it does see only the row being written — but Postgres only *assumes* the answer never changes for
+that row; it does not enforce it. A check may call `now()`, or a function that reads another table.
+It runs once, when the row is written, so it is safe only when its answer cannot flip later: "not in
+the future" cannot, which is why migration `020` could make it a lock. See
+[`step-4c-review.md`](./step-4c-review.md), section 7.
+
 **Before slice B — review fixes.** Completed 2026-09-13 on branch `slice-a-fixes`, five commits, each
 test-first. Migration `006` limits a project to one active Lead, and `removeMember` refuses to remove
 the Lead, so "exactly one Lead" is now two mechanisms. The test guard reads the database name from the
@@ -511,6 +517,10 @@ lets many writers hold a row that `for update` would make them queue for. And th
 deciding visibility pays: six writers refused a project being deleted without being edited, while
 `setTaskNotes`, filtering the table directly, kept writing until a test caught it.
 
+*Corrected 2026-10-09:* "an index predicate, like a `check`, must be immutable" — the index half is
+true, and Postgres refuses `now()` there with `42P17`. The "like a `check`" half is not: checks are
+only assumed to be immutable.
+
 **After slice C — the fixes pass.** Completed 2026-10-03 on branch `slice-c-fixes`. Three items
 closed. `acceptInvite` refuses someone who has become a member since the invite was sent, with a
 sentence instead of `23505`. A code review of every file found `setTaskDueDate` still changing
@@ -602,4 +612,23 @@ rather than an error. That a rule written as a pure function can be tested with 
 day. That date arithmetic on a label belongs in UTC, where every day is twenty-four hours. And that
 `timezone-accepts-any-text`, logged in slice A as a lie about data, became a real failure the moment
 something converted through the timezone.
+
+**After step 4c — the review and its two fixes.** Completed 2026-10-09 on branch `step-4c`. The
+checkpoint is [`step-4c-review.md`](./step-4c-review.md): four items, every claim but one run against
+the database first. One user's bad timezone turned out to break any read of *everyone's* today. And
+trying a fix for that showed something the project had believed since slice A was wrong: Postgres
+accepted a `CHECK` that calls `now()`. Migration `020` made the timezone a lock — a check calling a
+function that asks `pg_timezone_names` — and gave `ended_at` and `deleted_at` the "not in the future"
+checks they had been told they could never have. Seven passages in the docs were corrected. One
+hundred and fifty tests, in about twelve seconds instead of seven and a half; three items closed.
+
+*Learned:* that Postgres *enforces* immutability where it must — an index predicate refuses `now()`
+with `42P17` — and only *assumes* it of a check, which it runs once, when the row is written. So a
+check is safe exactly when its answer cannot flip later, and "not in the future" cannot. That a
+`CHECK` cannot hold a subquery but can call a function that does, and that `stable` is the honest
+label for a function that reads data. That adding a check validates every row already there —
+including the rows the last red test run left in `taskco_test`, which is how the migration first
+refused to apply. That a lock has a price you can measure: 20 ms per user, five seconds on the
+suite. And that a claim nobody had tried can sit in five documents for a month; trying it took one
+rolled-back transaction.
 

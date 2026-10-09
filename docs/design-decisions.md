@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
-**Status:** design complete, stack chosen, slices A, B and C and step 4b built, each with its review
-done, and step 4c built. Last updated 2026-10-08.
+**Status:** design complete, stack chosen, slices A, B and C and steps 4b and 4c built, each with its
+review done. Last updated 2026-10-09.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -215,9 +215,13 @@ excludes nothing ends up in every query, looking load-bearing.
 
 **A consequence that needs code, not a constraint.** Nothing sweeps expired invites, so a dead row
 keeps occupying its project-and-address slot and blocks re-inviting that person. The tempting fix —
-a partial index on unexpired invites — is impossible: index predicates must be immutable, and
-`now()` is not, the same wall as a `CHECK` that wants to refuse a future date. So creating an invite
-deletes any existing invite for that project and address first, in the same transaction.
+a partial index on unexpired invites — is impossible: Postgres requires an index predicate to be
+immutable, and `now()` is not. So creating an invite deletes any existing invite for that project
+and address first, in the same transaction.
+
+*Corrected 2026-10-09:* this paragraph used to call that "the same wall as a `CHECK` that wants to
+refuse a future date". It is not the same wall. Postgres *enforces* immutability on an index
+predicate, and only *assumes* it of a check — see section 13 and the step 4c review, section 7.
 
 The recipient is stored as an email rather than a user id because an invite may eventually be
 addressed to someone who has not registered yet. This is the one place email is the correct
@@ -468,6 +472,10 @@ than modelling. It can return later as a flag with no rework.
 Tasks are **soft-deleted**: a deletion date is recorded, the row is not removed. This makes a trash
 view, restore, and orphan-free subtasks all cheap to add later.
 
+**A deletion date is a moment that has happened**: not before the row was created (migration `014`),
+and not in the future (migration `020`). The same two locks hold a membership's `ended_at`. The
+second was believed impossible until the step 4c review tried it — see section 13.
+
 **One place decides what "the visible tasks in this project" means**, and every screen reads
 through it. Without this discipline, soft deletion turns into every query carrying four filters
 and the bug being the one place that forgot one.
@@ -633,6 +641,17 @@ is never copied onto a task or any other record. Copying a mutable attribute of 
 different entity — and freezing it there — is the same mistake as keying memberships on an email
 address: it goes stale the moment the original changes, and here it would go stale every time
 someone travelled or a task was reassigned.
+
+**A timezone must be one Postgres knows**, a lock since migration `020`, decided 2026-10-09 after the
+step 4c review. Until then any text went in, which was only a lie about data until `user_today`
+started converting through it: from step 4c, one user's bad timezone failed every routine read for
+that user, and any read of everyone's today for everybody. The check calls `is_known_timezone`,
+which asks `pg_timezone_names` — strictly, so `europe/zagreb` is refused although Postgres would
+convert with it. A browser reports the exact name, so strictness costs a real user nothing.
+*Rejected — checking the name in `createUser`:* fast, but a sign, and the settings screen that
+changes a timezone would be a second writer that must remember it. *Accepted cost:* about 20 ms for
+every new user, because Postgres builds `pg_timezone_names` afresh each time it is read; the test
+suite, which creates 182 users, went from 7.5 to 12 seconds.
 
 **"Today" always means today for the person asking**, resolved through their timezone. This is the
 one rule behind three separate questions:
@@ -873,3 +892,7 @@ The reusable part. These outlast this app.
   "exactly one" is always two mechanisms — and the lower bound is the one that can be forgotten.
 - **Prove the problem before building the fix.** A failing test shows a gap is real before anything
   closes it. Checking first is also how a mistaken problem gets caught before code is written for it.
+- **A check runs once, when the row is written.** Use one for an answer that cannot change later —
+  "not in the future" cannot — and a foreign key or code for one that can. And try a limit before
+  building around it: for a month this project believed a check could not call `now()`, and nobody
+  had asked Postgres.

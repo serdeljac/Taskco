@@ -109,6 +109,10 @@ joined that batch. The rest are notes.
 - `ended_at` can be earlier than `created_at`. A `CHECK` would forbid it.
 - `ended_at` can be in the future, and a `CHECK` *cannot* forbid it — check expressions must be
   immutable, and `now()` is not.
+  - **Corrected 2026-10-09 — this item is wrong.** Postgres does not hold a check to immutable; it
+    only assumes it, and runs the check once, when the row is written. "Not in the future" never
+    flips, because time only moves forward, so `check (ended_at <= now())` is safe — and migration
+    `020` adds it. Found by the step 4c review, which tried it before believing it.
 - No index on `project_id`. "Who is in this project" would scan the table, and the composite index
   cannot help because an index is only usable from its leading column onward. Add it when slice B's
   member list actually needs it, not before.
