@@ -59,6 +59,19 @@ export type Invite = {
     expires_at: Date;
 };
 
+export type Routine = {
+    id: string;
+    user_id: string;
+    name: string;
+    weekdays: number[];
+    created_at: Date;
+};
+
+export type RoutineToday = Routine & {
+    due_today: boolean;
+    done_today: boolean;
+};
+
 
 
 
@@ -1062,6 +1075,92 @@ export async function listInvitesForUser(userId: string): Promise<Invite[]> {
 
 
 
+
+/***********************************
+    ROUTINES
+***********************************/
+
+export async function createRoutine(routine: {
+    userId: string;
+    name: string;
+    weekdays: number[];
+}): Promise<Routine> {
+    const { rows } = await pool.query<Routine>(
+        `insert into routines (user_id, name, weekdays)
+        values ($1, $2, $3)
+        returning *`,
+        [routine.userId, routine.name, routine.weekdays]
+    );
+
+    const created = rows[0];
+    if (!created) {
+        throw new Error("createRoutine: the insert returned no row");
+    }
+    return created;
+}
+
+export async function listRoutines(userId: string): Promise<RoutineToday[]> {
+    const { rows } = await pool.query<RoutineToday>(
+        `select r.*,
+            extract(isodow from t.today) = any(r.weekdays) as due_today,
+            exists (
+                select 1 from completions c
+                where c.routine_id = r.id
+                and c.done_on = t.today
+            ) as done_today
+        from routines r
+        join user_today t on t.user_id = r.user_id
+        where r.user_id = $1
+        order by r.created_at, r.id`,
+        [userId]
+    );
+    return rows;
+}
+
+export async function completeRoutine(complete: {
+    routineId: string;
+    userId: string;
+}): Promise<{ doneOn: string }> {
+    const found = await pool.query<{ today: string }>(
+        `select t.today
+        from routines r
+        join user_today t on t.user_id = r.user_id
+        where r.id = $1
+        and r.user_id = $2`,
+        [complete.routineId, complete.userId]
+    );
+
+    const today = found.rows[0]?.today;
+
+    if (!today) {
+        throw new Error("completeRoutine: routine not found");
+    }
+
+    await pool.query(
+        `insert into completions (routine_id, done_on)
+        values ($1, $2)
+        on conflict (routine_id, done_on) do nothing`,
+        [complete.routineId, today]
+    );
+
+    return { doneOn: today };
+}
+
+export async function undoCompletion(undo: {
+    routineId: string;
+    userId: string;
+}): Promise<void> {
+    const deleted = await pool.query(
+        `delete from completions
+        where routine_id in (select id from routines where id = $1 and user_id = $2)
+        and done_on = (select today from user_today where user_id = $2)`,
+        [undo.routineId, undo.userId]
+    );
+
+    if (deleted.rowCount === 0) {
+        throw new Error("undoCompletion: not completed today");
+    }
+}
 
 
 
