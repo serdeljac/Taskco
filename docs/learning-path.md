@@ -1,16 +1,17 @@
 # Taskco — Learning path
 
 **Current step:** 4c complete on 2026-10-08 on branch `step-4c` — routines, completions and
-streaks, one migration, one hundred and forty-six tests in nine files — not yet merged. Step 4b is
-merged into `main`. Next is the step 4c checkpoint review, on the branch, then merging. After that,
-step 5 — the HTTP layer.
+streaks, one migration, one hundred and forty-six tests in nine files — and reviewed on 2026-10-09
+in [`step-4c-review.md`](./step-4c-review.md). Not yet merged: the review's two items worth fixing
+come first — a timezone check, and correcting what the docs say about `CHECK` and `now()`. Step 4b
+is merged into `main`. After step 4c merges, step 5 — the HTTP layer.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
 
 Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-review.md),
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
-[`step-4b-review.md`](./step-4b-review.md).
+[`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md).
 [`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
 [`open-items.md`](./open-items.md) is the one place that says whether something is still open.
 

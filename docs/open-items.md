@@ -8,7 +8,7 @@ Companion to [`design-decisions.md`](./design-decisions.md) (what is being built
 [`learning-path.md`](./learning-path.md) (how the build proceeds) and [`reference.md`](./reference.md)
 (what each file is). The checkpoint reviews — [`slice-a-review.md`](./slice-a-review.md),
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
-[`step-4b-review.md`](./step-4b-review.md) — are dated snapshots and no longer carry status.
+[`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md) — are dated snapshots and no longer carry status.
 
 ## How this file works
 
@@ -51,9 +51,9 @@ becomes a decision; an item here becomes a commit.
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `email-lookup-must-lowercase` | The `lower(email)` index is only used by queries written `where lower(email) = lower($1)`, and nothing enforces that | [A §1](./slice-a-review.md) | Partly — `createInvite` is the first such lookup and does it correctly. Step 6's login is the next one, and would silently fail to find a real account if it forgot |
-| `timezone-accepts-any-text` | `Mars/Olympus` inserts happily, and Postgres already knows the real names in `pg_timezone_names` | [A §1](./slice-a-review.md), [B](./slice-b-review.md) | Open — **no longer only a lie, since step 4c.** Every routine function reads today through `user_today`, which converts through the timezone, so for a user with `Mars/Olympus` listing routines fails with `22023 time zone not recognized`, while their projects still list. Worth fixing before routines reach anyone |
+| `timezone-accepts-any-text` | `Mars/Olympus` inserts happily, and Postgres already knows the real names in `pg_timezone_names` | [A §1](./slice-a-review.md), [B](./slice-b-review.md), [4c](./step-4c-review.md) | Open — **worth fixing before merging step 4c.** Every routine read for a user with `Mars/Olympus` fails with `22023`, and so does any read of *everyone's* today — one bad row breaks it for all. A `CHECK` calling a function that asks `pg_timezone_names` was run inside a rolled-back transaction and refuses it as a lock, at about 20 ms per new user |
 | `email-has-no-format-or-length-limit` | Zod covers the boundary at step 5; the database stays open to any other caller | [reference, 002](./reference.md) | Open |
-| `deactivated-accounts-can-still-be-invited-or-added` | Nothing reads `users.deletion_scheduled_at` except `restoreProject`, `reopenAccount` and the purge. So `createInvite` still finds an account being deleted, `addMember` still adds it, and `acceptInvite` still lets it join — a membership the purge then removes thirty days later | Doc pass, 2026-10-08 — this row is the record | Open — needs deciding: treat it as "No email found", or let the act reopen the account. Step 6's login is where it meets a real person |
+| `deactivated-accounts-can-still-be-invited-or-added` | Nothing reads `users.deletion_scheduled_at` except `restoreProject`, `reopenAccount` and the purge. So `createInvite` still finds an account being deleted, `addMember` still adds it, and `acceptInvite` still lets it join — a membership the purge then removes thirty days later. Since step 4c it can also create routines and complete them | Doc pass, 2026-10-08 — this row is the record | Open — needs deciding: treat it as "No email found", or let the act reopen the account. Step 6's login is where it meets a real person |
 
 ### `projects` — migration 003
 
@@ -78,7 +78,7 @@ becomes a decision; an item here becomes a commit.
 | `delete-mode-notifies-nobody` | Section 6 says members get a notification of the project's status, telling them to contact the Lead | [C](./slice-c-review.md) | Open — step 5 |
 | `invites-email-lookup-unindexed` | `listInvitesForUser` joins on `lower(email)`, which no index covers: the unique index on `invites` leads with `project_id`, so it cannot help. An index on `lower(email)` would | [reference, `src/queries.ts`](./reference.md) | Open — add it when the table is big enough to care, the same rule as `no-index-on-project-id` |
 | `no-index-on-project-id` | "Who is in this project" scans the table, and the composite index cannot help because an index is only usable from its leading column | [A §3](./slice-a-review.md) | Open — add when a member list needs it |
-| `soft-delete-timestamps-unchecked` | `ended_at` and `deleted_at` can still hold a future date, which no `CHECK` can refuse because a check expression must be immutable and `now()` is not. Every query tests `is null` rather than `<= now()`, so a future value reads as deleted straight away — it is a lie about *when*, not a state the app misreads | [A §3](./slice-a-review.md), [B §1](./slice-b-review.md) | Partly — migration `014` locks the ordering: neither can fall before `created_at` |
+| `soft-delete-timestamps-unchecked` | `ended_at` and `deleted_at` can still hold a future date, which no `CHECK` can refuse because a check expression must be immutable and `now()` is not. Every query tests `is null` rather than `<= now()`, so a future value reads as deleted straight away — it is a lie about *when*, not a state the app misreads | [A §3](./slice-a-review.md), [B §1](./slice-b-review.md) | Partly — migration `014` locks the ordering: neither can fall before `created_at`. **Fixable after all**: Postgres does not require a check to be immutable, and "not in the future" can never flip, so `<= now()` can be a lock — see [4c](./step-4c-review.md) section 7 |
 | `membership-rules-untested` | The foreign keys and the role `CHECK` have no test. The `CHECK` needs a deliberate cast to reach, since `Role` is a union type and `addMember` will not pass `"manager"` without one | [A §3](./slice-a-review.md) | Partly — the cascade and `removeMember` on a non-member are covered now |
 
 ### `src/queries.ts`
@@ -113,6 +113,8 @@ becomes a decision; an item here becomes a commit.
 |---|---|---|---|
 | `test-grouping-axis-inconsistent` | `users` and `projects` are tables, but `memberships` holds tests that are really about `listProjectsForUser` | [A §6](./slice-a-review.md) | Partly — since 2026-10-08 the tests sit in `src/test_queries`, one file per table, but `2_memberships.test.ts` still holds `listProjectsForUser`, the hard-delete cascade and the task assignee tests |
 | `step-4b-refusals-untested` | Six behaviours hold and have no test: deleting an account twice, reopening one never deleted, transferring to the current Lead, transferring in a project that does not exist, a project past its date staying gone when its Lead reopens, and an earlier project date surviving account deletion | [4b](./step-4b-review.md) | Open |
+| `routine-refusals-untested` | Four behaviours hold and have no test: a routine with a blank name is refused; undoing when nothing was done today is refused; undoing someone else's routine is refused; and a completion on an unscheduled day is recorded and shown as done, but not counted | [4c](./step-4c-review.md) | Open |
+| `two-tests-read-today-twice` | "Says whether a routine is due today" and "counts a streak from the owner's own today" each work out today themselves, then call a function that works it out again. A midnight in Zagreb between the two reads fails them, though the code is right | [4c](./step-4c-review.md) | Open — reasoned, not run: the clock cannot be moved from a test |
 | `tests-only-exercise-queries-ts` | Every test goes through the functions that hold the signs, which is exactly what makes a sign look like a lock from inside the suite | [B §6](./slice-b-review.md) | Open |
 | `env-config-result-discarded` | A missing `.env.test` surfaces as a different complaint than the one that actually happened | [reference, `src/testing/env.ts`](./reference.md) | Open |
 | `truncate-misses-unreferenced-tables` | `cascade` follows foreign keys only, so a table referencing none of the three would survive. Nothing in the design is shaped that way | [reference, `src/testing/setup.ts`](./reference.md) | Open |
@@ -126,13 +128,14 @@ becomes a decision; an item here becomes a commit.
 |---|---|---|---|
 | `routines-cannot-be-edited-or-deleted` | No function renames a routine, changes its days, or deletes it. Deleting is simple — completions cascade. Changing the days is not: `getStreak` reads the *current* days for the whole history, so turning a weekday routine into an every-day one would make every past weekend a miss and cut the streak short. The same shape as the invite expiry: an input the past depends on, stored only as its latest value | [design §9](./design-decisions.md) | Waits — decide what a change of days does to the past before building it |
 | `streaks-are-one-query-per-routine` | `getStreak` answers for one routine, in two queries. A screen showing every routine's streak calls it once per routine | [reference, `src/queries.ts`](./reference.md) | Open — fine for a handful; step 5 or 7 decides whether `listRoutines` carries the streak |
-| `weekday-numbering-written-twice` | "Which weekday is this date" is written twice: `extract(isodow …)` in `listRoutines` and `isoWeekday` in `streak.ts`. Both use 1 for Monday and 7 for Sunday today; nothing makes them agree | [reference, `src/streak.ts`](./reference.md) | Open — a test that checks both on the same dates would hold them together |
+| `weekday-numbering-written-twice` | "Which weekday is this date" is written twice: `extract(isodow …)` in `listRoutines` and `isoWeekday` in `streak.ts`. Both use 1 for Monday and 7 for Sunday today; nothing makes them agree. Run for the step 4c review across forty-two days, taking in both October's and March's change of clocks and a new year, they agree on every one | [reference, `src/streak.ts`](./reference.md) | Open — a test that checks both on the same dates would hold them together |
 
 ### Across files
 
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `explanations-still-in-comments` | `migrate.ts` and migrations 002 and 004 still carry the kind of notes `db.ts` shed. The two migrations are applied, so clearing theirs means editing an applied file | `ea5427c` | Partly — the test notes went when the tests moved to `src/test_queries`; the migrations need a decision first |
+| `docs-say-a-check-cannot-call-now` | Seven passages say a `CHECK` cannot refuse a future date because it must be immutable. Run inside a rolled-back transaction, Postgres accepted `check (x <= now())` and refused a future moment with `23514`. Index predicates *are* held to immutable (`42P17`); checks are only assumed to be | [4c](./step-4c-review.md) | Open — **worth fixing before merging step 4c**: correct the seven passages |
 
 ### Throwaway tools, and work not started
 
