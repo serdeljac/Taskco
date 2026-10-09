@@ -6,6 +6,7 @@ export type User = {
     email: string;
     timezone: string;
     created_at: Date;
+    deletion_scheduled_at: Date | null;
 };
 
 export type Project = {
@@ -84,6 +85,117 @@ export async function createUser(email: string, timezone: string): Promise<User>
         throw new Error("createUser: the insert returned no row");
     }
     return user; 
+}
+
+export async function deleteAccount(userId: string): Promise<{ scheduledFor: Date }> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const { rows } = await client.query<{ deletion_scheduled_at: Date }>(
+            `update users
+            set deletion_scheduled_at = now() + interval '30 days'
+            where id = $1
+            and deletion_scheduled_at is null
+            returning deletion_scheduled_at`,
+            [userId]
+        );
+
+        const scheduled = rows[0];
+        if (!scheduled) {
+            throw new Error("deleteAccount: account not found, or already being deleted");
+        }
+
+        await client.query(
+            `update projects
+            set deletion_scheduled_at = now() + interval '30 days'
+            where deletion_scheduled_at is null
+            and id in (
+                select project_id from memberships
+                where user_id = $1
+                and role = 'lead'
+                and ended_at is null
+            )`,
+            [userId]
+        );
+
+        const elsewhere = await client.query<{ project_id: string }>(
+            `select project_id from memberships
+            where user_id = $1
+            and role = 'associate'
+            and ended_at is null`,
+            [userId]
+        );
+
+        for (const membership of elsewhere.rows) {
+            await endMembership(client, { projectId: membership.project_id, userId });
+        }
+
+        await client.query("commit");
+        return { scheduledFor: scheduled.deletion_scheduled_at };
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+export async function reopenAccount(userId: string): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const reopened = await client.query(
+            `update users
+            set deletion_scheduled_at = null
+            where id = $1
+            and deletion_scheduled_at > now()`,
+            [userId]
+        );
+
+        if (reopened.rowCount === 0) {
+            throw new Error("reopenAccount: account not found, or not inside its deletion window");
+        }
+
+        await client.query(
+            `update projects
+            set deletion_scheduled_at = null
+            where deletion_scheduled_at > now()
+            and id in (
+                select project_id from memberships
+                where user_id = $1
+                and role = 'lead'
+                and ended_at is null
+            )`,
+            [userId]
+        );
+
+        await client.query("commit");
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+export async function purgeDeletedAccounts(): Promise<{ purged: number }> {
+    const { rows } = await pool.query<{ id: string }>(
+        `delete from users u
+        where u.deletion_scheduled_at <= now()
+        and not exists (
+            select 1 from memberships m
+            where m.user_id = u.id
+            and m.role = 'lead'
+            and m.ended_at is null
+        )
+        returning u.id`
+    );
+
+    return { purged: rows.length };
 }
 
 /***********************************
@@ -282,12 +394,22 @@ export async function restoreProject(projectId: string): Promise<void> {
         `update projects
         set deletion_scheduled_at = null
         where id = $1
-        and deletion_scheduled_at > now()`,
+        and deletion_scheduled_at > now()
+        and not exists (
+            select 1 from memberships m
+            join users u on u.id = m.user_id
+            where m.project_id = projects.id
+            and m.role = 'lead'
+            and m.ended_at is null
+            and u.deletion_scheduled_at is not null
+        )`,
         [projectId]
     );
 
     if (restored.rowCount === 0) {
-        throw new Error("restoreProject: project not found, or not inside its deletion window");
+        throw new Error(
+            "restoreProject: project not found, not inside its deletion window, or its Lead's account is being deleted"
+        );
     }
 }
 

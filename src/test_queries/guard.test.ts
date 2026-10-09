@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isTestDatabase } from "./guard.js";
+import { isTestDatabase } from "../testing/guard.js";
 
 describe("isTestDatabase", () => {
     it("accepts a database named taskco_test", () => {

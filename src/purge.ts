@@ -1,9 +1,12 @@
 import "dotenv/config";
 import { pool } from "./db.js";
-import { purgeDeletedProjects } from "./queries.js";
+import { purgeDeletedProjects, purgeDeletedAccounts } from "./queries.js";
 
-const { purged } = await purgeDeletedProjects();
+const projects = await purgeDeletedProjects();
+const accounts = await purgeDeletedAccounts();
 
-console.log(`purged ${purged} project(s) past their deletion date`);
+console.log(
+    `purged ${projects.purged} project(s) and ${accounts.purged} account(s) past their deletion date`
+);
 
 await pool.end();
