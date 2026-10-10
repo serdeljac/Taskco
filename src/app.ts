@@ -1,5 +1,6 @@
 import express from "express";
-import { listProjectsForUser, listRoutines, listInvitesForUser } from "./queries.js";
+import { z } from "zod";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject } from "./queries.js";
 
 //Tells TypeScript that res.locals.userId is a string. Without this it’s any, which TypeScript never checks
 declare global {
@@ -15,6 +16,7 @@ export const app = express();
 
 //Stops Express adding an X-Powered-By: Express header to every response
 app.disable("x-powered-by");
+app.use(express.json());
 
 //Who is asking. This runs before every route. No header, or a header that isn’t an id → 401. Otherwise it stores the id and next() moves on to the route
 app.use((req, res, next) => {
@@ -43,4 +45,20 @@ app.get("/routines", async (req, res) => {
 app.get("/invites", async (req, res) => {
     const invites = await listInvitesForUser(res.locals.userId);
     res.json({ invites });
+});
+
+const newProject = z.strictObject({
+    name: z.string().trim().min(1),
+});
+
+app.post("/projects", async (req, res) => {
+    const body = newProject.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const project = await createProject(body.data.name, res.locals.userId);
+    res.status(201).json({ project });
 });
