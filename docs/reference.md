@@ -1096,14 +1096,15 @@ fixed October 2026 dates, one test per rule.
 # Step 5 — the HTTP layer
 
 Built one endpoint at a time, starting 2026-10-10 on branch `step-5`. Preparation and the questions
-behind it are in [`step-5-prep.md`](./step-5-prep.md). Express 5.2.1 runs the server; Supertest
-7.2.2 lets a test send it requests without starting it.
+behind it are in [`step-5-prep.md`](./step-5-prep.md). Express 5.2.1 runs the server; Zod 4.6.5
+checks what a request carries; Supertest 7.2.2 lets a test send it requests without starting it.
 
 ## `src/app.ts`
 
 ```ts
 import express from "express";
-import { listProjectsForUser, listRoutines, listInvitesForUser } from "./queries.js";
+import { z } from "zod";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject } from "./queries.js";
 
 declare global {
     namespace Express {
@@ -1116,6 +1117,7 @@ declare global {
 export const app = express();
 
 app.disable("x-powered-by");
+app.use(express.json());
 
 app.use((req, res, next) => {
     const userId = req.get("X-User-Id");
@@ -1142,6 +1144,22 @@ app.get("/routines", async (req, res) => {
 app.get("/invites", async (req, res) => {
     const invites = await listInvitesForUser(res.locals.userId);
     res.json({ invites });
+});
+
+const newProject = z.strictObject({
+    name: z.string().trim().min(1),
+});
+
+app.post("/projects", async (req, res) => {
+    const body = newProject.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const project = await createProject(body.data.name, res.locals.userId);
+    res.status(201).json({ project });
 });
 ```
 
@@ -1181,11 +1199,28 @@ a request with no header got `200`, and Ana's own routines came back empty, beca
 
 **`app.disable("x-powered-by")`** stops Express adding `X-Powered-By: Express` to every response.
 
+**`app.use(express.json())` reads the body.** It turns the JSON text a request carries into an object
+on `req.body` — but only when the request says `Content-Type: application/json`. Otherwise, or with
+no body at all, `req.body` is `undefined`.
+
+**`app.post("/projects", ...)` is the first endpoint that receives data**, and the first of the
+second shape: check the body, then act. `newProject` is the rule, written once: an object with a
+`name` that is text, trimmed, at least one character — and, because it is `strictObject`, nothing
+else. `safeParse` never throws; it returns `success: true` with the cleaned `data`, or
+`success: false` with an `error` whose `issues` say what was wrong. A wrong body is `400` with those
+issues; a right one runs `createProject` with the trimmed name and answers `201`, created, with the
+new project wrapped as `{ project }`.
+
+**`strictObject`, not `object`**, is design question 7 answered in code: a body carrying a field the
+server did not ask for — `userId`, say — is refused rather than quietly stripped. The client sends
+intent; a client that tries to say who the Lead is has a bug, and hears about it at once.
+
 **Open**
 
-- No error handler yet. If a route throws — the database is down — Express answers with its own HTML
-  page, which includes the error message and the stack. Harmless while `GET /projects` cannot
-  refuse anything; needed before the first endpoint that can.
+- No error handler yet. If a route throws, Express answers with its own HTML page, which includes the
+  error message and the stack. Since `POST /projects` this is reachable: a header naming a user who
+  does not exist makes `createProject` fail on the membership's foreign key, `23503`, and the asker
+  gets that page as a `500`. A body that is not JSON at all gets the same page as a `400`.
 - The placeholder does not check that the id names a real user. `GET /projects` as user 99 is an
   empty list, which is honest. A write would fail on a foreign key instead.
 
@@ -1221,6 +1256,11 @@ GET /invites
   lists the invites addressed to the asker
   does not show an invite to the person who sent it
   refuses a request that does not say who is asking
+POST /projects
+  creates a project in the asker's list
+  refuses a blank name
+  refuses a body with a field it did not ask for
+  refuses a request that does not say who is asking
 ```
 
 `request(app).get("/projects").set("X-User-Id", ana.id)` sends a request to the app without starting
@@ -1240,7 +1280,16 @@ failed with `404`. Moving the route above `app.use(...)` is what showed it watch
 `listInvitesForUser("2")` in the route, the test asking as Ben — user 2 — still passed; only the one
 asking as Ana, the sender, went red. Tried.
 
-159 tests in twelve files.
+**Every refusal test also checks that nothing was saved** — after the `400`, the asker's list is still
+empty. A refusal that saved the row anyway would be worse than no refusal.
+
+**Refusal tests can pass for the wrong reason.** With `app.use(express.json())` deleted, every body
+looked empty and every `POST` was refused: "creates a project" went red with `expected 400 to be
+201`, while both refusal tests stayed green. Only the test where the answer is *yes* noticed. And
+with `z.object` in place of `z.strictObject`, only "refuses a body with a field it did not ask for"
+went red, `expected 201 to be 400`. Both tried.
+
+163 tests in twelve files.
 
 ---
 

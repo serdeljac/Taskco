@@ -5,8 +5,9 @@
 each listing the functions that share its shape, rather than the four the preparation proposed. The
 first is `GET /projects`, whose copies are `GET /invites` and `GET /routines`; it uses the
 `X-User-Id` header as the stand-in for login. All three were built on 2026-10-10, the copies typed
-from the pattern — one hundred and fifty-nine tests. Next is the first endpoint that receives data
-and has to check it. Step 4c is complete, reviewed in
+from the pattern — one hundred and fifty-nine tests. The second shape — the request carries data
+and the server checks it — began the same day with `POST /projects`: `express.json()`, a Zod
+`strictObject`, `201` or `400`. One hundred and sixty-three tests. Step 4c is complete, reviewed in
 [`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
 one hundred and fifty tests.
 
