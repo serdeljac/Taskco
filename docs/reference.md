@@ -1088,7 +1088,8 @@ fixed October 2026 dates, one test per rule.
 
 # Appendix — current schema
 
-What the tables look like *now*. The migrations are a history; this is their sum.
+What the tables look like *now*. The migrations are a history; this is their sum. The same tables
+drawn as a diagram: [`schema-diagram.md`](./schema-diagram.md).
 
 Two databases, both owned by `taskco_app`, a role with no privileges beyond login.
 **taskco_dev** is development; **taskco_test** is wiped before every single test.
