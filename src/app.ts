@@ -1,5 +1,5 @@
 import express from "express";
-import { listProjectsForUser, listRoutines } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser } from "./queries.js";
 
 //Tells TypeScript that res.locals.userId is a string. Without this it’s any, which TypeScript never checks
 declare global {
@@ -38,4 +38,9 @@ app.get("/projects", async (req, res) => {
 app.get("/routines", async (req, res) => {
     const routines = await listRoutines(res.locals.userId);
     res.json({ routines });
+});
+
+app.get("/invites", async (req, res) => {
+    const invites = await listInvitesForUser(res.locals.userId);
+    res.json({ invites });
 });
