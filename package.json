@@ -13,7 +13,8 @@
     "test": "vitest run",
     "seed": "tsx src/seed.ts",
     "preview": "tsx src/preview.ts",
-    "purge": "tsx src/purge.ts"
+    "purge": "tsx src/purge.ts",
+    "dev": "tsx watch src/server.ts"
   },
   "repository": {
     "type": "git",
@@ -30,11 +31,15 @@
   "homepage": "https://github.com/serdeljac/Taskco#readme",
   "dependencies": {
     "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "pg": "^8.23.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^22.20.1",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.2.2",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
