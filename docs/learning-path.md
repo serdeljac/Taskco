@@ -1,16 +1,22 @@
 # Taskco — Learning path
 
-**Current step:** 4c complete on 2026-10-08 on branch `step-4c`, reviewed on 2026-10-09 in
-[`step-4c-review.md`](./step-4c-review.md), and both of the review's items worth fixing fixed the
-same day — migration `020`, one hundred and fifty tests. Not yet merged; merging comes next. After
-that, step 5 — the HTTP layer.
+**Current step:** 5 — the HTTP layer, prepared on 2026-10-09 in
+[`step-5-prep.md`](./step-5-prep.md). *Decided 2026-10-10:* it is built **one endpoint at a time**,
+each listing the functions that share its shape, rather than the four the preparation proposed. The
+first is `GET /projects`, whose copies are `GET /invites` and `GET /routines`; it uses the
+`X-User-Id` header as the stand-in for login. All three were built on 2026-10-10, the copies typed
+from the pattern — one hundred and fifty-nine tests. Next is the first endpoint that receives data
+and has to check it. Step 4c is complete, reviewed in
+[`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
+one hundred and fifty tests.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
 
 Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-review.md),
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
-[`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md).
+[`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md). Step 5's
+preparation is in [`step-5-prep.md`](./step-5-prep.md), dated the same way.
 [`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
 [`open-items.md`](./open-items.md) is the one place that says whether something is still open.
 
@@ -306,6 +312,13 @@ pipeline rather than from a constant, which is the shape authentication will slo
 - Validation at the boundary
 - Turning a failed database constraint into a meaningful response — the alternative is forty
   try/catch blocks
+
+**Prepared 2026-10-09**, in [`step-5-prep.md`](./step-5-prep.md), read against `main` after step 4c
+merged. It found seven questions to answer before the first line — among them where the stubbed id
+comes from, given that a constant cannot be an Associate in a test, and how 43 thrown sentences
+become status codes — plus a proposed order of eight pieces, and thirteen traps, nine of them run
+against Express 5, Zod 4 and `taskco_test`. It proposes keeping this step to four endpoints and
+moving the rest into a step 5b. *Not yet confirmed.*
 
 ---
 
@@ -613,7 +626,8 @@ day. That date arithmetic on a label belongs in UTC, where every day is twenty-f
 `timezone-accepts-any-text`, logged in slice A as a lie about data, became a real failure the moment
 something converted through the timezone.
 
-**After step 4c — the review and its two fixes.** Completed 2026-10-09 on branch `step-4c`. The
+**After step 4c — the review and its two fixes.** Completed 2026-10-09 on branch `step-4c`, then
+merged into `main` the same day. The
 checkpoint is [`step-4c-review.md`](./step-4c-review.md): four items, every claim but one run against
 the database first. One user's bad timezone turned out to break any read of *everyone's* today. And
 trying a fix for that showed something the project had believed since slice A was wrong: Postgres

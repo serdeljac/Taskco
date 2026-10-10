@@ -39,6 +39,13 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `npx tsx src/preview.ts 2` | The same page, as user 2 sees it |
 | `Invoke-Item preview.html` | Opens the page in your browser |
 | `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it, then every account past its date that no longer leads a project |
+| `npm run dev` | Starts the server on `http://127.0.0.1:3000` against **taskco_dev**, and restarts it whenever a file changes. `Ctrl+C` stops it |
+| `curl.exe -H "X-User-Id: 1" http://127.0.0.1:3000/projects` | Asks the running server for user 1's projects. Run it in a second terminal |
+| `npx vitest run src/test_http` | Runs only the HTTP tests |
+
+**If `curl` cannot connect, the server is not running.** Look in the `npm run dev` terminal: an error
+there stops the server while `tsx watch` stays open, waiting for a change. `EADDRINUSE` means
+something else already holds port 3000.
 
 **Every new migration needs both migrate commands.** Nothing does this for you.
 
@@ -1083,6 +1090,157 @@ fixed October 2026 dates, one test per rule.
 
 **Open** — `weekday-numbering-written-twice`: `isoWeekday` here and `extract(isodow …)` in
 `listRoutines` answer the same question in two places.
+
+---
+
+# Step 5 — the HTTP layer
+
+Built one endpoint at a time, starting 2026-10-10 on branch `step-5`. Preparation and the questions
+behind it are in [`step-5-prep.md`](./step-5-prep.md). Express 5.2.1 runs the server; Supertest
+7.2.2 lets a test send it requests without starting it.
+
+## `src/app.ts`
+
+```ts
+import express from "express";
+import { listProjectsForUser, listRoutines, listInvitesForUser } from "./queries.js";
+
+declare global {
+    namespace Express {
+        interface Locals {
+            userId: string;
+        }
+    }
+}
+
+export const app = express();
+
+app.disable("x-powered-by");
+
+app.use((req, res, next) => {
+    const userId = req.get("X-User-Id");
+
+    if (!userId || !/^[1-9][0-9]{0,17}$/.test(userId)) {
+        res.status(401).json({ error: "Say who is asking" });
+        return;
+    }
+
+    res.locals.userId = userId;
+    next();
+});
+
+app.get("/projects", async (req, res) => {
+    const projects = await listProjectsForUser(res.locals.userId);
+    res.json({ projects });
+});
+
+app.get("/routines", async (req, res) => {
+    const routines = await listRoutines(res.locals.userId);
+    res.json({ routines });
+});
+
+app.get("/invites", async (req, res) => {
+    const invites = await listInvitesForUser(res.locals.userId);
+    res.json({ invites });
+});
+```
+
+**What it does.** Builds the server and exports it, without starting it — `server.ts` starts it, and
+the tests use it unstarted.
+
+**`declare global`** adds `userId: string` to Express's own `Locals` type. Without it,
+`res.locals.userId` is `any`, and `const n: number = res.locals.userId` passes the type check
+without a word — tried while preparing the step.
+
+**`app.use(...)` is "who is asking"**, and runs before every route, in the order it was added. No
+`X-User-Id` header, or one that is not an id → `401`, and `return` stops there. Otherwise it stores
+the id on `res.locals` and `next()` hands the request on. The regular expression accepts `1` to
+eighteen digits and refuses `abc`, `007` and `-1`, which would otherwise reach Postgres as `22P02`.
+
+**The header is a stand-in for login.** It breaks section 13's rule — identity never comes from the
+request — on purpose, in one place, until step 6 replaces that one function with a session. Every
+route reads `res.locals.userId`; none reads the header.
+
+**`app.get("/projects", ...)`** is the first endpoint. It runs `listProjectsForUser` for the asker
+and wraps the list, `{ projects: [...] }`, so something can be added beside it later without
+breaking whoever reads it. Each project goes out as stored: snake_case keys, `created_at` as an ISO
+string, because JSON has no dates.
+
+**`app.get("/routines", ...)`** is the first copy — the same shape with a different function, written
+by hand on 2026-10-10 from the pattern above. Each routine carries `due_today` and `done_today`,
+which `listRoutines` works out on every request.
+
+**`app.get("/invites", ...)`** is the second and last copy of this shape: "give me my own list".
+"Mine" here means *addressed to me* — `listInvitesForUser` matches the asker's email, lowered — so
+the Lead who sent an invite does not see it in their own list.
+
+**Every route goes below `app.use(...)`.** Express runs things in the order they were added, so a
+route above the "who is asking" step never passes through it. Tried: with `/routines` moved above it,
+a request with no header got `200`, and Ana's own routines came back empty, because
+`res.locals.userId` was empty and the query asked for nobody's routines.
+
+**`app.disable("x-powered-by")`** stops Express adding `X-Powered-By: Express` to every response.
+
+**Open**
+
+- No error handler yet. If a route throws — the database is down — Express answers with its own HTML
+  page, which includes the error message and the stack. Harmless while `GET /projects` cannot
+  refuse anything; needed before the first endpoint that can.
+- The placeholder does not check that the id names a real user. `GET /projects` as user 99 is an
+  empty list, which is honest. A write would fail on a foreign key instead.
+
+## `src/server.ts`
+
+```ts
+import "dotenv/config";
+import { app } from "./app.js";
+
+const port = 3000;
+
+app.listen(port, "127.0.0.1", () => {
+    console.log(`Taskco is listening on http://127.0.0.1:${port}`);
+});
+```
+
+**What it does.** Loads `.env`, then starts the app. `dotenv/config` is the first import for step 1's
+reason: `db.ts` reads `DATABASE_URL` the moment it is imported. `127.0.0.1` means only this machine
+can reach it — which matters while anyone can claim to be anyone with a header.
+
+## The HTTP tests — `src/test_http`
+
+```
+GET /projects
+  lists the projects the asker is in
+  shows nobody else's projects
+  refuses a request that does not say who is asking
+GET /routines
+  lists the asker's routines
+  shows nobody else's routines
+  refuses a request that does not say who is asking
+GET /invites
+  lists the invites addressed to the asker
+  does not show an invite to the person who sent it
+  refuses a request that does not say who is asking
+```
+
+`request(app).get("/projects").set("X-User-Id", ana.id)` sends a request to the app without starting
+a server. The same `setup.ts` empties the tables first. Users are made with `createUser` directly;
+there is no endpoint for them until step 6.
+
+**"shows nobody else's projects" is the one that proves the id is used.** Ids restart at 1 before
+every test, so Ana is always user 1, and a route that ignored the header and asked for user `"1"`
+would pass the first test. Cara is user 2 — and changing the route to `listProjectsForUser("1")`
+turns this test red, which was tried.
+
+**A 401 test passes before its route exists**, because "who is asking" turns the request away before
+Express looks for a route. Written first, the `/routines` 401 test was green while the other two
+failed with `404`. Moving the route above `app.use(...)` is what showed it watching.
+
+**Two tests, asking as two different people, each catch what the other cannot.** With
+`listInvitesForUser("2")` in the route, the test asking as Ben — user 2 — still passed; only the one
+asking as Ana, the sender, went red. Tried.
+
+159 tests in twelve files.
 
 ---
 

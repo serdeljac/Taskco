@@ -9,6 +9,8 @@ Companion to [`design-decisions.md`](./design-decisions.md) (what is being built
 (what each file is). The checkpoint reviews — [`slice-a-review.md`](./slice-a-review.md),
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
 [`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md) — are dated snapshots and no longer carry status.
+Neither does [`step-5-prep.md`](./step-5-prep.md), which says what step 5 will do to each item it
+meets.
 
 ## How this file works
 
@@ -53,12 +55,6 @@ becomes a decision; an item here becomes a commit.
 | `email-lookup-must-lowercase` | The `lower(email)` index is only used by queries written `where lower(email) = lower($1)`, and nothing enforces that | [A §1](./slice-a-review.md) | Partly — `createInvite` is the first such lookup and does it correctly. Step 6's login is the next one, and would silently fail to find a real account if it forgot |
 | `email-has-no-format-or-length-limit` | Zod covers the boundary at step 5; the database stays open to any other caller | [reference, 002](./reference.md) | Open |
 | `deactivated-accounts-can-still-be-invited-or-added` | Nothing reads `users.deletion_scheduled_at` except `restoreProject`, `reopenAccount` and the purge. So `createInvite` still finds an account being deleted, `addMember` still adds it, and `acceptInvite` still lets it join — a membership the purge then removes thirty days later. Since step 4c it can also create routines and complete them | Doc pass, 2026-10-08 — this row is the record | Open — needs deciding: treat it as "No email found", or let the act reopen the account. Step 6's login is where it meets a real person |
-
-### `projects` — migration 003
-
-| Name | What | Explained in | Status |
-|---|---|---|---|
-| `visible-projects-filter-arrives-with-delete-mode` | Slice C adds a second visibility condition beside `ended_at is null`, which is where "one place decides what is visible" stops being theoretical | [A §2](./slice-a-review.md) | Waits for slice C |
 
 ### `memberships` — migration 004
 
@@ -150,6 +146,7 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 
 | Name | Raised | How it closed |
 |---|---|---|
+| `visible-projects-filter-arrives-with-delete-mode` | [A §2](./slice-a-review.md) | Arrived in slice C and was never marked: the second condition sits in `listProjectsForUser`'s own `where` clause rather than a view, because whether a project being deleted is visible depends on who is asking — design section 6. Closed 2026-10-09 by the step 5 preparation, where its concern returns: the permission check would be a second place deciding the same thing — `one-place-for-project-access` |
 | `one-lead-per-project` | [A §3](./slice-a-review.md) | Migration `006` for *at most one*, a check in `removeMember` for *at least one* — `8643ab3`, `7f6c987` |
 | `test-guard-checks-whole-url` | [A §5](./slice-a-review.md) | `isTestDatabase` parses the address and judges the database name, with three tests of its own — `f61b560` |
 | `truncate-list-hand-maintained` | [A §5](./slice-a-review.md) | **Dropped — the claim was wrong.** `truncate ... cascade` already empties referencing tables |

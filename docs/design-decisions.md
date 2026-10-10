@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
 **Status:** design complete, stack chosen, slices A, B and C and steps 4b and 4c built, each with its
-review done. Last updated 2026-10-09.
+review done, and step 5 prepared. Last updated 2026-10-09.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -10,7 +10,8 @@ moves up into the decided sections.
 Companion file: [`learning-path.md`](./learning-path.md) — how the build proceeds, step by step.
 This file holds *what* is being built and why; that one holds *how*.
 
-No genuine open questions remain. What is left in section 12 is detail to settle against real code.
+Section 12 holds seven questions step 5 needs answered before its first line, and four details to
+settle against real code.
 
 ---
 
@@ -826,9 +827,24 @@ Postgres runs natively on Windows rather than in Docker. Both are recorded with 
 
 ## 12. Open questions
 
-Every remaining item is decided in principle and marked *(at build time)* — only the detail is open,
-and it is cheaper to settle against real code than in the abstract. Refer to these by name; the
-numbers are not stable, since resolved items are removed.
+**Before step 5**, raised 2026-10-09 while preparing it. These are genuine questions, not detail:
+step 5's first line depends on them. Each is worked through, with a recommendation, in
+[`step-5-prep.md`](./step-5-prep.md); an answered one moves up into a section of this file — most
+likely a new one, on the HTTP layer.
+
+- `step-5-scope` — four endpoints now, and the other thirty functions in a step 5b.
+- `stub-identity` — where the placeholder's user id comes from until step 6, given that a constant
+  can never be an Associate in a test.
+- `error-kinds` — how a refusal in `queries.ts` becomes a status code without matching its words.
+- `permission-check` — whether "may they?" is asked in the HTTP layer or inside each query.
+- `one-place-for-project-access` — whether a view over memberships holds who can see a project. It
+  would correct section 6, which says that rule cannot live in a view.
+- `response-shape` — whether responses are built field by field, and lists wrapped in an object.
+- `unknown-body-keys` — whether a body with keys the server did not ask for is refused.
+
+**At build time.** The numbered items below are decided in principle and marked *(at build time)* —
+only the detail is open, and it is cheaper to settle against real code than in the abstract. Refer
+to these by name; the numbers are not stable, since resolved items are removed.
 
 *Resolved 2026-09-27:* how "an assignee must be a current member" is enforced. The answer is in
 section 7, under Assignee.
