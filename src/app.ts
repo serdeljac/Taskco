@@ -1,6 +1,6 @@
 import express from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine } from "./queries.js";
 
 //Tells TypeScript that res.locals.userId is a string. Without this it’s any, which TypeScript never checks
 declare global {
@@ -61,4 +61,25 @@ app.post("/projects", async (req, res) => {
 
     const project = await createProject(body.data.name, res.locals.userId);
     res.status(201).json({ project });
+});
+
+const newRoutine = z.strictObject({
+    name: z.string().trim().min(1),
+    weekdays: z.array(z.number().int().min(1).max(7)).min(1),
+});
+
+app.post("/routines", async (req, res) => {
+    const body = newRoutine.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const routine = await createRoutine({
+        userId: res.locals.userId,
+        name: body.data.name,
+        weekdays: body.data.weekdays,
+    });
+    res.status(201).json({ routine });
 });
