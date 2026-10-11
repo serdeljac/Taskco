@@ -1104,7 +1104,7 @@ checks what a request carries; Supertest 7.2.2 lets a test send it requests with
 ```ts
 import express from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine } from "./queries.js";
 
 declare global {
     namespace Express {
@@ -1161,6 +1161,27 @@ app.post("/projects", async (req, res) => {
     const project = await createProject(body.data.name, res.locals.userId);
     res.status(201).json({ project });
 });
+
+const newRoutine = z.strictObject({
+    name: z.string().trim().min(1),
+    weekdays: z.array(z.number().int().min(1).max(7)).min(1),
+});
+
+app.post("/routines", async (req, res) => {
+    const body = newRoutine.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const routine = await createRoutine({
+        userId: res.locals.userId,
+        name: body.data.name,
+        weekdays: body.data.weekdays,
+    });
+    res.status(201).json({ routine });
+});
 ```
 
 **What it does.** Builds the server and exports it, without starting it — `server.ts` starts it, and
@@ -1215,6 +1236,11 @@ new project wrapped as `{ project }`.
 server did not ask for — `userId`, say — is refused rather than quietly stripped. The client sends
 intent; a client that tries to say who the Lead is has a bug, and hears about it at once.
 
+**`app.post("/routines", ...)`** is the copy of this shape, with a body of two fields. `weekdays`
+reads from the inside out: each item a number, whole, from 1 to 7; together a list of at least one.
+That is the same rule migration `019`'s `routines_weekdays_valid` holds in the database — Zod gives
+the asker a `400` that says what was wrong, and the check keeps the data right if Zod ever misses.
+
 **Open**
 
 - No error handler yet. If a route throws, Express answers with its own HTML page, which includes the
@@ -1261,6 +1287,13 @@ POST /projects
   refuses a blank name
   refuses a body with a field it did not ask for
   refuses a request that does not say who is asking
+POST /routines
+  creates a routine in the asker's list
+  refuses a blank name
+  refuses a day that is not 1 to 7
+  refuses a routine with no days
+  refuses a body with a field it did not ask for
+  refuses a request that does not say who is asking
 ```
 
 `request(app).get("/projects").set("X-User-Id", ana.id)` sends a request to the app without starting
@@ -1289,7 +1322,13 @@ looked empty and every `POST` was refused: "creates a project" went red with `ex
 with `z.object` in place of `z.strictObject`, only "refuses a body with a field it did not ask for"
 went red, `expected 201 to be 400`. Both tried.
 
-163 tests in twelve files.
+**When Zod misses, the database still refuses — but the answer is wrong.** With the last `.min(1)`
+removed from `weekdays`, `[]` reached `createRoutine` and `routines_weekdays_valid` refused it, so no
+row was saved. The asker got `500` and Express's HTML page, carrying the stack and the constraint's
+name: `expected 500 to be 400`. Tried. The lock kept the data right; only an error handler can make
+the answer right.
+
+169 tests in twelve files.
 
 ---
 

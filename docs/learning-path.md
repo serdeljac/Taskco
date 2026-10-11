@@ -7,7 +7,9 @@ first is `GET /projects`, whose copies are `GET /invites` and `GET /routines`; i
 `X-User-Id` header as the stand-in for login. All three were built on 2026-10-10, the copies typed
 from the pattern — one hundred and fifty-nine tests. The second shape — the request carries data
 and the server checks it — began the same day with `POST /projects`: `express.json()`, a Zod
-`strictObject`, `201` or `400`. One hundred and sixty-three tests. Step 4c is complete, reviewed in
+`strictObject`, `201` or `400` — and its copy, `POST /routines`. One hundred and sixty-nine tests.
+Next is the error handler, because a request that crashes now reaches Express's own page, stack
+and all. Step 4c is complete, reviewed in
 [`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
 one hundred and fifty tests.
 
