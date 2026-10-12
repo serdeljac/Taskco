@@ -1102,7 +1102,7 @@ checks what a request carries; Supertest 7.2.2 lets a test send it requests with
 ## `src/app.ts`
 
 ```ts
-import express from "express";
+import express, { type ErrorRequestHandler } from "express";
 import { z } from "zod";
 import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine } from "./queries.js";
 
@@ -1182,6 +1182,22 @@ app.post("/routines", async (req, res) => {
     });
     res.status(201).json({ routine });
 });
+
+app.use((req, res) => {
+    res.status(404).json({ error: "Not found" });
+});
+
+const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
+    if (error.type === "entity.parse.failed") {
+        res.status(400).json({ error: "The request body is not valid JSON" });
+        return;
+    }
+
+    console.error(error);
+    res.status(500).json({ error: "Something went wrong" });
+};
+
+app.use(handleErrors);
 ```
 
 **What it does.** Builds the server and exports it, without starting it — `server.ts` starts it, and
@@ -1241,12 +1257,24 @@ reads from the inside out: each item a number, whole, from 1 to 7; together a li
 That is the same rule migration `019`'s `routines_weekdays_valid` holds in the database — Zod gives
 the asker a `400` that says what was wrong, and the check keeps the data right if Zod ever misses.
 
+**The last two `app.use(...)` calls make every answer JSON.** Express tries things in the order they
+were added, so the first of them — "Not found" — is reached only when no route answered, and gives
+`404`. Every new route goes above it; anything added below is never reached.
+
+**`handleErrors` catches whatever a route throws** — Express 5 passes a rejected `await` here by
+itself, which is why no route needs a `try`. Express recognises it as an error handler **only
+because it has four parameters**: `next` is never used and has to be there. Broken JSON, which
+`express.json()` marks `type: "entity.parse.failed"`, is the asker's mistake and gets `400`. Anything
+else is ours: the whole error goes to the terminal with `console.error`, and the asker gets `500` and
+one sentence — no stack, no table or constraint names.
+
 **Open**
 
-- No error handler yet. If a route throws, Express answers with its own HTML page, which includes the
-  error message and the stack. Since `POST /projects` this is reachable: a header naming a user who
-  does not exist makes `createProject` fail on the membership's foreign key, `23503`, and the asker
-  gets that page as a `500`. A body that is not JSON at all gets the same page as a `400`.
+- `handleErrors` knows one kind of error. A body over `express.json()`'s 100 kB limit carries its own
+  `413`, `type: "entity.too.large"`, and becomes a `500` — tried with a 200,000-character name. And no database refusal is mapped yet: a duplicate (`23505`) or a check
+  (`23514`) that a route lets through also becomes a `500`. The design's answer — refusals with kinds,
+  mapped to `404` and `409` — is question 3 in [`step-5-prep.md`](./step-5-prep.md), for when an
+  endpoint first needs it.
 - The placeholder does not check that the id names a real user. `GET /projects` as user 99 is an
   empty list, which is honest. A write would fail on a foreign key instead.
 
@@ -1294,6 +1322,10 @@ POST /routines
   refuses a routine with no days
   refuses a body with a field it did not ask for
   refuses a request that does not say who is asking
+errors
+  answers a path that does not exist with JSON
+  answers a body that is not JSON with 400
+  answers a crash with 500, and no details
 ```
 
 `request(app).get("/projects").set("X-User-Id", ana.id)` sends a request to the app without starting
@@ -1328,7 +1360,20 @@ row was saved. The asker got `500` and Express's HTML page, carrying the stack a
 name: `expected 500 to be 400`. Tried. The lock kept the data right; only an error handler can make
 the answer right.
 
-169 tests in twelve files.
+**The error tests check the whole body with `toEqual`**, so any extra detail would fail them. Written
+first, all three were red on the body alone — `expected {} to deeply equal …` — while their status
+codes already passed: Express chose `404`, `400` and `500` itself, and sent HTML that Supertest could
+not read as JSON. "A crash" is a real one: user `99` does not exist, so `createProject` fails on the
+membership's foreign key. Its error is printed under the test, by `console.error`, and the test
+passes.
+
+**TypeScript cannot see the four-parameter rule.** With `next` removed, `npm run typecheck` passed,
+and only the tests went red — "not JSON" and "a crash" both got Express's page back. Tried.
+
+**Some mistakes only reading finds.** The "Not found" block was once typed twice. Every test passed,
+because the second copy could never be reached; it was found by comparing the file line by line.
+
+172 tests in thirteen files.
 
 ---
 

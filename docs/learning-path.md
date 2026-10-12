@@ -8,8 +8,9 @@ first is `GET /projects`, whose copies are `GET /invites` and `GET /routines`; i
 from the pattern — one hundred and fifty-nine tests. The second shape — the request carries data
 and the server checks it — began the same day with `POST /projects`: `express.json()`, a Zod
 `strictObject`, `201` or `400` — and its copy, `POST /routines`. One hundred and sixty-nine tests.
-Next is the error handler, because a request that crashes now reaches Express's own page, stack
-and all. Step 4c is complete, reviewed in
+Then the error handler, on 2026-10-11: a JSON "Not found" and a four-parameter handler, so a crash
+answers `500` and one sentence while the details go to the terminal. One hundred and seventy-two
+tests. Step 4c is complete, reviewed in
 [`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
 one hundred and fifty tests.
 
