@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type ErrorRequestHandler } from "express";
 import { z } from "zod";
 import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine } from "./queries.js";
 
@@ -83,3 +83,19 @@ app.post("/routines", async (req, res) => {
     });
     res.status(201).json({ routine });
 });
+
+app.use((req, res) => {
+    res.status(404).json({ error: "Not found" });
+});
+
+const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
+    if (error.type === "entity.parse.failed") {
+        res.status(400).json({ error: "The request body is not valid JSON" });
+        return;
+    }
+
+    console.error(error);
+    res.status(500).json({ error: "Something went wrong" });
+};
+
+app.use(handleErrors);
