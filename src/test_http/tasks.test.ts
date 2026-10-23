@@ -93,6 +93,36 @@ describe("POST /projects/:projectId/tasks", () => {
         expect(tasks[0]?.title).toBe("Fix the gate");
     });
 
+    it("gives a new task the due date it was sent", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/tasks`)
+            .set("X-User-Id", ana.id)
+            .send({ title: "Fix the gate", dueDate: "2026-11-20" });
+
+        expect(response.status).toBe(201);
+        expect(response.body.task.due_date).toBe("2026-11-20");
+    });
+
+    it("refuses a due date that is not on the calendar", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/tasks`)
+            .set("X-User-Id", ana.id)
+            .send({ title: "Fix the gate", dueDate: "2026-02-30" });
+
+        expect(response.status).toBe(400);
+        expect(await listTasks({ projectId: project.id, userId: ana.id })).toHaveLength(0);
+    });
+
     it("refuses a blank title", async () => {
         //CREATE
         const ana = await createUser("ana@example.com", "Europe/Zagreb");

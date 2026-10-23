@@ -100,6 +100,7 @@ app.get("/projects/:projectId/tasks", async (req, res) => {
 
 const newTask = z.strictObject({
     title: z.string().trim().min(1),
+    dueDate: z.iso.date().optional(),
 });
 
 app.post("/projects/:projectId/tasks", async (req, res) => {
@@ -125,7 +126,7 @@ app.post("/projects/:projectId/tasks", async (req, res) => {
         return;
     }
 
-    const task = await createTask({ projectId, title: body.data.title });
+    const task = await createTask({ projectId, title: body.data.title, dueDate: body.data.dueDate });
     res.status(201).json({ task });
 });
 
