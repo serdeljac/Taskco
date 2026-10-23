@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, deleteSubtask, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -473,6 +473,12 @@ app.put("/subtasks/:subtaskId/assignee", requireLead, async (req, res) => {
     }
 
     await setSubtaskAssignee({ subtaskId: req.params.subtaskId, membershipId: body.data.membershipId });
+    res.status(204).end();
+});
+
+//A soft delete, like a task's: the row stays, and the place it took under the fifty is free again
+app.delete("/subtasks/:subtaskId", requireLead, async (req, res) => {
+    await deleteSubtask(req.params.subtaskId);
     res.status(204).end();
 });
 

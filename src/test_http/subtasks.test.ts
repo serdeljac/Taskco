@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
+import { pool } from "../db.js";
 import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate, setSubtaskPriority, setSubtaskDueDate, listMembers } from "../queries.js";
 
 
@@ -458,6 +459,45 @@ describe("PUT /subtasks/:subtaskId/assignee", () => {
         const response = await request(app)
             .put("/subtasks/1/assignee")
             .send({ membershipId: null });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("DELETE /subtasks/:subtaskId", () => {
+    it("lets the Lead delete a subtask, which leaves the list but keeps its row", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .delete(`/subtasks/${subtask.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(204);
+        expect(await reread(task, ana)).toHaveLength(0);
+
+        const row = await pool.query("select deleted_at from subtasks where id = $1", [subtask.id]);
+        expect(row.rows[0]?.deleted_at).not.toBeNull();
+    });
+
+    it("answers 403 to an Associate, and deletes nothing", async () => {
+        //CREATE
+        const { ana, ben, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .delete(`/subtasks/${subtask.id}`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(403);
+        expect(await reread(task, ana)).toHaveLength(1);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).delete("/subtasks/1");
 
         expect(response.status).toBe(401);
     });

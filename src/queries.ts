@@ -947,6 +947,24 @@ export async function setSubtaskPriority(change: {
     }
 }
 
+export async function deleteSubtask(subtaskId: string): Promise<void> {
+    const deleted = await pool.query(
+        `update subtasks
+        set deleted_at = now()
+        where id in (
+            select s.id
+            from visible_subtasks s
+            join visible_tasks t on t.id = s.task_id
+            where s.id = $1
+        )`,
+        [subtaskId]
+    );
+
+    if (deleted.rowCount === 0) {
+        throw new NotFound("deleteSubtask: subtask not found");
+    }
+}
+
 export async function setSubtaskNotes(change: {
     subtaskId: string;
     notes: string | null;
