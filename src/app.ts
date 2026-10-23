@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -52,13 +52,14 @@ for (const name of ["projectId", "taskId", "subtaskId", "userId", "inviteId", "r
 }
 
 //The ids a path can name that lead to a project
-type PathIds = { projectId?: string; taskId?: string };
+type PathIds = { projectId?: string; taskId?: string; subtaskId?: string };
 
-//The project a path is about: named in it, or found through the task it names. A task's project is never taken from the
+//The project a path is about: named in it, or found through the task or subtask it names. Their project is never taken from the
 //path, so a request cannot pass the check for one project while acting on a task in another
 async function projectIdOf(params: PathIds): Promise<string | undefined> {
     if (params.projectId) return params.projectId;
     if (params.taskId) return findTaskProject(params.taskId);
+    if (params.subtaskId) return findSubtaskProject(params.subtaskId);
     return undefined;
 }
 
@@ -411,6 +412,19 @@ app.post("/tasks/:taskId/subtasks", requireLead, async (req, res) => {
         dueDate: body.data.dueDate,
     });
     res.status(201).json({ subtask });
+});
+
+//A subtask's fields follow its task's rules: status and notes for any member, everything else for the Lead
+app.put("/subtasks/:subtaskId/status", requireMember, async (req, res) => {
+    const body = taskStatus.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    await setSubtaskStatus({ subtaskId: req.params.subtaskId, status: body.data.status });
+    res.status(204).end();
 });
 
 app.use((req, res) => {

@@ -158,3 +158,70 @@ describe("POST /tasks/:taskId/subtasks", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("PUT /subtasks/:subtaskId/status", () => {
+    it("lets an Associate change a subtask's status", async () => {
+        //CREATE
+        const { ana, ben, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/status`)
+            .set("X-User-Id", ben.id)
+            .send({ status: "completed" });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.status).toBe("completed");
+    });
+
+    it("refuses a status that is not on the list", async () => {
+        //CREATE
+        const { ana, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/status`)
+            .set("X-User-Id", ana.id)
+            .send({ status: "done" });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("answers 404 to someone who is not in the project", async () => {
+        //CREATE
+        const { ana, cara, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/status`)
+            .set("X-User-Id", cara.id)
+            .send({ status: "completed" });
+
+        expect(response.status).toBe(404);
+        expect((await reread(task, ana))[0]?.status).toBe("not_started");
+    });
+
+    it("answers 404 for a subtask whose task was deleted", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+        await deleteTask(task.id);
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/status`)
+            .set("X-User-Id", ana.id)
+            .send({ status: "completed" });
+
+        expect(response.status).toBe(404);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/subtasks/1/status")
+            .send({ status: "completed" });
+
+        expect(response.status).toBe(401);
+    });
+});

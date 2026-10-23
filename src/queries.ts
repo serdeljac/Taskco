@@ -894,6 +894,38 @@ export async function listSubtasks(filter: { taskId: string; userId: string }): 
     return rows;
 }
 
+export async function findSubtaskProject(subtaskId: string): Promise<string | undefined> {
+    const { rows } = await pool.query<{ project_id: string }>(
+        `select t.project_id
+        from visible_subtasks s
+        join visible_tasks t on t.id = s.task_id
+        where s.id = $1`,
+        [subtaskId]
+    );
+    return rows[0]?.project_id;
+}
+
+export async function setSubtaskStatus(change: {
+    subtaskId: string;
+    status: TaskStatus;
+}): Promise<void> {
+    const updated = await pool.query(
+        `update subtasks
+        set status = $1
+        where id in (
+            select s.id
+            from visible_subtasks s
+            join visible_tasks t on t.id = s.task_id
+            where s.id = $2
+        )`,
+        [change.status, change.subtaskId]
+    );
+
+    if (updated.rowCount === 0) {
+        throw new NotFound("setSubtaskStatus: subtask not found");
+    }
+}
+
 export async function setSubtaskNotes(change: {
     subtaskId: string;
     notes: string | null;

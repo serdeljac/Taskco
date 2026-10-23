@@ -14,6 +14,8 @@ import {
     addMember,
     setTaskAssignee,
     deleteProject,
+    findSubtaskProject,
+    setSubtaskStatus,
 } from "../queries.js";
 
 
@@ -500,5 +502,59 @@ describe("subtasks", () => {
         await expect(
             setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2026-10-19" })
         ).rejects.toMatchObject({ message: "setSubtaskDueDate: subtask not found" });
+    });
+
+    it("finds the project a subtask is in", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        //TEST
+        expect(await findSubtaskProject(subtask.id)).toBe(project.id);
+    });
+
+    it("finds no project for a subtask whose task was deleted", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+        await deleteTask(task.id);
+
+        //TEST
+        expect(await findSubtaskProject(subtask.id)).toBeUndefined();
+    });
+
+    it("changes a subtask's status", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        //TEST
+        await setSubtaskStatus({ subtaskId: subtask.id, status: "completed" });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+        expect(subtasks[0]?.status).toBe("completed");
+    });
+
+    it("refuses to change the status of a subtask whose task was deleted", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+        await deleteTask(task.id);
+
+        //TEST
+        await expect(
+            setSubtaskStatus({ subtaskId: subtask.id, status: "completed" })
+        ).rejects.toMatchObject({ message: "setSubtaskStatus: subtask not found" });
+
+        const row = await pool.query("select status from subtasks where id = $1", [subtask.id]);
+        expect(row.rows[0]?.status).toBe("not_started");
     });
 });
