@@ -116,6 +116,8 @@ joined that batch. The rest are notes.
 - No index on `project_id`. "Who is in this project" would scan the table, and the composite index
   cannot help because an index is only usable from its leading column onward. Add it when slice B's
   member list actually needs it, not before.
+  - **Corrected 2026-10-22 — half of this item is wrong.** Postgres 18 can use a later column of an index, by skip scan: it searches once for each distinct value of the leading column. Cheap when that column has few values — two searches, for one user leading 20,000 projects — and no better than reading the table when it has many. The index arrived as migration
+    `021`, when step 5's member list needed it.
 - Foreign keys, the role `CHECK`, and the cascade are all unproven — no test exercises any of them.
 - The index on `user_id` can never be proven by a test. Indexes affect speed, not results; delete it
   and every test still passes. `EXPLAIN` is how you check those.

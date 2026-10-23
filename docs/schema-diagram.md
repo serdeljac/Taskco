@@ -1,6 +1,6 @@
 # Taskco — schema diagram
 
-The eight tables as of migration 020, and how they point at each other. The rules each column carries
+The eight tables as of migration 021, and how they point at each other. The rules each column carries
 (checks, partial indexes, the views) are in the
 [current schema appendix](./reference.md#appendix--current-schema); this page is for seeing the shape.
 

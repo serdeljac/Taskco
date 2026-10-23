@@ -2,10 +2,10 @@
 
 **Current step:** 5 — the HTTP layer, **built** on branch `step-5` from 2026-10-10 to 2026-10-22:
 36 endpoints over every function in `queries.ts`, three hundred and forty-seven tests. Its review
-has not been done, and the branch is not merged or pushed. **Next is step 6**, authentication, which
-starts with a migration — and a migration is where the build of 2026-10-22 was told to stop. The
-first migration worth writing before it is `021`, the index on `memberships (project_id)` that the
-new member list now uses. Step 4c is complete, reviewed in
+has not been done, and the branch is not merged or pushed. Migration `021`, the index on
+`memberships (project_id)` the new member list uses, followed the same day, on Stjepan's go-ahead.
+**Next is step 6**, authentication, which starts with a migration of its own and two decisions:
+session cookies or tokens, and which password hashing library. Step 4c is complete, reviewed in
 [`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
 one hundred and fifty tests.
 
@@ -689,3 +689,13 @@ once for every route. That a task's project must be found through the task, neve
 path. And that a move wants its own commit: regrouping `app.ts` moved four hundred lines and changed
 none, which is easy to show only when nothing else is in the diff.
 
+**After step 5 — migration `021`.** 2026-10-22, on Stjepan's go-ahead, since a migration is where the
+build had been told to stop. `memberships_project_id_idx` indexes `project_id`, which
+`listMembers` reads by and the cascade from a deleted project follows. Applied to both databases;
+three hundred and forty-seven tests.
+
+*Learned:* that an index's worth shows only on data shaped like real use. On 20,000 memberships all
+led by one user, Postgres 18 needed no new index at all: it skip-scanned `(user_id, project_id)`,
+searching once per user — twice. Spread across 500 users it read the whole table instead, 337
+pages for one row, and with the index, 6. And so the slice A claim that "an index is only usable
+from its leading column" was wrong in Postgres 18, though its conclusion held.

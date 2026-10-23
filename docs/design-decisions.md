@@ -977,7 +977,7 @@ door users have. The check and the write are also two statements — `check-then
 ### `one-place-for-project-access` — still `listProjectsForUser`, without a view
 
 *Different from the preparation*, which proposed a view over memberships, `project_access`, as
-migration `021`. Instead the access check looks the project up in the asker's own project list,
+migration `021` — a number that went to the member list's index instead. Instead the access check looks the project up in the asker's own project list,
 which now carries their role in each. Who can see a project is still written once, in
 `listProjectsForUser`'s `where` clause, and nothing needed a migration. Section 6's claim that this
 rule "cannot move into a view" was therefore never tested, and stands.

@@ -325,9 +325,9 @@ while a second *active* membership for the same person and project is impossible
   forbid it, because check expressions must be immutable. That was wrong: Postgres only assumes a
   check is immutable, and runs it once, when the row is written. "Not in the future" never flips, so
   `check (ended_at <= now())` is safe.
-- No index on `project_id`. "Who is in this project" would scan the table, and the composite index
-  cannot help because an index is only usable from its leading column onward. Add it when slice B's
-  member list needs it.
+- **Fixed by migration `021` — no index on `project_id`.** "Who is in this project" scanned the
+  table. This note said the composite index cannot help because an index is only usable from its
+  leading column; *corrected 2026-10-22:* Postgres 18 can use a later column of an index, by skip scan: it searches once for each distinct value of the leading column. Cheap when that column has few values — two searches, for one user leading 20,000 projects — and no better than reading the table when it has many.
 - The foreign keys, the role `CHECK`, and the cascade are all untested.
 - The index on `user_id` can never be tested — indexes affect speed, not results. `EXPLAIN` is how
   you check those.
@@ -830,7 +830,7 @@ Tasks and subtasks, with status, priority, due dates, soft deletion, manual orde
 one idea per piece, with each migration applied to both databases. The checkpoint is
 [`slice-b-review.md`](./slice-b-review.md).
 
-## Migrations 007–020
+## Migrations 007–021
 
 | File | What it adds |
 |---|---|
@@ -848,6 +848,7 @@ one idea per piece, with each migration applied to both databases. The checkpoin
 | `018_add_account_deletion.sql` | `deletion_scheduled_at` on `users`, with the same meaning as on `projects`: when the account will be removed, empty while it is active. Step 4b |
 | `019_create_routines.sql` | `routines` — owner, name, the weekdays it is scheduled on as an `integer[]` checked to hold only 1 to 7 — and `completions`, keyed on `(routine_id, done_on)` so a day can be done only once. Both cascade, from the user down. And the view `user_today`, the one place that says what today is for each user. Step 4c |
 | `020_check_timezones_and_soft_delete_dates.sql` | Four locks from the step 4c review. `users_timezone_known` calls a new function, `is_known_timezone`, which asks Postgres's own `pg_timezone_names`; and `ended_at` on `memberships`, `deleted_at` on `tasks` and `subtasks`, may no longer be in the future. Adding them validated every existing row, which is why the test tables had to be emptied first |
+| `021_index_memberships_project_id.sql` | `memberships_project_id_idx`, a plain index on `project_id`, for `listMembers` and for the cascade when a project is deleted. Step 5. Run on 20,000 memberships: one search and 6 pages instead of reading all 337 |
 
 Three of them are worth reading for the pattern, not just the columns.
 
@@ -1541,7 +1542,8 @@ Two databases, both owned by `taskco_app`, a role with no privileges beyond logi
 | `created_at` | timestamptz | not null, defaults to `now()` |
 | `ended_at` | timestamptz | nullable — **null means still a member**; not before `created_at`, not in the future |
 
-Indexes: `memberships_user_id_idx` on `(user_id)`; `memberships_one_active_idx`, unique, on
+Indexes: `memberships_user_id_idx` on `(user_id)`; `memberships_project_id_idx` on `(project_id)`,
+since migration `021`; `memberships_one_active_idx`, unique, on
 `(user_id, project_id) where ended_at is null`; `memberships_one_lead_idx`, unique, on
 `(project_id) where role = 'lead' and ended_at is null`. Constraint `memberships_id_project_key`,
 unique on `(id, project_id)` — redundant as a rule, and there only so the task assignee's composite
