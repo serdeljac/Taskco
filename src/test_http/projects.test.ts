@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, listProjectsForUser, addMember, deleteProject } from "../queries.js";
+import { pool } from "../db.js";
+import { createUser, createProject, listProjectsForUser, addMember, deleteProject, createTask } from "../queries.js";
 
 
 describe("GET /projects", () => {
@@ -225,6 +226,65 @@ describe("DELETE /projects/:projectId/deletion", () => {
     it("refuses a request that does not say who is asking", async () => {
         //TEST
         const response = await request(app).delete("/projects/1/deletion");
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("DELETE /projects/:projectId", () => {
+    it("removes the project at once, with everything in it", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await createTask({ projectId: project.id, title: "Fix the gate" });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(204);
+        expect(await listProjectsForUser(ana.id)).toHaveLength(0);
+
+        const tasks = await pool.query("select id from tasks where project_id = $1", [project.id]);
+        expect(tasks.rows).toHaveLength(0);
+    });
+
+    it("answers 403 to an Associate, and removes nothing", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(403);
+        expect(await listProjectsForUser(ana.id)).toHaveLength(1);
+    });
+
+    it("answers 409 while the project is in delete mode", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await deleteProject(project.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(409);
+        expect(await listProjectsForUser(ana.id)).toHaveLength(1);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).delete("/projects/1");
 
         expect(response.status).toBe(401);
     });

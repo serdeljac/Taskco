@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type Request, type RequestHandler } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -163,6 +163,12 @@ app.post("/projects/:projectId/deletion", requireLead, async (req, res) => {
 //The Lead still sees a project being deleted, inside its thirty days, so requireLead lets them through to undo it
 app.delete("/projects/:projectId/deletion", requireLead, async (req, res) => {
     await restoreProject(res.locals.project.id);
+    res.status(204).end();
+});
+
+//"Delete permanently now": a choice made instead of delete mode, so it is refused once delete mode has begun
+app.delete("/projects/:projectId", requireLead, async (req, res) => {
+    await deleteProjectNow(res.locals.project.id);
     res.status(204).end();
 });
 
