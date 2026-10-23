@@ -51,6 +51,8 @@ export type Subtask = {
 
 export type Role = "lead" | "associate";
 
+export type ProjectForUser = Project & { role: Role };
+
 export type Invite = {
     id: string;
     project_id: string;
@@ -374,9 +376,9 @@ export async function createProject(name: string, userId: string): Promise<Proje
     }
 }
 
-export async function listProjectsForUser(userId: string): Promise<Project[]> {
-    const { rows } = await pool.query<Project>(
-        `select p.*
+export async function listProjectsForUser(userId: string): Promise<ProjectForUser[]> {
+    const { rows } = await pool.query<ProjectForUser>(
+        `select p.*, m.role
         from projects p
         join memberships m on m.project_id = p.id
         where m.user_id = $1

@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask } from "./queries.js";
 
 //Tells TypeScript that res.locals.userId is a string. Without this it’s any, which TypeScript never checks
 declare global {
@@ -95,6 +95,37 @@ app.get("/projects/:projectId/tasks", async (req, res) => {
 
     const tasks = await listTasks({ projectId, userId: res.locals.userId });
     res.json({ tasks });
+});
+
+const newTask = z.strictObject({
+    title: z.string().trim().min(1),
+});
+
+app.post("/projects/:projectId/tasks", async (req, res) => {
+    const projectId = req.params.projectId;
+
+    const projects = await listProjectsForUser(res.locals.userId);
+    const project = projects.find((p) => p.id === projectId);
+
+    if (!project) {
+        res.status(404).json({ error: "Not found" });
+        return;
+    }
+
+    if (project.role !== "lead") {
+        res.status(403).json({ error: "Only the project's Lead can do that" });
+        return;
+    }
+
+    const body = newTask.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const task = await createTask({ projectId, title: body.data.title });
+    res.status(201).json({ task });
 });
 
 app.use((req, res) => {

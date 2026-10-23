@@ -459,4 +459,19 @@ describe("memberships", () => {
         ]);
     });
 
+    it("gives each project the asker's role", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const forAna = await listProjectsForUser(ana.id);
+        const forBen = await listProjectsForUser(ben.id);
+
+        expect(forAna[0]?.role).toBe("lead");
+        expect(forBen[0]?.role).toBe("associate");
+    });
+
 });
