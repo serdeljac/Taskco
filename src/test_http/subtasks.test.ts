@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate, setSubtaskPriority, setSubtaskDueDate } from "../queries.js";
+import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate, setSubtaskPriority, setSubtaskDueDate, listMembers } from "../queries.js";
 
 
 //The picture every test here starts from: Ana leads Website, Ben is an Associate in it, Cara is not in it,
@@ -400,6 +400,64 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
         const response = await request(app)
             .put("/subtasks/1/due-date")
             .send({ dueDate: "2026-11-20" });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("PUT /subtasks/:subtaskId/assignee", () => {
+    it("lets the Lead assign a subtask to a member", async () => {
+        //CREATE
+        const { ana, ben, project, task, subtask } = await website();
+        const members = await listMembers({ projectId: project.id, userId: ana.id });
+        const bens = members.find((m) => m.user_id === ben.id);
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/assignee`)
+            .set("X-User-Id", ana.id)
+            .send({ membershipId: bens?.membership_id });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.assignee_membership_id).toBe(bens?.membership_id);
+    });
+
+    it("answers 409 for a membership in another project, which only code can refuse", async () => {
+        //CREATE
+        const { ana, cara, task, subtask } = await website();
+        const shop = await createProject("Shop", cara.id);
+        const [caras] = await listMembers({ projectId: shop.id, userId: cara.id });
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/assignee`)
+            .set("X-User-Id", ana.id)
+            .send({ membershipId: caras?.membership_id });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "the assignee must be a current member of the project" });
+        expect((await reread(task, ana))[0]?.assignee_membership_id).not.toBe(caras?.membership_id);
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const { ben, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/assignee`)
+            .set("X-User-Id", ben.id)
+            .send({ membershipId: null });
+
+        expect(response.status).toBe(403);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/subtasks/1/assignee")
+            .send({ membershipId: null });
 
         expect(response.status).toBe(401);
     });
