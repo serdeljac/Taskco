@@ -48,3 +48,42 @@ describe("POST /account/deletion", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("DELETE /account/deletion", () => {
+    it("reopens the account inside its thirty days, and brings back the projects it leads", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+        await deleteAccount(ana.id);
+
+        //TEST
+        const response = await request(app)
+            .delete("/account/deletion")
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(204);
+        expect(await listProjectsForUser(ben.id)).toHaveLength(1);
+    });
+
+    it("answers 409 when the account is not being deleted", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+
+        //TEST
+        const response = await request(app)
+            .delete("/account/deletion")
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(409);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).delete("/account/deletion");
+
+        expect(response.status).toBe(401);
+    });
+});
