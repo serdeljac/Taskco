@@ -172,3 +172,60 @@ describe("POST /projects/:projectId/deletion", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("DELETE /projects/:projectId/deletion", () => {
+    it("takes the project out of delete mode, back to its Associates", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+        await deleteProject(project.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/deletion`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(204);
+        expect(await listProjectsForUser(ben.id)).toHaveLength(1);
+    });
+
+    it("answers 409 when the project is not being deleted", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/deletion`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(409);
+    });
+
+    it("answers 404 to an Associate, who cannot see a project being deleted", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+        await deleteProject(project.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/deletion`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(404);
+        expect(await listProjectsForUser(ben.id)).toHaveLength(0);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).delete("/projects/1/deletion");
+
+        expect(response.status).toBe(401);
+    });
+});
