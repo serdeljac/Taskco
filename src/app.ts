@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -52,13 +52,22 @@ for (const name of ["projectId", "taskId", "subtaskId", "userId", "inviteId", "r
 }
 
 //The ids a path can name that lead to a project
-type PathIds = { projectId?: string };
+type PathIds = { projectId?: string; taskId?: string };
+
+//The project a path is about: named in it, or found through the task it names. A task's project is never taken from the
+//path, so a request cannot pass the check for one project while acting on a task in another
+async function projectIdOf(params: PathIds): Promise<string | undefined> {
+    if (params.projectId) return params.projectId;
+    if (params.taskId) return findTaskProject(params.taskId);
+    return undefined;
+}
 
 //May they? The project a request is about, as the asker sees it — with their role in it — or undefined when they cannot see it.
 //It is looked up in the asker's own project list, so who can see a project stays written once, in listProjectsForUser
 async function projectFor(params: PathIds, userId: string): Promise<ProjectForUser | undefined> {
+    const projectId = await projectIdOf(params);
     const projects = await listProjectsForUser(userId);
-    return projects.find((p) => p.id === params.projectId);
+    return projects.find((p) => p.id === projectId);
 }
 
 //For anyone in the project. Someone who cannot see it gets 404: the same answer as a project that does not exist.
@@ -263,6 +272,23 @@ app.post("/invites/:inviteId/accept", async (req, res) => {
 //Declining destroys the invite and tells nobody. Only the person it is addressed to can decline it
 app.delete("/invites/:inviteId", async (req, res) => {
     await declineInvite({ inviteId: req.params.inviteId, userId: res.locals.userId });
+    res.status(204).end();
+});
+
+const taskStatus = z.strictObject({
+    status: z.enum(["not_started", "in_progress", "on_hold", "completed"]),
+});
+
+//Status and notes are the two things an Associate may change
+app.put("/tasks/:taskId/status", requireMember, async (req, res) => {
+    const body = taskStatus.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    await setTaskStatus({ taskId: req.params.taskId, status: body.data.status });
     res.status(204).end();
 });
 

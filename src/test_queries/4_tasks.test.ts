@@ -14,6 +14,8 @@ import {
     createSubtask,
     setTaskDueDate,
     createInvite,
+    findTaskProject,
+    setTaskStatus,
 } from "../queries.js";
 
 
@@ -767,5 +769,67 @@ describe("4_tasks", () => {
         expect(subtasks.rowCount).toBe(0);
         expect(invites.rowCount).toBe(0);
     });
-    
+
+    it("finds the project a task is in", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        //TEST
+        expect(await findTaskProject(task.id)).toBe(project.id);
+    });
+
+    it("finds no project for a deleted task", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await deleteTask(task.id);
+
+        //TEST
+        expect(await findTaskProject(task.id)).toBeUndefined();
+    });
+
+    it("changes a task's status", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        //TEST
+        await setTaskStatus({ taskId: task.id, status: "in_progress" });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+        expect(tasks[0]?.status).toBe("in_progress");
+    });
+
+    it("refuses to change a deleted task's status", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await deleteTask(task.id);
+
+        //TEST
+        await expect(
+            setTaskStatus({ taskId: task.id, status: "completed" })
+        ).rejects.toMatchObject({ message: "setTaskStatus: task not found" });
+
+        const row = await pool.query("select status from tasks where id = $1", [task.id]);
+        expect(row.rows[0]?.status).toBe("not_started");
+    });
+
+    it("refuses to change a task's status while its project is being deleted", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await deleteProject(project.id);
+
+        //TEST
+        await expect(
+            setTaskStatus({ taskId: task.id, status: "completed" })
+        ).rejects.toMatchObject({ message: "setTaskStatus: task not found" });
+    });
 });
