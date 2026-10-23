@@ -39,16 +39,23 @@ import {
     getStreak,
     deleteAccount,
     findSessionUser,
+    registerUser,
+    createSession,
+    logIn,
+    getUser,
+    endSession,
     type ProjectForUser,
 } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
+//userId and sessionToken are set by "who is asking", for every route below it.
 //project is set only by requireMember and requireLead, so only a route that names one of them may read it
 declare global {
     namespace Express {
         interface Locals {
             userId: string;
+            sessionToken: string;
             project: ProjectForUser;
         }
     }
@@ -68,11 +75,20 @@ app.disable("x-powered-by");
 app.use(express.json());
 
 /***********************************
-    WHO IS ASKING, AND MAY THEY
+    LOGGING IN
 ***********************************/
 
 //The cookie that carries a session's token. The browser sends it back on every request to this server
 const sessionCookie = "taskco_session";
+
+//HttpOnly: page scripts cannot read it. Secure: it travels only over HTTPS, which browsers also allow localhost.
+//SameSite=Strict: a request another site starts never carries it
+const sessionCookieOptions = { httpOnly: true, secure: true, sameSite: "strict", path: "/" } as const;
+
+//Lasts as long as the session it carries: thirty days
+function setSessionCookie(res: Response, token: string): void {
+    res.cookie(sessionCookie, token, { ...sessionCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+}
 
 //The value of one cookie in a Cookie header, which holds them all: "theme=dark; taskco_session=abc"
 function readCookie(req: Request, name: string): string | undefined {
@@ -83,18 +99,72 @@ function readCookie(req: Request, name: string): string | undefined {
     return undefined;
 }
 
+//The timezone is the browser's own; Postgres decides whether it knows the name
+const newAccount = z.strictObject({
+    email: z.email().max(254),
+    password: z.string().min(8).max(128),
+    timezone: z.string().min(1).max(100),
+});
+
+//The two routes anyone may use, logged in or not. They sit above "who is asking", so it never runs for them.
+//Registering logs the new account in at once
+app.post("/users", async (req, res) => {
+    const body = newAccount.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const user = await registerUser(body.data);
+    setSessionCookie(res, await createSession(user.id));
+    res.status(201).json({ user });
+});
+
+//No rules about the shape of either field here: anything that does not match an account is the same wrong answer
+const credentials = z.strictObject({
+    email: z.string().max(254),
+    password: z.string().max(128),
+});
+
+//A wrong password and an email nobody has get the same words, so this cannot be used to learn who has an account
+app.post("/sessions", async (req, res) => {
+    const body = credentials.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const session = await logIn(body.data);
+
+    if (!session) {
+        res.status(401).json({ error: "The email or password is wrong" });
+        return;
+    }
+
+    setSessionCookie(res, session.token);
+    res.status(201).json({ user: session.user });
+});
+
+
+/***********************************
+    WHO IS ASKING, AND MAY THEY
+***********************************/
+
 //Who is asking: the account whose live session the cookie names. This runs before every route below it; no cookie,
 //or one naming no live session → 401. Otherwise it stores the account's id and next() moves on to the route
 app.use(async (req, res, next) => {
     const token = readCookie(req, sessionCookie);
     const userId = token ? await findSessionUser(token) : undefined;
 
-    if (!userId) {
+    if (!token || !userId) {
         res.status(401).json({ error: "Log in first" });
         return;
     }
 
     res.locals.userId = userId;
+    res.locals.sessionToken = token;
     next();
 });
 
@@ -599,6 +669,19 @@ app.get("/routines/:routineId/streak", async (req, res) => {
 app.post("/account/deletion", async (req, res) => {
     const { scheduledFor } = await deleteAccount(res.locals.userId);
     res.status(201).json({ scheduledFor });
+});
+
+//Who is logged in. A frontend asks this first, to know whether to show the login screen
+app.get("/account", async (req, res) => {
+    const user = await getUser(res.locals.userId);
+    res.json({ user });
+});
+
+//Logging out ends this session only; the account's sessions on other devices go on. The browser is told to forget the cookie
+app.delete("/sessions/current", async (req, res) => {
+    await endSession(res.locals.sessionToken);
+    res.clearCookie(sessionCookie, sessionCookieOptions);
+    res.status(204).end();
 });
 
 
