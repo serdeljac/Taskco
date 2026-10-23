@@ -263,3 +263,46 @@ describe("POST /invites/:inviteId/accept", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("DELETE /invites/:inviteId", () => {
+    it("declines an invite, which disappears", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const invite = await createInvite({ projectId: project.id, email: "ben@example.com", invitedByUserId: ana.id });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/invites/${invite.id}`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(204);
+        expect(await listInvitesForUser(ben.id)).toHaveLength(0);
+        expect(await listProjectsForUser(ben.id)).toHaveLength(0);
+    });
+
+    it("answers 404 to someone the invite is not addressed to, and leaves it", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const invite = await createInvite({ projectId: project.id, email: "ben@example.com", invitedByUserId: ana.id });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/invites/${invite.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(404);
+        expect(await listInvitesForUser(ben.id)).toHaveLength(1);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).delete("/invites/1");
+
+        expect(response.status).toBe(401);
+    });
+});
