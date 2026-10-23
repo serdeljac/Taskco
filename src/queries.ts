@@ -1,7 +1,9 @@
 import { pool } from "./db.js";
 import type { PoolClient } from "pg";
+import { createHash, randomBytes } from "node:crypto";
 import { countStreak } from "./streak.js";
 import { NotFound, Refused } from "./errors.js";
+import { hashPassword, verifyPassword, hashForNobody } from "./passwords.js";
 
 export type User = {
     id: string;
@@ -93,13 +95,16 @@ export type RoutineToday = Routine & {
     USERS
 ***********************************/
 
+// Every column of users except password_hash, which never leaves this file
+const userColumns = "id, email, timezone, created_at, deletion_scheduled_at";
+
 export async function createUser(email: string, timezone: string): Promise<User> {
 
     const { rows } = await pool.query<User>(
         `
         insert into users (email, timezone)
         values ($1, $2)
-        returning *
+        returning ${userColumns}
         `,
         [email, timezone]
     );
@@ -110,6 +115,56 @@ export async function createUser(email: string, timezone: string): Promise<User>
         throw new Error("createUser: the insert returned no row");
     }
     return user; 
+}
+
+export async function registerUser(account: {
+    email: string;
+    password: string;
+    timezone: string;
+}): Promise<User> {
+    const passwordHash = await hashPassword(account.password);
+
+    try {
+        const { rows } = await pool.query<User>(
+            `insert into users (email, timezone, password_hash)
+            values ($1, $2, $3)
+            returning ${userColumns}`,
+            [account.email, account.timezone, passwordHash]
+        );
+
+        const user = rows[0];
+        if (!user) {
+            throw new Error("registerUser: the insert returned no row");
+        }
+        return user;
+    } catch (error) {
+        // The two rules only the database can hold, turned into sentences. Checking first in code would race;
+        // letting the insert refuse cannot
+        const constraint = (error as { constraint?: string }).constraint;
+
+        if (constraint === "users_email_lower_idx") {
+            throw new Refused("registerUser: an account already uses that email");
+        }
+        if (constraint === "users_timezone_known") {
+            throw new Refused("registerUser: that timezone is not one the server knows");
+        }
+        throw error;
+    }
+}
+
+export async function getUser(userId: string): Promise<User> {
+    const { rows } = await pool.query<User>(
+        `select ${userColumns}
+        from users
+        where id = $1`,
+        [userId]
+    );
+
+    const user = rows[0];
+    if (!user) {
+        throw new NotFound("getUser: account not found");
+    }
+    return user;
 }
 
 export async function deleteAccount(userId: string): Promise<{ scheduledFor: Date }> {
@@ -222,6 +277,80 @@ export async function purgeDeletedAccounts(): Promise<{ purged: number }> {
 
     return { purged: rows.length };
 }
+
+/***********************************
+    SESSIONS
+***********************************/
+
+// The table holds only this hash. The token itself exists in the asker's cookie and nowhere else
+function hashToken(token: string): string {
+    return createHash("sha256").update(token).digest("hex");
+}
+
+export async function createSession(userId: string): Promise<string> {
+    const token = randomBytes(32).toString("base64url");
+
+    await pool.query(
+        `insert into sessions (token_hash, user_id, expires_at)
+        values ($1, $2, now() + interval '30 days')`,
+        [hashToken(token), userId]
+    );
+
+    return token;
+}
+
+// A wrong password, an email nobody has, an account with no password and an account past its date all give the
+// same answer, in the same time: nothing. Logging in to an account inside its thirty days reopens it
+export async function logIn(attempt: {
+    email: string;
+    password: string;
+}): Promise<{ token: string; user: User } | undefined> {
+    const { rows } = await pool.query<{ id: string; password_hash: string | null; being_deleted: boolean; gone: boolean }>(
+        `select id, password_hash,
+            deletion_scheduled_at is not null as being_deleted,
+            coalesce(deletion_scheduled_at <= now(), false) as gone
+        from users
+        where lower(email) = lower($1)`,
+        [attempt.email]
+    );
+
+    const found = rows[0];
+
+    if (!found || !found.password_hash || found.gone) {
+        await verifyPassword(attempt.password, await hashForNobody());
+        return undefined;
+    }
+
+    if (!(await verifyPassword(attempt.password, found.password_hash))) {
+        return undefined;
+    }
+
+    if (found.being_deleted) {
+        await reopenAccount(found.id);
+    }
+
+    const token = await createSession(found.id);
+    return { token, user: await getUser(found.id) };
+}
+
+export async function findSessionUser(token: string): Promise<string | undefined> {
+    const { rows } = await pool.query<{ user_id: string }>(
+        `select s.user_id
+        from sessions s
+        join users u on u.id = s.user_id
+        where s.token_hash = $1
+        and s.expires_at > now()
+        and u.deletion_scheduled_at is null`,
+        [hashToken(token)]
+    );
+    return rows[0]?.user_id;
+}
+
+export async function endSession(token: string): Promise<void> {
+    await pool.query(`delete from sessions where token_hash = $1`, [hashToken(token)]);
+}
+
+
 
 /***********************************
     MEMBERS

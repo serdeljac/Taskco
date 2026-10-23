@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { pool } from "../db.js";
+import { verifyPassword } from "../passwords.js";
 import {
     createUser,
+    registerUser,
+    getUser,
     createProject,
     deleteAccount,
     addMember,
@@ -210,5 +213,52 @@ describe("users", () => {
         await expect(
             pool.query("update users set password_hash = 'correct horse battery' where id = $1", [ana.id])
         ).rejects.toMatchObject({ code: "23514", constraint: "users_password_hash_is_argon2id" });
+    });
+
+    it("registers an account, keeping only a hash of its password", async () => {
+        //TEST
+        const ana = await registerUser({ email: "ana@example.com", password: "correct horse battery", timezone: "Europe/Zagreb" });
+
+        expect(ana).toMatchObject({ email: "ana@example.com", timezone: "Europe/Zagreb", deletion_scheduled_at: null });
+
+        const row = await pool.query<{ password_hash: string }>("select password_hash from users where id = $1", [ana.id]);
+        expect(row.rows[0]?.password_hash).not.toContain("correct horse battery");
+        expect(await verifyPassword("correct horse battery", row.rows[0]!.password_hash)).toBe(true);
+    });
+
+    it("never hands back a password hash", async () => {
+        //TEST
+        const ana = await registerUser({ email: "ana@example.com", password: "correct horse battery", timezone: "Europe/Zagreb" });
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+
+        expect(ana).not.toHaveProperty("password_hash");
+        expect(ben).not.toHaveProperty("password_hash");
+        expect(await getUser(ana.id)).not.toHaveProperty("password_hash");
+    });
+
+    it("refuses to register an email that already has an account, whatever its case", async () => {
+        //CREATE
+        await createUser("ana@example.com", "Europe/Zagreb");
+
+        //TEST
+        await expect(
+            registerUser({ email: "Ana@Example.com", password: "correct horse battery", timezone: "Europe/Zagreb" })
+        ).rejects.toMatchObject({ message: "registerUser: an account already uses that email" });
+    });
+
+    it("refuses to register a timezone Postgres does not know", async () => {
+        //TEST
+        await expect(
+            registerUser({ email: "ana@example.com", password: "correct horse battery", timezone: "Mars/Olympus" })
+        ).rejects.toMatchObject({ message: "registerUser: that timezone is not one the server knows" });
+    });
+
+    it("finds an account by its id", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+
+        //TEST
+        expect(await getUser(ana.id)).toMatchObject({ id: ana.id, email: "ana@example.com" });
+        await expect(getUser("99")).rejects.toMatchObject({ message: "getUser: account not found" });
     });
 });
