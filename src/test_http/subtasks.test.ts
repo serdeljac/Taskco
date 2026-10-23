@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask } from "../queries.js";
+import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate } from "../queries.js";
 
 
 //The picture every test here starts from: Ana leads Website, Ben is an Associate in it, Cara is not in it,
@@ -66,6 +66,94 @@ describe("GET /tasks/:taskId/subtasks", () => {
     it("refuses a request that does not say who is asking", async () => {
         //TEST
         const response = await request(app).get("/tasks/1/subtasks");
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("POST /tasks/:taskId/subtasks", () => {
+    it("lets the Lead add a subtask", async () => {
+        //CREATE
+        const { ana, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .post(`/tasks/${task.id}/subtasks`)
+            .set("X-User-Id", ana.id)
+            .send({ title: "Oil the latch", dueDate: "2026-11-20" });
+
+        expect(response.status).toBe(201);
+        expect(response.body.subtask).toMatchObject({ title: "Oil the latch", due_date: "2026-11-20" });
+        expect((await reread(task, ana)).map((s) => s.title)).toEqual(["Buy hinges", "Oil the latch"]);
+    });
+
+    it("answers 409 for a subtask due after its task", async () => {
+        //CREATE
+        const { ana, task } = await website();
+        await setTaskDueDate({ taskId: task.id, dueDate: "2026-11-10" });
+
+        //TEST
+        const response = await request(app)
+            .post(`/tasks/${task.id}/subtasks`)
+            .set("X-User-Id", ana.id)
+            .send({ title: "Oil the latch", dueDate: "2026-11-20" });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "a subtask cannot be due after its task" });
+        expect(await reread(task, ana)).toHaveLength(1);
+    });
+
+    it("answers 409 once a task has fifty subtasks", async () => {
+        //CREATE
+        const { ana, task } = await website();
+        for (let n = 2; n <= 50; n++) {
+            await createSubtask({ taskId: task.id, title: `Step ${n}` });
+        }
+
+        //TEST
+        const response = await request(app)
+            .post(`/tasks/${task.id}/subtasks`)
+            .set("X-User-Id", ana.id)
+            .send({ title: "One too many" });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "a task can have at most 50 subtasks" });
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const { ana, ben, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .post(`/tasks/${task.id}/subtasks`)
+            .set("X-User-Id", ben.id)
+            .send({ title: "Oil the latch" });
+
+        expect(response.status).toBe(403);
+        expect(await reread(task, ana)).toHaveLength(1);
+    });
+
+    it("refuses a blank title", async () => {
+        //CREATE
+        const { ana, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .post(`/tasks/${task.id}/subtasks`)
+            .set("X-User-Id", ana.id)
+            .send({ title: "   " });
+
+        expect(response.status).toBe(400);
+        expect(await reread(task, ana)).toHaveLength(1);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .post("/tasks/1/subtasks")
+            .send({ title: "Oil the latch" });
 
         expect(response.status).toBe(401);
     });

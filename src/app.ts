@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -394,6 +394,23 @@ app.delete("/tasks/:taskId", requireLead, async (req, res) => {
 app.get("/tasks/:taskId/subtasks", requireMember, async (req, res) => {
     const subtasks = await listSubtasks({ taskId: req.params.taskId, userId: res.locals.userId });
     res.json({ subtasks });
+});
+
+//A subtask is made from the same two fields as a task, so it is checked by the same rule
+app.post("/tasks/:taskId/subtasks", requireLead, async (req, res) => {
+    const body = newTask.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const subtask = await createSubtask({
+        taskId: req.params.taskId,
+        title: body.data.title,
+        dueDate: body.data.dueDate,
+    });
+    res.status(201).json({ subtask });
 });
 
 app.use((req, res) => {
