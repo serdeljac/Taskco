@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -342,6 +342,23 @@ app.put("/tasks/:taskId/due-date", requireLead, async (req, res) => {
 
     const { clearedSubtasks } = await setTaskDueDate({ taskId: req.params.taskId, dueDate: body.data.dueDate });
     res.json({ clearedSubtasks });
+});
+
+//An assignee is a membership, from the members list, or null for nobody
+const assignee = z.strictObject({
+    membershipId: id.nullable(),
+});
+
+app.put("/tasks/:taskId/assignee", requireLead, async (req, res) => {
+    const body = assignee.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    await setTaskAssignee({ taskId: req.params.taskId, membershipId: body.data.membershipId });
+    res.status(204).end();
 });
 
 app.use((req, res) => {
