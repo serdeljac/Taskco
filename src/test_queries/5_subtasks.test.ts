@@ -16,6 +16,7 @@ import {
     deleteProject,
     findSubtaskProject,
     setSubtaskStatus,
+    setSubtaskPriority,
 } from "../queries.js";
 
 
@@ -556,5 +557,34 @@ describe("subtasks", () => {
 
         const row = await pool.query("select status from subtasks where id = $1", [subtask.id]);
         expect(row.rows[0]?.status).toBe("not_started");
+    });
+
+    it("sets and clears a subtask's priority", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+
+        //TEST
+        await setSubtaskPriority({ subtaskId: subtask.id, priority: "med" });
+        expect((await listSubtasks({ taskId: task.id, userId: lead.id }))[0]?.priority).toBe("med");
+
+        await setSubtaskPriority({ subtaskId: subtask.id, priority: null });
+        expect((await listSubtasks({ taskId: task.id, userId: lead.id }))[0]?.priority).toBeNull();
+    });
+
+    it("refuses to change the priority of a subtask whose task was deleted", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Write the headline" });
+        await deleteTask(task.id);
+
+        //TEST
+        await expect(
+            setSubtaskPriority({ subtaskId: subtask.id, priority: "high" })
+        ).rejects.toMatchObject({ message: "setSubtaskPriority: subtask not found" });
     });
 });

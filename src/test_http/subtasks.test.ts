@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate } from "../queries.js";
+import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate, setSubtaskPriority } from "../queries.js";
 
 
 //The picture every test here starts from: Ana leads Website, Ben is an Associate in it, Cara is not in it,
@@ -221,6 +221,61 @@ describe("PUT /subtasks/:subtaskId/status", () => {
         const response = await request(app)
             .put("/subtasks/1/status")
             .send({ status: "completed" });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("PUT /subtasks/:subtaskId/priority", () => {
+    it("lets the Lead set a subtask's priority", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/priority`)
+            .set("X-User-Id", ana.id)
+            .send({ priority: "low" });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.priority).toBe("low");
+    });
+
+    it("lets the Lead clear the priority with null", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+        await setSubtaskPriority({ subtaskId: subtask.id, priority: "low" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/priority`)
+            .set("X-User-Id", ana.id)
+            .send({ priority: null });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.priority).toBeNull();
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const { ana, ben, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/priority`)
+            .set("X-User-Id", ben.id)
+            .send({ priority: "high" });
+
+        expect(response.status).toBe(403);
+        expect((await reread(task, ana))[0]?.priority).toBeNull();
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/subtasks/1/priority")
+            .send({ priority: "high" });
 
         expect(response.status).toBe(401);
     });

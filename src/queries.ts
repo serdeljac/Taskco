@@ -926,6 +926,27 @@ export async function setSubtaskStatus(change: {
     }
 }
 
+export async function setSubtaskPriority(change: {
+    subtaskId: string;
+    priority: Priority | null;
+}): Promise<void> {
+    const updated = await pool.query(
+        `update subtasks
+        set priority = $1
+        where id in (
+            select s.id
+            from visible_subtasks s
+            join visible_tasks t on t.id = s.task_id
+            where s.id = $2
+        )`,
+        [change.priority, change.subtaskId]
+    );
+
+    if (updated.rowCount === 0) {
+        throw new NotFound("setSubtaskPriority: subtask not found");
+    }
+}
+
 export async function setSubtaskNotes(change: {
     subtaskId: string;
     notes: string | null;
