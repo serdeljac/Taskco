@@ -1,6 +1,6 @@
 # Taskco — schema diagram
 
-The eight tables as of migration 021, and how they point at each other. The rules each column carries
+The nine tables as of migration 023, and how they point at each other. The rules each column carries
 (checks, partial indexes, the views) are in the
 [current schema appendix](./reference.md#appendix--current-schema); this page is for seeing the shape.
 
@@ -18,6 +18,7 @@ erDiagram
     users ||--o{ invites : "sent"
     users ||--o{ routines : "owns"
     routines ||--o{ completions : "done on"
+    users ||--o{ sessions : "logged in as"
 
     users {
         bigint id PK
@@ -25,6 +26,7 @@ erDiagram
         text timezone "a name Postgres knows"
         timestamptz created_at
         timestamptz deletion_scheduled_at "null = active"
+        text password_hash "Argon2id; null = cannot log in"
     }
 
     projects {
@@ -92,6 +94,13 @@ erDiagram
         bigint routine_id PK, FK
         date done_on PK "the owner's calendar day"
         timestamptz created_at
+    }
+
+    sessions {
+        text token_hash PK "SHA-256 of the cookie's token"
+        bigint user_id FK
+        timestamptz created_at
+        timestamptz expires_at "thirty days on"
     }
 ```
 

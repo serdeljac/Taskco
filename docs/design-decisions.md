@@ -1,7 +1,8 @@
 # Taskco — Design Decisions
 
 **Status:** design complete, stack chosen, slices A, B and C and steps 4b and 4c built, each with its
-review done, and step 5 — the HTTP layer — built, its review not yet done. Last updated 2026-10-22.
+review done, and steps 5 and 6 — the HTTP layer and authentication — built, their reviews not yet
+done. Last updated 2026-10-22.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -818,7 +819,10 @@ typed query builder that still reads like SQL.
 *SQLite* — simpler and zero-setup, but avoids concurrency and constraint work that is the point.
 
 ### Still open
-Authentication (session cookies versus tokens, and a password hashing library) and hosting.
+Hosting.
+
+*Resolved 2026-10-22:* authentication — session cookies, and Argon2id from Node's own `node:crypto`,
+with no package. Section 15.
 
 *Resolved 2026-09-04:* the migration runner is written by hand rather than taken from a library, and
 Postgres runs natively on Windows rather than in Docker. Both are recorded with their reasoning in
@@ -904,6 +908,8 @@ The reusable part. These outlast this app.
   "not in the future" cannot — and a foreign key or code for one that can. And try a limit before
   building around it: for a month this project believed a check could not call `now()`, and nobody
   had asked Postgres.
+- **Keep a secret's hash, never the secret.** Passwords and session tokens are both stored hashed,
+  so a copy of the database logs nobody in.
 - **Name the check on the line it guards.** A rule applied out of sight is one whose absence
   nobody notices in review; a check named on the route's own line shows when it is missing.
 
@@ -917,7 +923,7 @@ raised in [`step-5-prep.md`](./step-5-prep.md) are answered here, by name.
 
 ### What a request goes through, in order
 
-1. **Who is asking** — 401 without a usable `X-User-Id`.
+1. **Who is asking** — 401 without a live session. Until step 6, an `X-User-Id` header; section 15.
 2. **Is every id in the path an id** — 404 for `abc`, before it can reach Postgres as `22P02`.
 3. **May they** — 404 when the asker cannot see the project; 403 when they can but are not its
    Lead.
@@ -941,6 +947,9 @@ only that. It breaks section 13's rule — identity from the session, never from
 purpose, in one place, because a constant could never be an Associate in a test. Step 6 replaces
 the inside of that one function. *Accepted cost:* until then anyone who can reach the server can be
 anyone, so it listens on `127.0.0.1` only. Logged as `stub-identity-trusts-any-id`.
+
+*Replaced in step 6*, 2026-10-22, as planned: only the inside of that one function changed, and no
+route did. Section 15.
 
 ### `error-kinds` — refusals carry a kind, not just words
 
@@ -1024,3 +1033,81 @@ client the day it is migrated. Worth revisiting when step 7 shows what the front
 
 Every body is a `z.strictObject`. A body naming something the server derives — `userId`,
 `invitedByUserId`, a `projectId` beside a path that already names one — is a 400, and tests say so.
+
+---
+
+## 15. Authentication
+
+Built in step 6, 2026-10-22, on branch `step-5`. Three decisions were Stjepan's, taken that day:
+session cookies, Argon2id from Node itself, and logging in reopens an account being deleted. The
+rest follow from them.
+
+### Who is asking: a session, named by a cookie
+
+Logging in creates a **session**: a row in `sessions` holding the SHA-256 hash of a random 32-byte
+token, whose account it is, and when it ends — thirty days after it began. The token itself goes to
+the browser in a cookie, `taskco_session`, and nowhere else. "Who is asking" hashes the token the
+cookie carries and looks for a live session; finding none is 401, "Log in first".
+
+The cookie is **HttpOnly**, so page scripts cannot read it and a script injected into a page cannot
+steal it; **Secure**, so it travels only over HTTPS — which browsers, and `curl`, also allow for
+`localhost` and `127.0.0.1`; and **SameSite=Strict**, so a request another site starts never
+carries it, which is this app's defence against cross-site request forgery. Bodies are JSON as well,
+which a form on another site cannot send.
+
+*Rejected — a signed token (JWT):* nothing stored, so logging out cannot end it before it expires;
+ending it early takes a list of revoked tokens, which is a sessions table again. And the client must
+keep it somewhere page scripts can read, or in a cookie, where it gains nothing over a session.
+
+*Rejected — keeping the raw token:* a copy of the database would then log anyone in. Migration `023`
+makes that a lock: `token_hash` must be 64 hex characters.
+
+**Logging out ends one session** — the one the request was sent with. The account's sessions on
+other devices go on.
+
+### Passwords: Argon2id, from `node:crypto`
+
+OWASP's first choice, and Node 24.7 added it to `node:crypto`, so nothing is installed. The settings
+are OWASP's minimum — 19 MiB of memory, two passes, one lane — about 40 ms per password on this
+laptop. The stored string is the PHC format, `$argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>`: it
+records the salt *and the settings*, so raising them later leaves every older password checkable.
+That is section 5's rule about the invite expiry again — a value is only safe to derive if every
+input is stored.
+
+*Rejected — bcrypt:* a package to install, and it silently ignores everything past 72 bytes.
+
+Migration `022` makes "only a hash" a lock: `password_hash` must start `$argon2id$`, so a password
+cannot be stored as plain text by mistake. The column may be empty: an account with no password
+cannot log in with one. That is every account the tests and `createUser` make, which keeps the
+suite from spending 40 ms on every user it creates.
+
+**Password rules**: 8 to 128 characters, nothing else — NIST's guidance, which asks for length and
+against composition rules.
+
+### What a login reveals
+
+A wrong password, an email nobody has, an account with no password and one past its deletion date
+all answer the same 401, in the same words — "The email or password is wrong" — and in the same
+time: an unknown email is checked against a hash of nobody's password, so the answer is not faster.
+
+*Accepted:* registering does reveal an account. `POST /users` with a taken address answers 409, "an
+account already uses that email", because a sign-up form that pretends to succeed helps nobody.
+Section 12's rate limit is the defence for both doors, and is not built.
+
+### Logging in reopens an account being deleted
+
+Decided 2026-10-22. Coming back is the undo, as most services do it: logging in inside the thirty
+days clears the account's date and brings back the projects it leads, through `reopenAccount`.
+Deleting an account **ends every one of its sessions**, so nothing logged in before the deletion
+comes back with the reopening — a lost laptop's session included. And while it waits, the account has
+no session that counts, so it cannot act at all.
+
+*Consequence:* `DELETE /account/deletion`, built in step 5, could never be reached, and was removed.
+
+*Rejected — log in only to reopen:* a session that every endpoint but one refuses is a third state
+to check on every request, for a choice the login form can already ask.
+
+### Not built
+
+Changing or resetting a password, verifying an email address, and limiting how often someone may
+try to log in. Each is an open item.

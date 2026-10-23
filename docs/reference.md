@@ -40,8 +40,9 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `Invoke-Item preview.html` | Opens the page in your browser |
 | `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it, then every account past its date that no longer leads a project |
 | `npm run dev` | Starts the server on `http://127.0.0.1:3000` against **taskco_dev**, and restarts it whenever a file changes. `Ctrl+C` stops it |
-| `curl.exe -H "X-User-Id: 1" http://127.0.0.1:3000/projects` | Asks the running server for user 1's projects. Run it in a second terminal |
-| `curl.exe -H "X-User-Id: 1" http://127.0.0.1:3000/projects/1/members` | Project 1's members, as user 1 sees them. Any `GET` in the endpoint table works the same way |
+| `curl.exe -c cookies.txt --json '{"email":"lead@example.com","password":"taskco-demo"}' http://127.0.0.1:3000/sessions` | Logs in to the running server as the seeded Lead, and saves the session cookie in `cookies.txt`. Run it in a second terminal |
+| `curl.exe -b cookies.txt http://127.0.0.1:3000/projects` | Asks as whoever `cookies.txt` is logged in as. Any `GET` in the endpoint tables works the same way |
+| `curl.exe -b cookies.txt -c cookies.txt -X DELETE http://127.0.0.1:3000/sessions/current` | Logs out, and empties the cookie in `cookies.txt` |
 | `npx vitest run src/test_http` | Runs only the HTTP tests |
 
 **If `curl` cannot connect, the server is not running.** Look in the `npm run dev` terminal: an error
@@ -830,7 +831,7 @@ Tasks and subtasks, with status, priority, due dates, soft deletion, manual orde
 one idea per piece, with each migration applied to both databases. The checkpoint is
 [`slice-b-review.md`](./slice-b-review.md).
 
-## Migrations 007–021
+## Migrations 007–023
 
 | File | What it adds |
 |---|---|
@@ -849,6 +850,8 @@ one idea per piece, with each migration applied to both databases. The checkpoin
 | `019_create_routines.sql` | `routines` — owner, name, the weekdays it is scheduled on as an `integer[]` checked to hold only 1 to 7 — and `completions`, keyed on `(routine_id, done_on)` so a day can be done only once. Both cascade, from the user down. And the view `user_today`, the one place that says what today is for each user. Step 4c |
 | `020_check_timezones_and_soft_delete_dates.sql` | Four locks from the step 4c review. `users_timezone_known` calls a new function, `is_known_timezone`, which asks Postgres's own `pg_timezone_names`; and `ended_at` on `memberships`, `deleted_at` on `tasks` and `subtasks`, may no longer be in the future. Adding them validated every existing row, which is why the test tables had to be emptied first |
 | `021_index_memberships_project_id.sql` | `memberships_project_id_idx`, a plain index on `project_id`, for `listMembers` and for the cascade when a project is deleted. Step 5. Run on 20,000 memberships: one search and 6 pages instead of reading all 337 |
+| `022_add_password_hash.sql` | `password_hash` on `users`: empty means the account cannot log in with a password. `users_password_hash_is_argon2id` insists anything stored starts `$argon2id$`, so a password cannot land as plain text. Step 6 |
+| `023_create_sessions.sql` | `sessions`: the SHA-256 hash of a session's token, its user — cascading with the account — when it began and when it ends. `sessions_token_is_hashed` insists on 64 hex characters, so the table never holds a usable token; `sessions_expire_after_created` that it ends after it begins. Step 6 |
 
 Three of them are worth reading for the pattern, not just the columns.
 
@@ -1101,11 +1104,12 @@ Built on branch `step-5`, 2026-10-10 to 2026-10-22: the first endpoints one at a
 rest in one session once Claude began writing the code. Preparation and the questions behind it are
 in [`step-5-prep.md`](./step-5-prep.md); the decisions, by name, in `design-decisions.md` section 14.
 Express 5.2.1 runs the server; Zod 4.6.5 checks what a request carries; Supertest 7.2.2 lets a test
-send it requests without starting it. Code blocks in this section are a snapshot of 2026-10-22.
+send it requests without starting it. Code blocks in this section are a snapshot of 2026-10-22,
+taken before step 6 replaced the `X-User-Id` header with a session — see step 6 for what changed.
 
 ## The endpoints
 
-**Every endpoint** answers 401 without a usable `X-User-Id`; 404 for an id in the path that cannot be
+**Every endpoint** answers 401 without a live session (until step 6, without a usable `X-User-Id`); 404 for an id in the path that cannot be
 an id; 404 when the asker cannot see the project; 403 when an Associate calls a Lead's endpoint; and
 400 for a body Zod refuses, including one carrying a field it did not ask for. The column on the
 right lists the refusals from `queries.ts`, which answer 409 with their reason unless marked 404.
@@ -1147,7 +1151,7 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 | `DELETE /routines/:routineId/completions/today` | its owner | `undoCompletion` | 204 | nothing done today |
 | `GET /routines/:routineId/streak` | its owner | `getStreak` | 200 `{ streak }` | 404 not theirs |
 | `POST /account/deletion` | the asker, for themself | `deleteAccount` | 201 `{ scheduledFor }` | already being deleted |
-| `DELETE /account/deletion` | the asker, for themself | `reopenAccount` | 204 | not inside its thirty days |
+| ~~`DELETE /account/deletion`~~ | — | — | — | *Removed in step 6:* an account being deleted has no session that counts, so this was unreachable. Logging in reopens it |
 
 **What each body holds.** Every body is a `z.strictObject`, so these keys and no others.
 
@@ -1209,6 +1213,9 @@ on `req.body` — but only when the request says `Content-Type: application/json
 no body at all, `req.body` is `undefined`, and Zod refuses it.
 
 ### Who is asking, and may they
+
+*Replaced in step 6:* the first block below read `X-User-Id`. It now reads the session cookie — the
+same shape, with a different inside, as the placeholder was built to allow. The rest is unchanged.
 
 ```ts
 app.use((req, res, next) => {
@@ -1504,6 +1511,204 @@ From the first endpoints, still true:
 
 ---
 
+# Step 6 — Authentication
+
+Built 2026-10-22 on branch `step-5`, in seven commits. The decisions — session cookies, Argon2id
+from `node:crypto`, and logging in reopens an account being deleted — are in `design-decisions.md`
+section 15. Code blocks in this section are a snapshot of 2026-10-22.
+
+## The endpoints
+
+| Method and path | Who may | Calls | Answers | Refused with |
+|---|---|---|---|---|
+| `POST /users` | anyone, without a session | `registerUser`, `createSession` | 201 `{ user }`, and the session cookie | 409 email taken; 409 unknown timezone; 400 a body Zod refuses |
+| `POST /sessions` | anyone, without a session | `logIn` | 201 `{ user }`, and the session cookie | 401 "The email or password is wrong"; 400 a body Zod refuses |
+| `DELETE /sessions/current` | the asker | `endSession` | 204, and the cookie emptied | — |
+| `GET /account` | the asker | `getUser` | 200 `{ user }` | — |
+
+| Endpoint | Body |
+|---|---|
+| `POST /users` | `{ email, password, timezone }` — an address of at most 254 characters, a password of 8 to 128, and a timezone name the browser reports |
+| `POST /sessions` | `{ email, password }` — any text: whatever does not match an account is the same wrong answer |
+
+## `src/app.ts` — logging in, and who is asking
+
+```ts
+const sessionCookie = "taskco_session";
+
+const sessionCookieOptions = { httpOnly: true, secure: true, sameSite: "strict", path: "/" } as const;
+
+function setSessionCookie(res: Response, token: string): void {
+    res.cookie(sessionCookie, token, { ...sessionCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+}
+
+function readCookie(req: Request, name: string): string | undefined {
+    for (const pair of (req.get("Cookie") ?? "").split(";")) {
+        const [key, ...value] = pair.trim().split("=");
+        if (key === name) return value.join("=");
+    }
+    return undefined;
+}
+
+app.post("/sessions", async (req, res) => {
+    const body = credentials.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const session = await logIn(body.data);
+
+    if (!session) {
+        res.status(401).json({ error: "The email or password is wrong" });
+        return;
+    }
+
+    setSessionCookie(res, session.token);
+    res.status(201).json({ user: session.user });
+});
+
+app.use(async (req, res, next) => {
+    const token = readCookie(req, sessionCookie);
+    const userId = token ? await findSessionUser(token) : undefined;
+
+    if (!token || !userId) {
+        res.status(401).json({ error: "Log in first" });
+        return;
+    }
+
+    res.locals.userId = userId;
+    res.locals.sessionToken = token;
+    next();
+});
+```
+
+**What it does.** `POST /users` and `POST /sessions` come first, in a section of their own called
+"LOGGING IN". They sit above "who is asking", which is all it takes to make them public: Express
+runs things in the order they were added, and a route above the check never passes through it.
+`POST /users` is the same shape as `POST /sessions`, and logs the new account in at once.
+
+**The cookie's three flags.** `httpOnly`: page scripts cannot read it, so a script injected into a
+page cannot steal it. `secure`: it travels only over HTTPS — and to `localhost` and `127.0.0.1`,
+which browsers and `curl` treat as secure; tried with `curl` against a running server, in bash and
+in PowerShell. `sameSite: "strict"`: a request another site starts never carries it, which is the
+defence against cross-site request forgery. `maxAge` gives the cookie the session's own thirty days.
+
+**`readCookie`** finds one cookie in the `Cookie` header, which holds them all, separated by `;`. A
+token is base64url, so it needs no decoding — and so no package to parse cookies.
+
+**"Who is asking"** is the same middleware as in step 5, with a different inside: it hashes the
+token the cookie carries and asks `findSessionUser` for a live session. No route changed. It now
+also keeps the token on `res.locals.sessionToken`, for logging out.
+
+**Logging out** is `DELETE /sessions/current`: `endSession` deletes the one session, and
+`res.clearCookie` tells the browser to forget the cookie, with the same flags it was set with.
+
+**Open** — in [`open-items.md`](./open-items.md), under "Authentication": `login-not-rate-limited`,
+`registration-reveals-accounts`, `no-password-change-or-reset`, `email-not-verified`,
+`accounts-without-a-password`, `secure-cookie-needs-a-secure-origin`, `sessions-end-after-thirty-days`
+and `reopen-and-session-are-two-steps`.
+
+## `src/passwords.ts`
+
+```ts
+const current: Settings = { memory: 19456, passes: 2, parallelism: 1 };
+
+export async function hashPassword(password: string, settings: Settings = current): Promise<string> {
+    const salt = randomBytes(16);
+    const key = await derive(password, salt, settings, 32);
+    const { memory, passes, parallelism } = settings;
+    return `$argon2id$v=19$m=${memory},t=${passes},p=${parallelism}$${encode(salt)}$${encode(key)}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+    const parts = phc.exec(stored);
+
+    if (!parts) {
+        throw new Error("verifyPassword: the stored string is not an Argon2id hash");
+    }
+
+    const [, memory, passes, parallelism, salt, hash] = parts;
+    const expected = Buffer.from(hash!, "base64");
+    const settings = { memory: Number(memory), passes: Number(passes), parallelism: Number(parallelism) };
+    const actual = await derive(password, Buffer.from(salt!, "base64"), settings, expected.length);
+
+    return timingSafeEqual(actual, expected);
+}
+```
+
+**What it does.** Turns a password into a string that holds everything needed to check it again:
+the algorithm, the settings, a random salt, and the hash. `derive` wraps `node:crypto`'s `argon2`,
+which takes a callback, in a promise. The settings are OWASP's minimum for Argon2id — 19 MiB, two
+passes, one lane — and cost about 40 ms.
+
+**`verifyPassword` uses the settings stored with the hash, not today's.** Tried: with `current` in
+their place, the test that checks a hash made with weaker settings went red. That is what lets the
+settings rise later without locking anyone out.
+
+**`timingSafeEqual`** compares every byte however early the first difference is, so the time a
+comparison takes says nothing about how close a guess was.
+
+**`hashForNobody`** makes one hash of a random password, once, the first time it is asked. `logIn`
+checks against it when the email matches no account, so that answer takes as long as a real one.
+
+**`@types/node` is 24.13.6.** Node 24.7 added `argon2`; the types for Node 22 did not have it, and the
+code runs on Node 24.14.
+
+**Open** — nothing beyond the authentication items above.
+
+## `src/queries.ts` — the step 6 functions
+
+| Function | What it does | Refuses when |
+|---|---|---|
+| `registerUser({ email, password, timezone })` | an account with an Argon2id hash of its password | an account already uses that email, in any case; a timezone Postgres does not know — both `Refused`, turned from the database's own refusal |
+| `getUser(userId)` | the account, without its hash | no such account (`NotFound`) |
+| `createSession(userId)` | a random 32-byte token, base64url; stores its SHA-256 and returns the token; thirty days | — |
+| `logIn({ email, password })` | finds the email lowered, checks the password, reopens an account being deleted, and returns `{ token, user }` | returns `undefined` — not a throw — for a wrong password, an unknown email, an account with no password, or one past its date |
+| `findSessionUser(token)` | the account a live session belongs to, or `undefined`: not ended, not past its end, and not an account being deleted | — |
+| `endSession(token)` | deletes that one session | — |
+| `purgeExpiredSessions()` | deletes every session past its end; returns `{ purged }`. `npm run purge` runs it last | — |
+| `deleteAccount(userId)` | *changed:* also deletes every session of the account, in the same transaction | as before |
+| `createUser(email, timezone)` | *changed:* names its columns, so no row of `users` leaves the file with `password_hash` | as before |
+
+**`logIn` returns `undefined` rather than throwing.** The route must answer 401 for a failed login,
+which neither error kind means; and the caller cannot ignore the answer, because without it there is
+no token to put in a cookie.
+
+**Deleting an account ends its sessions.** Tried before the fix: Ana deleted her account, logged in
+again to reopen it, and a session from before the deletion — "a lost laptop" — counted again:
+`expected '1' to be undefined`.
+
+## `src/testing/session.ts`
+
+```ts
+export async function cookieFor(user: { id: string }): Promise<string> {
+    return `taskco_session=${await createSession(user.id)}`;
+}
+```
+
+Every HTTP test that asks as someone sends `.set("Cookie", await cookieFor(ana))`. It makes the
+session directly rather than logging in through `POST /sessions`, which would cost an Argon2 hash in
+every test. The tests for logging in itself use `registerUser` and the real endpoints.
+
+## The tests
+
+`src/test_http/sessions.test.ts`, 21 tests: who is asking, registering, logging in, logging out, and
+who am I. `src/test_queries/8_sessions.test.ts`, 17, and `passwords.test.ts`, 6, for the layer
+beneath. Five more in `1_users.test.ts`, for registering and finding an account. **394 tests in
+twenty-one files**, passing in file order and shuffled.
+
+**The crash test changed.** It used to ask as user `"99"`, who did not exist, and let
+`createProject` fail on a foreign key. Only the `X-User-Id` placeholder made that possible: a real
+session cannot belong to nobody. It now builds a one-route app that throws, in front of the real
+`handleErrors`, which `app.ts` exports for it.
+
+**Three rules were removed for one run each**, and their tests went red: the lowering in `logIn`'s
+lookup, the expiry in `findSessionUser`, and its check that the account is not being deleted.
+
+---
+
 # Appendix — current schema
 
 What the tables look like *now*. The migrations are a history; this is their sum. The same tables
@@ -1521,6 +1726,7 @@ Two databases, both owned by `taskco_app`, a role with no privileges beyond logi
 | `timezone` | text | not null, non-blank, a name Postgres knows exactly — `Europe/Zagreb`, not `europe/zagreb` (`users_timezone_known`) |
 | `created_at` | timestamptz | not null, defaults to `now()` |
 | `deletion_scheduled_at` | timestamptz | nullable — **empty means active**; otherwise when the account will be removed |
+| `password_hash` | text | nullable — **empty means it cannot log in**; otherwise an Argon2id hash in PHC form, starting `$argon2id$` (`users_password_hash_is_argon2id`) |
 
 ### `projects`
 
@@ -1614,6 +1820,17 @@ Index: `routines_user_id_idx` on `(user_id)`.
 Primary key `(routine_id, done_on)`, and no `id`: the pair is the row's identity, and it is what
 makes a day impossible to record twice.
 
+### `sessions`
+
+| Column | Type | Rules |
+|---|---|---|
+| `token_hash` | text | primary key; 64 hex characters, the SHA-256 of the token in the cookie (`sessions_token_is_hashed`) |
+| `user_id` | bigint | not null, → `users(id)`, on delete cascade |
+| `created_at` | timestamptz | not null, defaults to `now()` |
+| `expires_at` | timestamptz | not null, after `created_at`; thirty days after it, as `createSession` writes it |
+
+Index: `sessions_user_id_idx` on `(user_id)`, for ending every session of an account at once.
+
 ### Views
 
 | View | Shows |
@@ -1689,6 +1906,8 @@ Several rules can raise the same code. The error's `constraint` field names the 
   through the code that holds them.
 - Every new route goes **above** `app.use((req, res) => … "Not found")`. Below it, it is never
   reached, and its tests fail with `expected 404 to be …`.
+- `POST /users` and `POST /sessions` sit **above** "who is asking", because nobody has a session yet.
+  Every other route goes below it.
 - A route that touches a project names `requireMember` or `requireLead` on its own line, and reads
   the project from `res.locals.project`, never from the path.
 - A refusal in `queries.ts` throws `NotFound` or `Refused`, not `Error`; a plain `Error` answers 500.

@@ -4,8 +4,9 @@
 36 endpoints over every function in `queries.ts`, three hundred and forty-seven tests. Its review
 has not been done, and the branch is not merged or pushed. Migration `021`, the index on
 `memberships (project_id)` the new member list uses, followed the same day, on Stjepan's go-ahead.
-**Next is step 6**, authentication, which starts with a migration of its own and two decisions:
-session cookies or tokens, and which password hashing library. Step 4c is complete, reviewed in
+**Step 6**, authentication, followed too — migrations `022` and `023`, three hundred and ninety-four
+tests — after Stjepan settled its three questions. Neither step has had its review. **Next is step
+7**, the frontend, which is the first thing that can show a person any of it. Step 4c is complete, reviewed in
 [`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
 one hundred and fifty tests.
 
@@ -342,8 +343,8 @@ But that safety comes from *the user id being a parameter everywhere*, not from 
 real. Steps 2 through 5 already have that. So the discipline arrives on day one and the complexity
 waits until it is not the fourth new thing at once.
 
-**Still undecided:** session cookies versus tokens, and which password hashing library. This step
-needs its own conversation before it is specified.
+**Decided 2026-10-22:** session cookies, and Argon2id from Node's own `node:crypto`. And logging in
+to an account being deleted reopens it. Built the same day; `design-decisions.md`, section 15.
 
 ---
 
@@ -699,3 +700,29 @@ led by one user, Postgres 18 needed no new index at all: it skip-scanned `(user_
 searching once per user — twice. Spread across 500 users it read the whole table instead, 337
 pages for one row, and with the index, 6. And so the slice A claim that "an index is only usable
 from its leading column" was wrong in Postgres 18, though its conclusion held.
+
+**Step 6 — Authentication.** Built 2026-10-22 on branch `step-5`, in seven commits, not yet reviewed,
+merged or pushed. `src/passwords.ts` hashes with Argon2id from `node:crypto` into a string that
+records its own settings. Migration `022` gives `users` a `password_hash`, which must be an
+Argon2id hash or empty; `023` creates `sessions`, which holds only a token's hash. `registerUser`,
+`logIn`, `createSession`, `findSessionUser`, `endSession`, `getUser` and
+`purgeExpiredSessions` in `queries.ts`. "Who is asking" reads the `taskco_session` cookie, and
+`X-User-Id` is gone — with it `DELETE /account/deletion`, which an account being deleted could no
+longer reach. Four endpoints: `POST /users`, `POST /sessions`, `DELETE /sessions/current` and
+`GET /account`. The seed's accounts log in with "taskco-demo". Three hundred and ninety-four tests in
+twenty-one files; checked once more against a running server with `curl`, in bash and in
+PowerShell.
+
+*Changed decisions:* session cookies, Argon2id, and logging in reopens an account — all in
+`design-decisions.md`, section 15. `@types/node` moved to 24, to match the Node that runs the code.
+
+*Learned:* that the safest token to store is one you cannot use, and the same for a password: the
+database keeps hashes, and checks insist on it. That a stored hash should carry its own settings,
+the invite expiry's rule again. That a login must answer a wrong password and an unknown email in the
+same words *and the same time*. That an account deleted while its sessions live on is only asleep:
+reopening it brought a lost laptop's session back, until `deleteAccount` ended them — a test showed
+it, `expected '1' to be undefined`. That the order of the pipeline is the whole of "public": the two
+routes anyone may use are simply above "who is asking". That a test leaning on the old stand-in — a
+crash caused by asking as user 99, who did not exist — has to change when the stand-in goes, because
+a real session cannot belong to nobody. And that stopping a background server leaves node listening
+on Windows, so the port is checked and freed every time.
