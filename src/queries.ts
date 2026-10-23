@@ -187,6 +187,9 @@ export async function deleteAccount(userId: string): Promise<{ scheduledFor: Dat
             throw new Refused("deleteAccount: account not found, or already being deleted");
         }
 
+        // Every session ends now. Logging in again reopens the account, and must not bring an old session back with it
+        await client.query(`delete from sessions where user_id = $1`, [userId]);
+
         await client.query(
             `update projects
             set deletion_scheduled_at = now() + interval '30 days'
@@ -348,6 +351,17 @@ export async function findSessionUser(token: string): Promise<string | undefined
 
 export async function endSession(token: string): Promise<void> {
     await pool.query(`delete from sessions where token_hash = $1`, [hashToken(token)]);
+}
+
+// Cleanup, not state: findSessionUser already ignores a session past its end, so this only frees the rows
+export async function purgeExpiredSessions(): Promise<{ purged: number }> {
+    const { rows } = await pool.query<{ token_hash: string }>(
+        `delete from sessions
+        where expires_at <= now()
+        returning token_hash`
+    );
+
+    return { purged: rows.length };
 }
 
 

@@ -12,6 +12,7 @@ import {
     createSession,
     findSessionUser,
     endSession,
+    purgeExpiredSessions,
 } from "../queries.js";
 
 
@@ -182,5 +183,35 @@ describe("sessions", () => {
 
         //TEST
         expect(await findSessionUser(token)).toBeUndefined();
+    });
+
+    it("ends every session of an account being deleted, so reopening it does not bring them back", async () => {
+        //CREATE
+        const registered = await registerAna();
+        const lostLaptop = await createSession(registered.id);
+        await deleteAccount(registered.id);
+
+        //TEST
+        await logIn({ email: "ana@example.com", password: "correct horse battery" });
+
+        expect(await findSessionUser(lostLaptop)).toBeUndefined();
+    });
+
+    it("purges sessions past their end, and keeps the live ones", async () => {
+        //CREATE
+        const registered = await registerAna();
+        const live = await createSession(registered.id);
+        const old = await createSession(registered.id);
+        await pool.query(
+            "update sessions set created_at = now() - interval '31 days', expires_at = now() - interval '1 day' where token_hash = $1",
+            [createHash("sha256").update(old).digest("hex")]
+        );
+
+        //TEST
+        expect(await purgeExpiredSessions()).toEqual({ purged: 1 });
+
+        const left = await pool.query("select token_hash from sessions");
+        expect(left.rows).toHaveLength(1);
+        expect(await findSessionUser(live)).toBe(registered.id);
     });
 });
