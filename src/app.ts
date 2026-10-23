@@ -1,16 +1,21 @@
-import express, { type ErrorRequestHandler } from "express";
+import express, { type ErrorRequestHandler, type Request, type RequestHandler } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
-//Tells TypeScript that res.locals.userId is a string. Without this it’s any, which TypeScript never checks
+//Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
+//project is set only by requireMember and requireLead, so only a route that names one of them may read it
 declare global {
     namespace Express {
         interface Locals {
             userId: string;
+            project: ProjectForUser;
         }
     }
 }
+
+//An id is 1 to 18 digits with no leading zero. Anything else would reach Postgres as an error, not as an id
+const idPattern = /^[1-9][0-9]{0,17}$/;
 
 //	Creates the app
 export const app = express();
@@ -23,7 +28,7 @@ app.use(express.json());
 app.use((req, res, next) => {
     const userId = req.get("X-User-Id");
 
-    if (!userId || !/^[1-9][0-9]{0,17}$/.test(userId)) {
+    if (!userId || !idPattern.test(userId)) {
         res.status(401).json({ error: "Say who is asking" });
         return;
     }
@@ -31,6 +36,44 @@ app.use((req, res, next) => {
     res.locals.userId = userId;
     next();
 });
+
+//May they? The project a request is about, as the asker sees it — with their role in it — or undefined when they cannot see it.
+//It is looked up in the asker's own project list, so who can see a project stays written once, in listProjectsForUser
+async function projectFor(req: Request, userId: string): Promise<ProjectForUser | undefined> {
+    const projects = await listProjectsForUser(userId);
+    return projects.find((p) => p.id === req.params.projectId);
+}
+
+//For anyone in the project. Someone who cannot see it gets 404: the same answer as a project that does not exist
+const requireMember: RequestHandler = async (req, res, next) => {
+    const project = await projectFor(req, res.locals.userId);
+
+    if (!project) {
+        res.status(404).json({ error: "Not found" });
+        return;
+    }
+
+    res.locals.project = project;
+    next();
+};
+
+//For the Lead only. An Associate gets 403: they can already see the project, so "not found" would be a lie they can disprove
+const requireLead: RequestHandler = async (req, res, next) => {
+    const project = await projectFor(req, res.locals.userId);
+
+    if (!project) {
+        res.status(404).json({ error: "Not found" });
+        return;
+    }
+
+    if (project.role !== "lead") {
+        res.status(403).json({ error: "Only the project's Lead can do that" });
+        return;
+    }
+
+    res.locals.project = project;
+    next();
+};
 
 //The endpoint. GET /projects runs your function with the stored id and sends the list back, wrapped as { projects: [...] }
 app.get("/projects", async (req, res) => {
@@ -85,16 +128,8 @@ app.post("/routines", async (req, res) => {
     res.status(201).json({ routine });
 });
 
-app.get("/projects/:projectId/tasks", async (req, res) => {
-    const projectId = req.params.projectId;
-
-    const projects = await listProjectsForUser(res.locals.userId);
-    if (!projects.some((project) => project.id === projectId)) {
-        res.status(404).json({ error: "Not found" });
-        return;
-    }
-
-    const tasks = await listTasks({ projectId, userId: res.locals.userId });
+app.get("/projects/:projectId/tasks", requireMember, async (req, res) => {
+    const tasks = await listTasks({ projectId: res.locals.project.id, userId: res.locals.userId });
     res.json({ tasks });
 });
 
@@ -103,22 +138,7 @@ const newTask = z.strictObject({
     dueDate: z.iso.date().optional(),
 });
 
-app.post("/projects/:projectId/tasks", async (req, res) => {
-    const projectId = req.params.projectId;
-
-    const projects = await listProjectsForUser(res.locals.userId);
-    const project = projects.find((p) => p.id === projectId);
-
-    if (!project) {
-        res.status(404).json({ error: "Not found" });
-        return;
-    }
-
-    if (project.role !== "lead") {
-        res.status(403).json({ error: "Only the project's Lead can do that" });
-        return;
-    }
-
+app.post("/projects/:projectId/tasks", requireLead, async (req, res) => {
     const body = newTask.safeParse(req.body);
 
     if (!body.success) {
@@ -126,7 +146,11 @@ app.post("/projects/:projectId/tasks", async (req, res) => {
         return;
     }
 
-    const task = await createTask({ projectId, title: body.data.title, dueDate: body.data.dueDate });
+    const task = await createTask({
+        projectId: res.locals.project.id,
+        title: body.data.title,
+        dueDate: body.data.dueDate,
+    });
     res.status(201).json({ task });
 });
 
