@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { pool } from "./db.js";
 import {
-    createUser,
+    registerUser,
     createProject,
     addMember,
     createTask,
@@ -15,8 +15,11 @@ await pool.query(
     "truncate table subtasks, tasks, memberships, projects, users restart identity cascade"
 );
 
-const lead = await createUser("lead@example.com", "Europe/Zagreb");
-const associate = await createUser("associate@example.com", "Europe/Zagreb");
+// A demo password, for this development database only. It is printed below so the accounts can be logged in to
+const password = "taskco-demo";
+
+const lead = await registerUser({ email: "lead@example.com", password, timezone: "Europe/Zagreb" });
+const associate = await registerUser({ email: "associate@example.com", password, timezone: "Europe/Zagreb" });
 
 const website = await createProject("Website relaunch", lead.id);
 await addMember({ projectId: website.id, userId: associate.id, role: "associate" });
@@ -39,5 +42,6 @@ await setTaskStatus({ taskId: homepage.id, status: "in_progress" });
 await setTaskPriority({ taskId: homepage.id, priority: "high" });
 
 console.log(`seeded taskco_dev — lead id ${lead.id}, project id ${website.id}`);
+console.log(`log in as lead@example.com or associate@example.com, password "${password}"`);
 
 await pool.end();
