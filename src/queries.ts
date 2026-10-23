@@ -1,6 +1,7 @@
 import { pool } from "./db.js";
 import type { PoolClient } from "pg";
 import { countStreak } from "./streak.js";
+import { NotFound, Refused } from "./errors.js";
 
 export type User = {
     id: string;
@@ -120,7 +121,7 @@ export async function deleteAccount(userId: string): Promise<{ scheduledFor: Dat
 
         const scheduled = rows[0];
         if (!scheduled) {
-            throw new Error("deleteAccount: account not found, or already being deleted");
+            throw new Refused("deleteAccount: account not found, or already being deleted");
         }
 
         await client.query(
@@ -173,7 +174,7 @@ export async function reopenAccount(userId: string): Promise<void> {
         );
 
         if (reopened.rowCount === 0) {
-            throw new Error("reopenAccount: account not found, or not inside its deletion window");
+            throw new Refused("reopenAccount: account not found, or not inside its deletion window");
         }
 
         await client.query(
@@ -235,7 +236,7 @@ export async function addMember(member: {
     );
 
     if (added.rowCount === 0) {
-        throw new Error("addMember: project not found, or being deleted");
+        throw new Refused("addMember: project not found, or being deleted");
     }
 }
 
@@ -281,7 +282,7 @@ export async function transferLeadership(transfer: {
         const lead = current.rows[0];
 
         if (!lead) {
-            throw new Error("transferLeadership: project not found");
+            throw new NotFound("transferLeadership: project not found");
         }
 
         const next = await client.query<{ id: string; role: Role; leaving: boolean }>(
@@ -298,15 +299,15 @@ export async function transferLeadership(transfer: {
         const recipient = next.rows[0];
 
         if (!recipient) {
-            throw new Error("transferLeadership: the new Lead must be a current member of the project");
+            throw new Refused("transferLeadership: the new Lead must be a current member of the project");
         }
 
         if (recipient.leaving) {
-            throw new Error("transferLeadership: the new Lead's account is being deleted");
+            throw new Refused("transferLeadership: the new Lead's account is being deleted");
         }
 
         if (recipient.role === "lead") {
-            throw new Error("transferLeadership: they already lead this project");
+            throw new Refused("transferLeadership: they already lead this project");
         }
 
         await client.query(
@@ -405,7 +406,7 @@ export async function deleteProject(projectId: string): Promise<{ scheduledFor: 
 
     const scheduled = rows[0];
     if (!scheduled) {
-        throw new Error("deleteProject: project not found, or already being deleted");
+        throw new Refused("deleteProject: project not found, or already being deleted");
     }
 
     return { scheduledFor: scheduled.deletion_scheduled_at };
@@ -429,7 +430,7 @@ export async function restoreProject(projectId: string): Promise<void> {
     );
 
     if (restored.rowCount === 0) {
-        throw new Error(
+        throw new Refused(
             "restoreProject: project not found, not inside its deletion window, or its Lead's account is being deleted"
         );
     }
@@ -444,7 +445,7 @@ export async function deleteProjectNow(projectId: string): Promise<void> {
     );
 
     if (deleted.rowCount === 0) {
-        throw new Error("deleteProjectNow: project not found, or already being deleted");
+        throw new Refused("deleteProjectNow: project not found, or already being deleted");
     }
 }
 
@@ -557,7 +558,7 @@ export async function setTaskDueDate(change: {
         );
 
         if (updated.rowCount === 0) {
-            throw new Error("setTaskDueDate: task not found");
+            throw new NotFound("setTaskDueDate: task not found");
         }
 
         let clearedSubtasks = 0;
@@ -599,7 +600,7 @@ export async function setTaskNotes(change: {
     );
 
     if (updated.rowCount === 0) {
-        throw new Error("setTaskNotes: task not found");
+        throw new NotFound("setTaskNotes: task not found");
     }
 }
 
@@ -612,7 +613,7 @@ export async function deleteTask(taskID: string): Promise<void> {
     );
 
     if (deleted.rowCount === 0) {
-        throw new Error("deleteTask: task not found");
+        throw new NotFound("deleteTask: task not found");
     }
 }
 
@@ -638,24 +639,24 @@ export async function moveTask(move: {
         const before = rows.find((row) => row.id === move.beforeTaskId);
 
         if (!moved) {
-            throw new Error("moveTask: task not found");
+            throw new NotFound("moveTask: task not found");
         }
 
         if ((move.afterTaskId && !after) || (move.beforeTaskId && !before)) {
-            throw new Error("moveTask: a neighbour was not found");
+            throw new Refused("moveTask: a neighbour was not found");
         }
 
         const neighbour = after ?? before;
 
         if (!neighbour) {
-            throw new Error("moveTask: give at least one neighbour");
+            throw new Refused("moveTask: give at least one neighbour");
         }
 
         if (
             (after && after.project_id !== moved.project_id) ||
             (before && before.project_id !== moved.project_id)
         ) {
-            throw new Error("moveTask: the task and its neighbours must be in the same project");
+            throw new Refused("moveTask: the task and its neighbours must be in the same project");
         }
 
         let candidate: number;
@@ -726,7 +727,7 @@ export async function setTaskAssignee(change: {
         const projectId = task.rows[0]?.project_id;
 
         if (!projectId) {
-            throw new Error("setTaskAssignee: task not found");
+            throw new NotFound("setTaskAssignee: task not found");
         }
 
         if (change.membershipId !== null) {
@@ -769,7 +770,7 @@ export async function createSubtask(subtask: {
     const parentTask = parent.rows[0];
 
     if (!parentTask) {
-        throw new Error("createSubtask: task not found");
+        throw new NotFound("createSubtask: task not found");
     }
 
     const counted = await pool.query<{ count: number }>(
@@ -784,7 +785,7 @@ export async function createSubtask(subtask: {
     }
 
     if ((counted.rows[0]?.count ?? 0) >= 50) {
-        throw new Error("createSubtask: a task can have at most 50 subtasks");
+        throw new Refused("createSubtask: a task can have at most 50 subtasks");
     }
 
     const { rows } = await pool.query<Subtask>(
@@ -838,7 +839,7 @@ export async function setSubtaskNotes(change: {
     );
 
     if (updated.rowCount === 0) {
-        throw new Error("setSubtaskNotes: subtask not found");
+        throw new NotFound("setSubtaskNotes: subtask not found");
     }
 }
 
@@ -857,7 +858,7 @@ export async function setSubtaskDueDate(change: {
     const parentTaskId = rows[0]?.task_id;
 
     if (!parentTaskId) {
-        throw new Error("setSubtaskDueDate: subtask not found");
+        throw new NotFound("setSubtaskDueDate: subtask not found");
     }
 
     if (change.dueDate) {
@@ -892,7 +893,7 @@ export async function setSubtaskAssignee(change: {
         const parentProjectId = parent.rows[0]?.project_id;
 
         if (!parentProjectId) {
-            throw new Error("setSubtaskAssignee: subtask not found");
+            throw new NotFound("setSubtaskAssignee: subtask not found");
         }
 
         if (change.membershipId !== null) {
@@ -941,7 +942,7 @@ export async function createInvite(invite: {
         const recipientId = recipient.rows[0]?.id;
 
         if (!recipientId) {
-            throw new Error("No email found");
+            throw new Refused("No email found");
         }
 
         const member = await client.query<{ id: string }>(
@@ -953,7 +954,7 @@ export async function createInvite(invite: {
         );
 
         if (member.rows.length > 0) {
-            throw new Error("createInvite: they are already a member of this project");
+            throw new Refused("createInvite: they are already a member of this project");
         }
 
         await client.query(
@@ -1007,11 +1008,11 @@ export async function acceptInvite(accept: {
         const invite = found.rows[0];
 
         if (!invite) {
-            throw new Error("acceptInvite: invite not found");
+            throw new NotFound("acceptInvite: invite not found");
         }
 
         if (invite.expired) {
-            throw new Error("acceptInvite: this invite has expired");
+            throw new Refused("acceptInvite: this invite has expired");
         }
 
         await refuseIfProjectIsBeingDeleted(client, invite.project_id);
@@ -1025,7 +1026,7 @@ export async function acceptInvite(accept: {
         );
 
         if (member.rows.length > 0) {
-            throw new Error("acceptInvite: you are already a member of this project");
+            throw new Refused("acceptInvite: you are already a member of this project");
         }
 
         await client.query(
@@ -1058,7 +1059,7 @@ export async function declineInvite(decline: {
     );
 
     if (deleted.rowCount === 0) {
-        throw new Error("declineInvite: invite not found");
+        throw new NotFound("declineInvite: invite not found");
     }
 }
 
@@ -1136,7 +1137,7 @@ export async function completeRoutine(complete: {
     const today = found.rows[0]?.today;
 
     if (!today) {
-        throw new Error("completeRoutine: routine not found");
+        throw new NotFound("completeRoutine: routine not found");
     }
 
     await pool.query(
@@ -1161,7 +1162,7 @@ export async function undoCompletion(undo: {
     );
 
     if (deleted.rowCount === 0) {
-        throw new Error("undoCompletion: not completed today");
+        throw new Refused("undoCompletion: not completed today");
     }
 }
 
@@ -1182,7 +1183,7 @@ export async function getStreak(ask: {
     const routine = found.rows[0];
 
     if (!routine) {
-        throw new Error("getStreak: routine not found");
+        throw new NotFound("getStreak: routine not found");
     }
 
     const log = await pool.query<{ done_on: string }>(
@@ -1223,7 +1224,7 @@ async function refuseDueDateAfterParent(taskId: string, dueDate: string): Promis
     const parentDueDate = rows[0]?.due_date;
 
     if (parentDueDate && dueDate > parentDueDate) {
-        throw new Error("a subtask cannot be due after its task");
+        throw new Refused("a subtask cannot be due after its task");
     }
 }
 
@@ -1253,7 +1254,7 @@ async function refuseUnlessCurrentMember(
     );
 
     if (rows.length === 0) {
-        throw new Error("the assignee must be a current member of the project");
+        throw new Refused("the assignee must be a current member of the project");
     }
 }
 
@@ -1270,7 +1271,7 @@ async function refuseIfProjectIsBeingDeleted(
     );
 
     if (rows[0]?.deletion_scheduled_at) {
-        throw new Error("the project is being deleted");
+        throw new Refused("the project is being deleted");
     }
 }
 
@@ -1290,11 +1291,11 @@ async function endMembership(
     const membership = rows[0];
 
     if (!membership) {
-        throw new Error("removeMember: membership not found");
+        throw new NotFound("removeMember: membership not found");
     }
 
     if (membership.role === "lead") {
-        throw new Error("Cannot remove the project's lead");
+        throw new Refused("Cannot remove the project's lead");
     }
 
     await client.query(

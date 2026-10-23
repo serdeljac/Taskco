@@ -1,6 +1,7 @@
 import express, { type ErrorRequestHandler } from "express";
 import { z } from "zod";
 import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask } from "./queries.js";
+import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript that res.locals.userId is a string. Without this it’s any, which TypeScript never checks
 declare global {
@@ -135,6 +136,22 @@ app.use((req, res) => {
 const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
     if (error.type === "entity.parse.failed") {
         res.status(400).json({ error: "The request body is not valid JSON" });
+        return;
+    }
+
+    if (error.type === "entity.too.large") {
+        res.status(413).json({ error: "The request body is too large" });
+        return;
+    }
+
+    if (error instanceof NotFound) {
+        res.status(404).json({ error: "Not found" });
+        return;
+    }
+
+    //A refusal's message starts with the function that refused, for whoever reads the terminal. The asker gets only the reason
+    if (error instanceof Refused) {
+        res.status(409).json({ error: error.message.replace(/^\w+: /, "") });
         return;
     }
 

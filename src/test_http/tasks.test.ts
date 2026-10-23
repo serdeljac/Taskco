@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember, createTask, listTasks } from "../queries.js";
+import { createUser, createProject, addMember, createTask, listTasks, deleteProject } from "../queries.js";
 
 
 describe("GET /projects/:projectId/tasks", () => {
@@ -186,6 +186,22 @@ describe("POST /projects/:projectId/tasks", () => {
 
         expect(response.status).toBe(404);
         expect(response.body).toEqual({ error: "Not found" });
+    });
+
+    it("answers 409 to the Lead while the project is being deleted", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await deleteProject(project.id);
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/tasks`)
+            .set("X-User-Id", ana.id)
+            .send({ title: "Fix the gate" });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "the project is being deleted" });
     });
 
     it("refuses a request that does not say who is asking", async () => {

@@ -26,6 +26,17 @@ describe("errors", () => {
         expect(response.body).toEqual({ error: "The request body is not valid JSON" });
     });
 
+    it("answers a body over the size limit with 413", async () => {
+        //TEST
+        const response = await request(app)
+            .post("/projects")
+            .set("X-User-Id", "1")
+            .send({ name: "x".repeat(200000) });
+
+        expect(response.status).toBe(413);
+        expect(response.body).toEqual({ error: "The request body is too large" });
+    });
+
     it("answers a crash with 500, and no details", async () => {
         //TEST
         const response = await request(app)
