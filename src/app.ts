@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -324,6 +324,24 @@ app.put("/tasks/:taskId/notes", requireMember, async (req, res) => {
 
     await setTaskNotes({ taskId: req.params.taskId, notes: body.data.notes });
     res.status(204).end();
+});
+
+//A calendar day, or null for "TBD"
+const dueDate = z.strictObject({
+    dueDate: z.iso.date().nullable(),
+});
+
+//Moving a date earlier clears the subtask dates now past it, in the same transaction; the answer says how many
+app.put("/tasks/:taskId/due-date", requireLead, async (req, res) => {
+    const body = dueDate.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const { clearedSubtasks } = await setTaskDueDate({ taskId: req.params.taskId, dueDate: body.data.dueDate });
+    res.json({ clearedSubtasks });
 });
 
 app.use((req, res) => {
