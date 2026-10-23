@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate, setSubtaskPriority } from "../queries.js";
+import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate, setSubtaskPriority, setSubtaskDueDate } from "../queries.js";
 
 
 //The picture every test here starts from: Ana leads Website, Ben is an Associate in it, Cara is not in it,
@@ -330,6 +330,76 @@ describe("PUT /subtasks/:subtaskId/notes", () => {
         const response = await request(app)
             .put("/subtasks/1/notes")
             .send({ notes: "Brass, not steel" });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("PUT /subtasks/:subtaskId/due-date", () => {
+    it("lets the Lead set a subtask's due date", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/due-date`)
+            .set("X-User-Id", ana.id)
+            .send({ dueDate: "2026-11-20" });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.due_date).toBe("2026-11-20");
+    });
+
+    it("answers 409 for a date after its task's", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+        await setTaskDueDate({ taskId: task.id, dueDate: "2026-11-10" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/due-date`)
+            .set("X-User-Id", ana.id)
+            .send({ dueDate: "2026-11-20" });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "a subtask cannot be due after its task" });
+        expect((await reread(task, ana))[0]?.due_date).toBeNull();
+    });
+
+    it("clears the date with null", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+        await setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2026-11-20" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/due-date`)
+            .set("X-User-Id", ana.id)
+            .send({ dueDate: null });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.due_date).toBeNull();
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const { ben, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/due-date`)
+            .set("X-User-Id", ben.id)
+            .send({ dueDate: "2026-11-20" });
+
+        expect(response.status).toBe(403);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/subtasks/1/due-date")
+            .send({ dueDate: "2026-11-20" });
 
         expect(response.status).toBe(401);
     });
