@@ -198,3 +198,42 @@ describe("PUT /routines/:routineId/completions/today", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("DELETE /routines/:routineId/completions/today", () => {
+    it("takes back today's completion", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+        await completeRoutine({ routineId: routine.id, userId: ana.id });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/routines/${routine.id}/completions/today`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(204);
+        expect((await listRoutines(ana.id))[0]?.done_today).toBe(false);
+    });
+
+    it("answers 409 when nothing was done today", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/routines/${routine.id}/completions/today`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "not completed today" });
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).delete("/routines/1/completions/today");
+
+        expect(response.status).toBe(401);
+    });
+});
