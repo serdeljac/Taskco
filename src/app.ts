@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -230,6 +230,28 @@ app.post("/projects/:projectId/transfer", requireLead, async (req, res) => {
         outgoing: body.data.outgoing,
     });
     res.status(204).end();
+});
+
+//254 characters is the longest address an email system will carry
+const newInvite = z.strictObject({
+    email: z.email().max(254),
+});
+
+//The Lead invites an existing user by address. Who sent it is the asker, never something the body can say
+app.post("/projects/:projectId/invites", requireLead, async (req, res) => {
+    const body = newInvite.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const invite = await createInvite({
+        projectId: res.locals.project.id,
+        email: body.data.email,
+        invitedByUserId: res.locals.userId,
+    });
+    res.status(201).json({ invite });
 });
 
 app.use((req, res) => {
