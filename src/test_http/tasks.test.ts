@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember, createTask, listTasks, deleteProject } from "../queries.js";
+import { pool } from "../db.js";
+import { createUser, createProject, addMember, createTask, listTasks, deleteProject, deleteTask } from "../queries.js";
 
 
 describe("GET /projects/:projectId/tasks", () => {
@@ -344,6 +345,66 @@ describe("PUT /tasks/:taskId/position", () => {
         const response = await request(app)
             .put("/tasks/1/position")
             .send({ beforeTaskId: "2" });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("DELETE /tasks/:taskId", () => {
+    it("lets the Lead delete a task, which leaves the list but keeps its row", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const gate = await createTask({ projectId: project.id, title: "Fix the gate" });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/tasks/${gate.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(204);
+        expect(await listTasks({ projectId: project.id, userId: ana.id })).toHaveLength(0);
+
+        const row = await pool.query("select deleted_at from tasks where id = $1", [gate.id]);
+        expect(row.rows[0]?.deleted_at).not.toBeNull();
+    });
+
+    it("answers 403 to an Associate, and deletes nothing", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+        const gate = await createTask({ projectId: project.id, title: "Fix the gate" });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/tasks/${gate.id}`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(403);
+        expect(await listTasks({ projectId: project.id, userId: ana.id })).toHaveLength(1);
+    });
+
+    it("answers 404 for a task already deleted", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const gate = await createTask({ projectId: project.id, title: "Fix the gate" });
+        await deleteTask(gate.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/tasks/${gate.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(404);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).delete("/tasks/1");
 
         expect(response.status).toBe(401);
     });
