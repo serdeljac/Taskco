@@ -280,3 +280,57 @@ describe("PUT /subtasks/:subtaskId/priority", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("PUT /subtasks/:subtaskId/notes", () => {
+    it("lets an Associate write a subtask's notes", async () => {
+        //CREATE
+        const { ana, ben, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/notes`)
+            .set("X-User-Id", ben.id)
+            .send({ notes: "Brass, not steel" });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.notes).toBe("Brass, not steel");
+    });
+
+    it("stores blank notes as empty", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/notes`)
+            .set("X-User-Id", ana.id)
+            .send({ notes: "   " });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.notes).toBeNull();
+    });
+
+    it("answers 404 to someone who is not in the project", async () => {
+        //CREATE
+        const { ana, cara, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/notes`)
+            .set("X-User-Id", cara.id)
+            .send({ notes: "Mine now" });
+
+        expect(response.status).toBe(404);
+        expect((await reread(task, ana))[0]?.notes).toBeNull();
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/subtasks/1/notes")
+            .send({ notes: "Brass, not steel" });
+
+        expect(response.status).toBe(401);
+    });
+});
