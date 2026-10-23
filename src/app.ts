@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type Request, type RequestHandler } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -152,6 +152,12 @@ app.post("/projects/:projectId/tasks", requireLead, async (req, res) => {
         dueDate: body.data.dueDate,
     });
     res.status(201).json({ task });
+});
+
+//Delete mode: thirty days in which the Lead can still undo it. The waiting deletion is its own small resource, so undoing it is a DELETE
+app.post("/projects/:projectId/deletion", requireLead, async (req, res) => {
+    const { scheduledFor } = await deleteProject(res.locals.project.id);
+    res.status(201).json({ scheduledFor });
 });
 
 app.use((req, res) => {
