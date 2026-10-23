@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, createInvite, addMember, listInvitesForUser } from "../queries.js";
+import { pool } from "../db.js";
+import { createUser, createProject, createInvite, addMember, listInvitesForUser, listProjectsForUser, deleteProject } from "../queries.js";
 
 
 describe("GET /invites", () => {
@@ -173,6 +174,91 @@ describe("POST /projects/:projectId/invites", () => {
         const response = await request(app)
             .post("/projects/1/invites")
             .send({ email: "ben@example.com" });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("POST /invites/:inviteId/accept", () => {
+    it("makes the recipient an Associate, and uses up the invite", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const invite = await createInvite({ projectId: project.id, email: "ben@example.com", invitedByUserId: ana.id });
+
+        //TEST
+        const response = await request(app)
+            .post(`/invites/${invite.id}/accept`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ projectId: project.id });
+        expect(await listProjectsForUser(ben.id)).toMatchObject([{ id: project.id, role: "associate" }]);
+        expect(await listInvitesForUser(ben.id)).toHaveLength(0);
+    });
+
+    it("answers 404 to someone the invite is not addressed to", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const cara = await createUser("cara@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const invite = await createInvite({ projectId: project.id, email: "ben@example.com", invitedByUserId: ana.id });
+
+        //TEST
+        const response = await request(app)
+            .post(`/invites/${invite.id}/accept`)
+            .set("X-User-Id", cara.id);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: "Not found" });
+        expect(await listProjectsForUser(cara.id)).toHaveLength(0);
+        expect(await listInvitesForUser(ben.id)).toHaveLength(1);
+    });
+
+    it("answers 409 when the invite has expired", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const invite = await createInvite({ projectId: project.id, email: "ben@example.com", invitedByUserId: ana.id });
+        await pool.query(
+            "update invites set created_at = now() - interval '4 days', expires_at = now() - interval '1 day' where id = $1",
+            [invite.id]
+        );
+
+        //TEST
+        const response = await request(app)
+            .post(`/invites/${invite.id}/accept`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "this invite has expired" });
+        expect(await listProjectsForUser(ben.id)).toHaveLength(0);
+    });
+
+    it("answers 409 when the project is being deleted", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const invite = await createInvite({ projectId: project.id, email: "ben@example.com", invitedByUserId: ana.id });
+        await deleteProject(project.id);
+
+        //TEST
+        const response = await request(app)
+            .post(`/invites/${invite.id}/accept`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "the project is being deleted" });
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).post("/invites/1/accept");
 
         expect(response.status).toBe(401);
     });

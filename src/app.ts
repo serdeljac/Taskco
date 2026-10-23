@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -252,6 +252,12 @@ app.post("/projects/:projectId/invites", requireLead, async (req, res) => {
         invitedByUserId: res.locals.userId,
     });
     res.status(201).json({ invite });
+});
+
+//The request names only the invite. acceptInvite checks it is addressed to the asker, so someone else's invite is "not found"
+app.post("/invites/:inviteId/accept", async (req, res) => {
+    const { projectId } = await acceptInvite({ inviteId: req.params.inviteId, userId: res.locals.userId });
+    res.json({ projectId });
 });
 
 app.use((req, res) => {
