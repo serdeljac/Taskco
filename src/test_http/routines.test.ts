@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createRoutine, listRoutines } from "../queries.js";
+import { pool } from "../db.js";
+import { createUser, createRoutine, listRoutines, completeRoutine } from "../queries.js";
 
 
 describe("GET /routines", () => {
@@ -123,6 +124,76 @@ describe("POST /routines", () => {
         const response = await request(app)
             .post("/routines")
             .send({ name: "Stretch", weekdays: [1, 2, 3, 4, 5] });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+describe("PUT /routines/:routineId/completions/today", () => {
+    it("records today as done, on the owner's own calendar", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+
+        //TEST
+        const response = await request(app)
+            .put(`/routines/${routine.id}/completions/today`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(200);
+        expect(response.body.doneOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+        const routines = await listRoutines(ana.id);
+        expect(routines[0]?.done_today).toBe(true);
+    });
+
+    it("does nothing the second time", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+        await completeRoutine({ routineId: routine.id, userId: ana.id });
+
+        //TEST
+        const response = await request(app)
+            .put(`/routines/${routine.id}/completions/today`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(200);
+
+        const completions = await pool.query("select done_on from completions where routine_id = $1", [routine.id]);
+        expect(completions.rows).toHaveLength(1);
+    });
+
+    it("answers 404 for someone else's routine", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const cara = await createUser("cara@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+
+        //TEST
+        const response = await request(app)
+            .put(`/routines/${routine.id}/completions/today`)
+            .set("X-User-Id", cara.id);
+
+        expect(response.status).toBe(404);
+        expect((await listRoutines(ana.id))[0]?.done_today).toBe(false);
+    });
+
+    it("answers 404 for a routine id that is not a number", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+
+        //TEST
+        const response = await request(app)
+            .put("/routines/abc/completions/today")
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(404);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).put("/routines/1/completions/today");
 
         expect(response.status).toBe(401);
     });

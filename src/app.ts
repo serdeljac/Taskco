@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, deleteSubtask, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, deleteSubtask, completeRoutine, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -480,6 +480,13 @@ app.put("/subtasks/:subtaskId/assignee", requireLead, async (req, res) => {
 app.delete("/subtasks/:subtaskId", requireLead, async (req, res) => {
     await deleteSubtask(req.params.subtaskId);
     res.status(204).end();
+});
+
+//The client says "done today", never which day: the server dates it on the owner's own calendar.
+//A PUT, because doing it twice leaves the same one completion. Routines are private, so no project check applies
+app.put("/routines/:routineId/completions/today", async (req, res) => {
+    const { doneOn } = await completeRoutine({ routineId: req.params.routineId, userId: res.locals.userId });
+    res.json({ doneOn });
 });
 
 app.use((req, res) => {
