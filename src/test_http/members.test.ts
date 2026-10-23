@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
+import { cookieFor } from "../testing/session.js";
 import { createUser, createProject, addMember, listMembers, deleteProject } from "../queries.js";
 
 
@@ -15,7 +16,7 @@ describe("GET /projects/:projectId/members", () => {
         //TEST
         const response = await request(app)
             .get(`/projects/${project.id}/members`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(200);
         expect(response.body.members).toMatchObject([
@@ -33,7 +34,7 @@ describe("GET /projects/:projectId/members", () => {
         //TEST
         const response = await request(app)
             .get(`/projects/${project.id}/members`)
-            .set("X-User-Id", cara.id);
+            .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(404);
         expect(response.body).toEqual({ error: "Not found" });
@@ -59,7 +60,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
         //TEST
         const response = await request(app)
             .delete(`/projects/${project.id}/members/${ben.id}`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(204);
 
@@ -77,7 +78,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
         //TEST
         const response = await request(app)
             .delete(`/projects/${project.id}/members/${ben.id}`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(204);
 
@@ -97,7 +98,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
         //TEST
         const response = await request(app)
             .delete(`/projects/${project.id}/members/${cara.id}`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(403);
         expect(await listMembers({ projectId: project.id, userId: ana.id })).toHaveLength(3);
@@ -111,7 +112,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
         //TEST
         const response = await request(app)
             .delete(`/projects/${project.id}/members/${ana.id}`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(409);
         expect(response.body).toEqual({ error: "Cannot remove the project's lead" });
@@ -128,7 +129,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
         //TEST
         const response = await request(app)
             .delete(`/projects/${project.id}/members/${ben.id}`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(409);
         expect(response.body).toEqual({ error: "the project is being deleted" });
@@ -143,7 +144,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
         //TEST
         const response = await request(app)
             .delete(`/projects/${project.id}/members/${cara.id}`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
         expect(response.body).toEqual({ error: "Not found" });
@@ -157,7 +158,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
         //TEST
         const response = await request(app)
             .delete(`/projects/${project.id}/members/abc`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
         expect(response.body).toEqual({ error: "Not found" });
@@ -183,7 +184,7 @@ describe("POST /projects/:projectId/transfer", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/transfer`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ toUserId: ben.id, outgoing: "stay" });
 
         expect(response.status).toBe(204);
@@ -203,7 +204,7 @@ describe("POST /projects/:projectId/transfer", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/transfer`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ toUserId: ben.id, outgoing: "leave" });
 
         expect(response.status).toBe(204);
@@ -221,7 +222,7 @@ describe("POST /projects/:projectId/transfer", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/transfer`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ toUserId: cara.id, outgoing: "stay" });
 
         expect(response.status).toBe(409);
@@ -238,7 +239,7 @@ describe("POST /projects/:projectId/transfer", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/transfer`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ toUserId: ben.id, outgoing: "stay" });
 
         expect(response.status).toBe(403);
@@ -258,7 +259,7 @@ describe("POST /projects/:projectId/transfer", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/transfer`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ toUserId: ben.id, outgoing: "vanish" });
 
         expect(response.status).toBe(400);
@@ -272,7 +273,7 @@ describe("POST /projects/:projectId/transfer", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/transfer`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ toUserId: "abc", outgoing: "stay" });
 
         expect(response.status).toBe(400);

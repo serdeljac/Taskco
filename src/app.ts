@@ -38,7 +38,7 @@ import {
     undoCompletion,
     getStreak,
     deleteAccount,
-    reopenAccount,
+    findSessionUser,
     type ProjectForUser,
 } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
@@ -71,12 +71,26 @@ app.use(express.json());
     WHO IS ASKING, AND MAY THEY
 ***********************************/
 
-//Who is asking. This runs before every route. No header, or a header that isn’t an id → 401. Otherwise it stores the id and next() moves on to the route
-app.use((req, res, next) => {
-    const userId = req.get("X-User-Id");
+//The cookie that carries a session's token. The browser sends it back on every request to this server
+const sessionCookie = "taskco_session";
 
-    if (!userId || !idPattern.test(userId)) {
-        res.status(401).json({ error: "Say who is asking" });
+//The value of one cookie in a Cookie header, which holds them all: "theme=dark; taskco_session=abc"
+function readCookie(req: Request, name: string): string | undefined {
+    for (const pair of (req.get("Cookie") ?? "").split(";")) {
+        const [key, ...value] = pair.trim().split("=");
+        if (key === name) return value.join("=");
+    }
+    return undefined;
+}
+
+//Who is asking: the account whose live session the cookie names. This runs before every route below it; no cookie,
+//or one naming no live session → 401. Otherwise it stores the account's id and next() moves on to the route
+app.use(async (req, res, next) => {
+    const token = readCookie(req, sessionCookie);
+    const userId = token ? await findSessionUser(token) : undefined;
+
+    if (!userId) {
+        res.status(401).json({ error: "Log in first" });
         return;
     }
 
@@ -580,16 +594,11 @@ app.get("/routines/:routineId/streak", async (req, res) => {
     ACCOUNT
 ***********************************/
 
-//The asker's own account. Transfers come first, one project at a time; whatever the account still leads enters delete mode with it
+//The asker's own account. Transfers come first, one project at a time; whatever the account still leads enters delete mode with it.
+//There is no DELETE: an account being deleted has no session that counts, so the way back is logging in, which reopens it
 app.post("/account/deletion", async (req, res) => {
     const { scheduledFor } = await deleteAccount(res.locals.userId);
     res.status(201).json({ scheduledFor });
-});
-
-//Reopening inside the thirty days brings back the projects the account still leads, but not its memberships elsewhere
-app.delete("/account/deletion", async (req, res) => {
-    await reopenAccount(res.locals.userId);
-    res.status(204).end();
 });
 
 
@@ -601,7 +610,7 @@ app.use((req, res) => {
     res.status(404).json({ error: "Not found" });
 });
 
-const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
+export const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
     if (error.type === "entity.parse.failed") {
         res.status(400).json({ error: "The request body is not valid JSON" });
         return;

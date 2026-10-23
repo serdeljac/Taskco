@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
+import { cookieFor } from "../testing/session.js";
 import { pool } from "../db.js";
 import { createUser, createRoutine, listRoutines, completeRoutine } from "../queries.js";
 
@@ -14,7 +15,7 @@ describe("GET /routines", () => {
         //TEST
         const response = await request(app)
             .get("/routines")
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(200);
         expect(response.body.routines).toHaveLength(1);
@@ -30,7 +31,7 @@ describe("GET /routines", () => {
         //TEST
         const response = await request(app)
             .get("/routines")
-            .set("X-User-Id", cara.id);
+            .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(200);
         expect(response.body.routines).toHaveLength(0);
@@ -52,7 +53,7 @@ describe("POST /routines", () => {
         //TEST
         const response = await request(app)
             .post("/routines")
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ name: "Stretch", weekdays: [1, 2, 3, 4, 5] });
 
         expect(response.status).toBe(201);
@@ -70,7 +71,7 @@ describe("POST /routines", () => {
         //TEST
         const response = await request(app)
             .post("/routines")
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ name: "   ", weekdays: [1, 2, 3, 4, 5] });
 
         expect(response.status).toBe(400);
@@ -84,7 +85,7 @@ describe("POST /routines", () => {
         //TEST
         const response = await request(app)
             .post("/routines")
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ name: "Stretch", weekdays: [1, 8] });
 
         expect(response.status).toBe(400);
@@ -98,7 +99,7 @@ describe("POST /routines", () => {
         //TEST
         const response = await request(app)
             .post("/routines")
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ name: "Stretch", weekdays: [] });
 
         expect(response.status).toBe(400);
@@ -112,7 +113,7 @@ describe("POST /routines", () => {
         //TEST
         const response = await request(app)
             .post("/routines")
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ name: "Stretch", weekdays: [1, 2, 3, 4, 5], userId: "2" });
 
         expect(response.status).toBe(400);
@@ -138,7 +139,7 @@ describe("PUT /routines/:routineId/completions/today", () => {
         //TEST
         const response = await request(app)
             .put(`/routines/${routine.id}/completions/today`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(200);
         expect(response.body.doneOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -156,7 +157,7 @@ describe("PUT /routines/:routineId/completions/today", () => {
         //TEST
         const response = await request(app)
             .put(`/routines/${routine.id}/completions/today`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(200);
 
@@ -173,7 +174,7 @@ describe("PUT /routines/:routineId/completions/today", () => {
         //TEST
         const response = await request(app)
             .put(`/routines/${routine.id}/completions/today`)
-            .set("X-User-Id", cara.id);
+            .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(404);
         expect((await listRoutines(ana.id))[0]?.done_today).toBe(false);
@@ -186,7 +187,7 @@ describe("PUT /routines/:routineId/completions/today", () => {
         //TEST
         const response = await request(app)
             .put("/routines/abc/completions/today")
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
     });
@@ -210,7 +211,7 @@ describe("DELETE /routines/:routineId/completions/today", () => {
         //TEST
         const response = await request(app)
             .delete(`/routines/${routine.id}/completions/today`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(204);
         expect((await listRoutines(ana.id))[0]?.done_today).toBe(false);
@@ -224,7 +225,7 @@ describe("DELETE /routines/:routineId/completions/today", () => {
         //TEST
         const response = await request(app)
             .delete(`/routines/${routine.id}/completions/today`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(409);
         expect(response.body).toEqual({ error: "not completed today" });
@@ -249,7 +250,7 @@ describe("GET /routines/:routineId/streak", () => {
         //TEST
         const response = await request(app)
             .get(`/routines/${routine.id}/streak`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(200);
         expect(response.body).toEqual({ streak: 1 });
@@ -264,7 +265,7 @@ describe("GET /routines/:routineId/streak", () => {
         //TEST
         const response = await request(app)
             .get(`/routines/${routine.id}/streak`)
-            .set("X-User-Id", cara.id);
+            .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(404);
     });

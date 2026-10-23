@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
+import { cookieFor } from "../testing/session.js";
 import { pool } from "../db.js";
 import { createUser, createProject, createInvite, addMember, listInvitesForUser, listProjectsForUser, deleteProject } from "../queries.js";
 
@@ -20,7 +21,7 @@ describe("GET /invites", () => {
         //TEST
         const response = await request(app)
             .get("/invites")
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(200);
         expect(response.body.invites).toHaveLength(1);
@@ -41,7 +42,7 @@ describe("GET /invites", () => {
         //TEST
         const response = await request(app)
             .get("/invites")
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(200);
         expect(response.body.invites).toHaveLength(0);
@@ -65,7 +66,7 @@ describe("POST /projects/:projectId/invites", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/invites`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ email: "ben@example.com" });
 
         expect(response.status).toBe(201);
@@ -82,7 +83,7 @@ describe("POST /projects/:projectId/invites", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/invites`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ email: "Ben@Example.com" });
 
         expect(response.status).toBe(201);
@@ -97,7 +98,7 @@ describe("POST /projects/:projectId/invites", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/invites`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ email: "nobody@example.com" });
 
         expect(response.status).toBe(409);
@@ -114,7 +115,7 @@ describe("POST /projects/:projectId/invites", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/invites`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ email: "ben@example.com" });
 
         expect(response.status).toBe(409);
@@ -129,7 +130,7 @@ describe("POST /projects/:projectId/invites", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/invites`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ email: "ben at example" });
 
         expect(response.status).toBe(400);
@@ -144,7 +145,7 @@ describe("POST /projects/:projectId/invites", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/invites`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ email: "ben@example.com", invitedByUserId: ben.id });
 
         expect(response.status).toBe(400);
@@ -162,7 +163,7 @@ describe("POST /projects/:projectId/invites", () => {
         //TEST
         const response = await request(app)
             .post(`/projects/${project.id}/invites`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ email: "cara@example.com" });
 
         expect(response.status).toBe(403);
@@ -191,7 +192,7 @@ describe("POST /invites/:inviteId/accept", () => {
         //TEST
         const response = await request(app)
             .post(`/invites/${invite.id}/accept`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(200);
         expect(response.body).toEqual({ projectId: project.id });
@@ -210,7 +211,7 @@ describe("POST /invites/:inviteId/accept", () => {
         //TEST
         const response = await request(app)
             .post(`/invites/${invite.id}/accept`)
-            .set("X-User-Id", cara.id);
+            .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(404);
         expect(response.body).toEqual({ error: "Not found" });
@@ -232,7 +233,7 @@ describe("POST /invites/:inviteId/accept", () => {
         //TEST
         const response = await request(app)
             .post(`/invites/${invite.id}/accept`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(409);
         expect(response.body).toEqual({ error: "this invite has expired" });
@@ -250,7 +251,7 @@ describe("POST /invites/:inviteId/accept", () => {
         //TEST
         const response = await request(app)
             .post(`/invites/${invite.id}/accept`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(409);
         expect(response.body).toEqual({ error: "the project is being deleted" });
@@ -276,7 +277,7 @@ describe("DELETE /invites/:inviteId", () => {
         //TEST
         const response = await request(app)
             .delete(`/invites/${invite.id}`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(204);
         expect(await listInvitesForUser(ben.id)).toHaveLength(0);
@@ -293,7 +294,7 @@ describe("DELETE /invites/:inviteId", () => {
         //TEST
         const response = await request(app)
             .delete(`/invites/${invite.id}`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
         expect(await listInvitesForUser(ben.id)).toHaveLength(1);

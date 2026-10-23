@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
+import { cookieFor } from "../testing/session.js";
 import { createUser, createProject, addMember, createTask, listTasks, deleteTask, setTaskPriority, setTaskNotes, createSubtask, listSubtasks, setTaskDueDate, listMembers } from "../queries.js";
 
 
@@ -31,7 +32,7 @@ describe("PUT /tasks/:taskId/status", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/status`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ status: "in_progress" });
 
         expect(response.status).toBe(204);
@@ -45,7 +46,7 @@ describe("PUT /tasks/:taskId/status", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/status`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ status: "done" });
 
         expect(response.status).toBe(400);
@@ -59,7 +60,7 @@ describe("PUT /tasks/:taskId/status", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/status`)
-            .set("X-User-Id", cara.id)
+            .set("Cookie", await cookieFor(cara))
             .send({ status: "completed" });
 
         expect(response.status).toBe(404);
@@ -74,7 +75,7 @@ describe("PUT /tasks/:taskId/status", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/status`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ status: "completed" });
 
         expect(response.status).toBe(404);
@@ -87,7 +88,7 @@ describe("PUT /tasks/:taskId/status", () => {
         //TEST
         const response = await request(app)
             .put("/tasks/abc/status")
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ status: "completed" });
 
         expect(response.status).toBe(404);
@@ -112,7 +113,7 @@ describe("PUT /tasks/:taskId/priority", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/priority`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ priority: "high" });
 
         expect(response.status).toBe(204);
@@ -127,7 +128,7 @@ describe("PUT /tasks/:taskId/priority", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/priority`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ priority: null });
 
         expect(response.status).toBe(204);
@@ -141,7 +142,7 @@ describe("PUT /tasks/:taskId/priority", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/priority`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ priority: "high" });
 
         expect(response.status).toBe(403);
@@ -155,7 +156,7 @@ describe("PUT /tasks/:taskId/priority", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/priority`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ priority: "urgent" });
 
         expect(response.status).toBe(400);
@@ -180,7 +181,7 @@ describe("PUT /tasks/:taskId/notes", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/notes`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ notes: "Buy new hinges first" });
 
         expect(response.status).toBe(204);
@@ -195,7 +196,7 @@ describe("PUT /tasks/:taskId/notes", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/notes`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ notes: "   " });
 
         expect(response.status).toBe(204);
@@ -210,7 +211,7 @@ describe("PUT /tasks/:taskId/notes", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/notes`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ notes: null });
 
         expect(response.status).toBe(204);
@@ -224,7 +225,7 @@ describe("PUT /tasks/:taskId/notes", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/notes`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ notes: 5 });
 
         expect(response.status).toBe(400);
@@ -237,7 +238,7 @@ describe("PUT /tasks/:taskId/notes", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/notes`)
-            .set("X-User-Id", cara.id)
+            .set("Cookie", await cookieFor(cara))
             .send({ notes: "Mine now" });
 
         expect(response.status).toBe(404);
@@ -263,7 +264,7 @@ describe("PUT /tasks/:taskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/due-date`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ dueDate: "2026-11-20" });
 
         expect(response.status).toBe(200);
@@ -279,7 +280,7 @@ describe("PUT /tasks/:taskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/due-date`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ dueDate: "2026-11-10" });
 
         expect(response.status).toBe(200);
@@ -297,7 +298,7 @@ describe("PUT /tasks/:taskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/due-date`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ dueDate: null });
 
         expect(response.status).toBe(200);
@@ -311,7 +312,7 @@ describe("PUT /tasks/:taskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/due-date`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ dueDate: "2026-11-20" });
 
         expect(response.status).toBe(403);
@@ -325,7 +326,7 @@ describe("PUT /tasks/:taskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/due-date`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ dueDate: "2026-02-30" });
 
         expect(response.status).toBe(400);
@@ -352,7 +353,7 @@ describe("PUT /tasks/:taskId/assignee", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/assignee`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ membershipId: bens?.membership_id });
 
         expect(response.status).toBe(204);
@@ -366,7 +367,7 @@ describe("PUT /tasks/:taskId/assignee", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/assignee`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ membershipId: null });
 
         expect(response.status).toBe(204);
@@ -382,7 +383,7 @@ describe("PUT /tasks/:taskId/assignee", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/assignee`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ membershipId: caras?.membership_id });
 
         expect(response.status).toBe(409);
@@ -397,7 +398,7 @@ describe("PUT /tasks/:taskId/assignee", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/assignee`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ membershipId: null });
 
         expect(response.status).toBe(403);
@@ -410,7 +411,7 @@ describe("PUT /tasks/:taskId/assignee", () => {
         //TEST
         const response = await request(app)
             .put(`/tasks/${task.id}/assignee`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ membershipId: "abc" });
 
         expect(response.status).toBe(400);

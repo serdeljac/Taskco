@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
+import { cookieFor } from "../testing/session.js";
 import { pool } from "../db.js";
 import { createUser, createProject, addMember, listProjectsForUser, deleteAccount } from "../queries.js";
 
@@ -16,7 +17,7 @@ describe("POST /account/deletion", () => {
         //TEST
         const response = await request(app)
             .post("/account/deletion")
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(201);
 
@@ -28,7 +29,7 @@ describe("POST /account/deletion", () => {
         expect(await listProjectsForUser(ben.id)).toHaveLength(0);
     });
 
-    it("answers 409 when the account is already being deleted", async () => {
+    it("answers 401 once the account is being deleted, since its sessions no longer count", async () => {
         //CREATE
         const ana = await createUser("ana@example.com", "Europe/Zagreb");
         await deleteAccount(ana.id);
@@ -36,53 +37,14 @@ describe("POST /account/deletion", () => {
         //TEST
         const response = await request(app)
             .post("/account/deletion")
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
-        expect(response.status).toBe(409);
+        expect(response.status).toBe(401);
     });
 
     it("refuses a request that does not say who is asking", async () => {
         //TEST
         const response = await request(app).post("/account/deletion");
-
-        expect(response.status).toBe(401);
-    });
-});
-
-
-describe("DELETE /account/deletion", () => {
-    it("reopens the account inside its thirty days, and brings back the projects it leads", async () => {
-        //CREATE
-        const ana = await createUser("ana@example.com", "Europe/Zagreb");
-        const ben = await createUser("ben@example.com", "Europe/Zagreb");
-        const project = await createProject("Website", ana.id);
-        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
-        await deleteAccount(ana.id);
-
-        //TEST
-        const response = await request(app)
-            .delete("/account/deletion")
-            .set("X-User-Id", ana.id);
-
-        expect(response.status).toBe(204);
-        expect(await listProjectsForUser(ben.id)).toHaveLength(1);
-    });
-
-    it("answers 409 when the account is not being deleted", async () => {
-        //CREATE
-        const ana = await createUser("ana@example.com", "Europe/Zagreb");
-
-        //TEST
-        const response = await request(app)
-            .delete("/account/deletion")
-            .set("X-User-Id", ana.id);
-
-        expect(response.status).toBe(409);
-    });
-
-    it("refuses a request that does not say who is asking", async () => {
-        //TEST
-        const response = await request(app).delete("/account/deletion");
 
         expect(response.status).toBe(401);
     });

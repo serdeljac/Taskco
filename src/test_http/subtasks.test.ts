@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
+import { cookieFor } from "../testing/session.js";
 import { pool } from "../db.js";
 import { createUser, createProject, addMember, createTask, createSubtask, listSubtasks, deleteTask, setTaskDueDate, setSubtaskPriority, setSubtaskDueDate, listMembers } from "../queries.js";
 
@@ -32,7 +33,7 @@ describe("GET /tasks/:taskId/subtasks", () => {
         //TEST
         const response = await request(app)
             .get(`/tasks/${task.id}/subtasks`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(200);
         expect(response.body.subtasks).toHaveLength(1);
@@ -46,7 +47,7 @@ describe("GET /tasks/:taskId/subtasks", () => {
         //TEST
         const response = await request(app)
             .get(`/tasks/${task.id}/subtasks`)
-            .set("X-User-Id", cara.id);
+            .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(404);
     });
@@ -59,7 +60,7 @@ describe("GET /tasks/:taskId/subtasks", () => {
         //TEST
         const response = await request(app)
             .get(`/tasks/${task.id}/subtasks`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
     });
@@ -81,7 +82,7 @@ describe("POST /tasks/:taskId/subtasks", () => {
         //TEST
         const response = await request(app)
             .post(`/tasks/${task.id}/subtasks`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ title: "Oil the latch", dueDate: "2026-11-20" });
 
         expect(response.status).toBe(201);
@@ -97,7 +98,7 @@ describe("POST /tasks/:taskId/subtasks", () => {
         //TEST
         const response = await request(app)
             .post(`/tasks/${task.id}/subtasks`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ title: "Oil the latch", dueDate: "2026-11-20" });
 
         expect(response.status).toBe(409);
@@ -115,7 +116,7 @@ describe("POST /tasks/:taskId/subtasks", () => {
         //TEST
         const response = await request(app)
             .post(`/tasks/${task.id}/subtasks`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ title: "One too many" });
 
         expect(response.status).toBe(409);
@@ -129,7 +130,7 @@ describe("POST /tasks/:taskId/subtasks", () => {
         //TEST
         const response = await request(app)
             .post(`/tasks/${task.id}/subtasks`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ title: "Oil the latch" });
 
         expect(response.status).toBe(403);
@@ -143,7 +144,7 @@ describe("POST /tasks/:taskId/subtasks", () => {
         //TEST
         const response = await request(app)
             .post(`/tasks/${task.id}/subtasks`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ title: "   " });
 
         expect(response.status).toBe(400);
@@ -169,7 +170,7 @@ describe("PUT /subtasks/:subtaskId/status", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/status`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ status: "completed" });
 
         expect(response.status).toBe(204);
@@ -183,7 +184,7 @@ describe("PUT /subtasks/:subtaskId/status", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/status`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ status: "done" });
 
         expect(response.status).toBe(400);
@@ -196,7 +197,7 @@ describe("PUT /subtasks/:subtaskId/status", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/status`)
-            .set("X-User-Id", cara.id)
+            .set("Cookie", await cookieFor(cara))
             .send({ status: "completed" });
 
         expect(response.status).toBe(404);
@@ -211,7 +212,7 @@ describe("PUT /subtasks/:subtaskId/status", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/status`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ status: "completed" });
 
         expect(response.status).toBe(404);
@@ -236,7 +237,7 @@ describe("PUT /subtasks/:subtaskId/priority", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/priority`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ priority: "low" });
 
         expect(response.status).toBe(204);
@@ -251,7 +252,7 @@ describe("PUT /subtasks/:subtaskId/priority", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/priority`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ priority: null });
 
         expect(response.status).toBe(204);
@@ -265,7 +266,7 @@ describe("PUT /subtasks/:subtaskId/priority", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/priority`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ priority: "high" });
 
         expect(response.status).toBe(403);
@@ -291,7 +292,7 @@ describe("PUT /subtasks/:subtaskId/notes", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/notes`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ notes: "Brass, not steel" });
 
         expect(response.status).toBe(204);
@@ -305,7 +306,7 @@ describe("PUT /subtasks/:subtaskId/notes", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/notes`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ notes: "   " });
 
         expect(response.status).toBe(204);
@@ -319,7 +320,7 @@ describe("PUT /subtasks/:subtaskId/notes", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/notes`)
-            .set("X-User-Id", cara.id)
+            .set("Cookie", await cookieFor(cara))
             .send({ notes: "Mine now" });
 
         expect(response.status).toBe(404);
@@ -345,7 +346,7 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/due-date`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ dueDate: "2026-11-20" });
 
         expect(response.status).toBe(204);
@@ -360,7 +361,7 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/due-date`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ dueDate: "2026-11-20" });
 
         expect(response.status).toBe(409);
@@ -376,7 +377,7 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/due-date`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ dueDate: null });
 
         expect(response.status).toBe(204);
@@ -390,7 +391,7 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/due-date`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ dueDate: "2026-11-20" });
 
         expect(response.status).toBe(403);
@@ -417,7 +418,7 @@ describe("PUT /subtasks/:subtaskId/assignee", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/assignee`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ membershipId: bens?.membership_id });
 
         expect(response.status).toBe(204);
@@ -433,7 +434,7 @@ describe("PUT /subtasks/:subtaskId/assignee", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/assignee`)
-            .set("X-User-Id", ana.id)
+            .set("Cookie", await cookieFor(ana))
             .send({ membershipId: caras?.membership_id });
 
         expect(response.status).toBe(409);
@@ -448,7 +449,7 @@ describe("PUT /subtasks/:subtaskId/assignee", () => {
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/assignee`)
-            .set("X-User-Id", ben.id)
+            .set("Cookie", await cookieFor(ben))
             .send({ membershipId: null });
 
         expect(response.status).toBe(403);
@@ -473,7 +474,7 @@ describe("DELETE /subtasks/:subtaskId", () => {
         //TEST
         const response = await request(app)
             .delete(`/subtasks/${subtask.id}`)
-            .set("X-User-Id", ana.id);
+            .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(204);
         expect(await reread(task, ana)).toHaveLength(0);
@@ -489,7 +490,7 @@ describe("DELETE /subtasks/:subtaskId", () => {
         //TEST
         const response = await request(app)
             .delete(`/subtasks/${subtask.id}`)
-            .set("X-User-Id", ben.id);
+            .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(403);
         expect(await reread(task, ana)).toHaveLength(1);
