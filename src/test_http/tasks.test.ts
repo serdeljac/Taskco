@@ -243,3 +243,108 @@ describe("POST /projects/:projectId/tasks", () => {
         expect(response.status).toBe(401);
     });
 });
+
+describe("PUT /tasks/:taskId/position", () => {
+    it("lets the Lead move a task to the top", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const gate = await createTask({ projectId: project.id, title: "Fix the gate" });
+        await createTask({ projectId: project.id, title: "Paint the fence" });
+        const roof = await createTask({ projectId: project.id, title: "Clean the roof" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${roof.id}/position`)
+            .set("X-User-Id", ana.id)
+            .send({ beforeTaskId: gate.id });
+
+        expect(response.status).toBe(204);
+
+        const tasks = await listTasks({ projectId: project.id, userId: ana.id });
+        expect(tasks.map((t) => t.title)).toEqual(["Clean the roof", "Fix the gate", "Paint the fence"]);
+    });
+
+    it("lets the Lead move a task between two others", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const gate = await createTask({ projectId: project.id, title: "Fix the gate" });
+        const fence = await createTask({ projectId: project.id, title: "Paint the fence" });
+        const roof = await createTask({ projectId: project.id, title: "Clean the roof" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${gate.id}/position`)
+            .set("X-User-Id", ana.id)
+            .send({ afterTaskId: fence.id, beforeTaskId: roof.id });
+
+        expect(response.status).toBe(204);
+
+        const tasks = await listTasks({ projectId: project.id, userId: ana.id });
+        expect(tasks.map((t) => t.title)).toEqual(["Paint the fence", "Fix the gate", "Clean the roof"]);
+    });
+
+    it("refuses a move that names no neighbour", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        const gate = await createTask({ projectId: project.id, title: "Fix the gate" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${gate.id}/position`)
+            .set("X-User-Id", ana.id)
+            .send({});
+
+        expect(response.status).toBe(400);
+    });
+
+    it("answers 409 for a neighbour in another project", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const website = await createProject("Website", ana.id);
+        const shop = await createProject("Shop", ana.id);
+        const gate = await createTask({ projectId: website.id, title: "Fix the gate" });
+        const till = await createTask({ projectId: shop.id, title: "Count the till" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${gate.id}/position`)
+            .set("X-User-Id", ana.id)
+            .send({ afterTaskId: till.id });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "the task and its neighbours must be in the same project" });
+    });
+
+    it("answers 403 to an Associate, and moves nothing", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+        const gate = await createTask({ projectId: project.id, title: "Fix the gate" });
+        const fence = await createTask({ projectId: project.id, title: "Paint the fence" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${fence.id}/position`)
+            .set("X-User-Id", ben.id)
+            .send({ beforeTaskId: gate.id });
+
+        expect(response.status).toBe(403);
+
+        const tasks = await listTasks({ projectId: project.id, userId: ana.id });
+        expect(tasks.map((t) => t.title)).toEqual(["Fix the gate", "Paint the fence"]);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/tasks/1/position")
+            .send({ beforeTaskId: "2" });
+
+        expect(response.status).toBe(401);
+    });
+});
