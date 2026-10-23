@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember, createTask, listTasks, deleteTask, setTaskPriority } from "../queries.js";
+import { createUser, createProject, addMember, createTask, listTasks, deleteTask, setTaskPriority, setTaskNotes } from "../queries.js";
 
 
 //The picture every test here starts from: Ana leads Website, Ben is an Associate in it, Cara is not in it,
@@ -166,6 +166,89 @@ describe("PUT /tasks/:taskId/priority", () => {
         const response = await request(app)
             .put("/tasks/1/priority")
             .send({ priority: "high" });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("PUT /tasks/:taskId/notes", () => {
+    it("lets an Associate write a task's notes", async () => {
+        //CREATE
+        const { ana, ben, project, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/notes`)
+            .set("X-User-Id", ben.id)
+            .send({ notes: "Buy new hinges first" });
+
+        expect(response.status).toBe(204);
+        expect((await reread(project, ana))?.notes).toBe("Buy new hinges first");
+    });
+
+    it("stores blank notes as empty", async () => {
+        //CREATE
+        const { ana, project, task } = await website();
+        await setTaskNotes({ taskId: task.id, notes: "Buy new hinges first" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/notes`)
+            .set("X-User-Id", ana.id)
+            .send({ notes: "   " });
+
+        expect(response.status).toBe(204);
+        expect((await reread(project, ana))?.notes).toBeNull();
+    });
+
+    it("clears the notes with null", async () => {
+        //CREATE
+        const { ana, project, task } = await website();
+        await setTaskNotes({ taskId: task.id, notes: "Buy new hinges first" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/notes`)
+            .set("X-User-Id", ana.id)
+            .send({ notes: null });
+
+        expect(response.status).toBe(204);
+        expect((await reread(project, ana))?.notes).toBeNull();
+    });
+
+    it("refuses notes that are not text", async () => {
+        //CREATE
+        const { ana, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/notes`)
+            .set("X-User-Id", ana.id)
+            .send({ notes: 5 });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("answers 404 to someone who is not in the project", async () => {
+        //CREATE
+        const { ana, cara, project, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/notes`)
+            .set("X-User-Id", cara.id)
+            .send({ notes: "Mine now" });
+
+        expect(response.status).toBe(404);
+        expect((await reread(project, ana))?.notes).toBeNull();
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/tasks/1/notes")
+            .send({ notes: "Buy new hinges first" });
 
         expect(response.status).toBe(401);
     });

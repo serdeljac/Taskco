@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -306,6 +306,23 @@ app.put("/tasks/:taskId/priority", requireLead, async (req, res) => {
     }
 
     await setTaskPriority({ taskId: req.params.taskId, priority: body.data.priority });
+    res.status(204).end();
+});
+
+//Blank notes are stored as empty, by setTaskNotes, so "no notes" has one spelling
+const taskNotes = z.strictObject({
+    notes: z.string().nullable(),
+});
+
+app.put("/tasks/:taskId/notes", requireMember, async (req, res) => {
+    const body = taskNotes.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    await setTaskNotes({ taskId: req.params.taskId, notes: body.data.notes });
     res.status(204).end();
 });
 
