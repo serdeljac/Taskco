@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -289,6 +289,23 @@ app.put("/tasks/:taskId/status", requireMember, async (req, res) => {
     }
 
     await setTaskStatus({ taskId: req.params.taskId, status: body.data.status });
+    res.status(204).end();
+});
+
+//null is "Not set": nobody has decided yet, which is different from Low
+const taskPriority = z.strictObject({
+    priority: z.enum(["low", "med", "high"]).nullable(),
+});
+
+app.put("/tasks/:taskId/priority", requireLead, async (req, res) => {
+    const body = taskPriority.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    await setTaskPriority({ taskId: req.params.taskId, priority: body.data.priority });
     res.status(204).end();
 });
 

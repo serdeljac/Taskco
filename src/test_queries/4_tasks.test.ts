@@ -16,6 +16,7 @@ import {
     createInvite,
     findTaskProject,
     setTaskStatus,
+    setTaskPriority,
 } from "../queries.js";
 
 
@@ -831,5 +832,45 @@ describe("4_tasks", () => {
         await expect(
             setTaskStatus({ taskId: task.id, status: "completed" })
         ).rejects.toMatchObject({ message: "setTaskStatus: task not found" });
+    });
+
+    it("sets a task's priority", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        //TEST
+        await setTaskPriority({ taskId: task.id, priority: "high" });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+        expect(tasks[0]?.priority).toBe("high");
+    });
+
+    it("clears a task's priority back to not set", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await setTaskPriority({ taskId: task.id, priority: "high" });
+
+        //TEST
+        await setTaskPriority({ taskId: task.id, priority: null });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+        expect(tasks[0]?.priority).toBeNull();
+    });
+
+    it("refuses to change a deleted task's priority", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await deleteTask(task.id);
+
+        //TEST
+        await expect(
+            setTaskPriority({ taskId: task.id, priority: "low" })
+        ).rejects.toMatchObject({ message: "setTaskPriority: task not found" });
     });
 });

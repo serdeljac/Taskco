@@ -649,6 +649,22 @@ export async function setTaskStatus(change: {
     }
 }
 
+export async function setTaskPriority(change: {
+    taskId: string;
+    priority: Priority | null;
+}): Promise<void> {
+    const updated = await pool.query(
+        `update tasks
+        set priority = $1
+        where id in (select id from visible_tasks where id = $2)`,
+        [change.priority, change.taskId]
+    );
+
+    if (updated.rowCount === 0) {
+        throw new NotFound("setTaskPriority: task not found");
+    }
+}
+
 export async function findTaskProject(taskId: string): Promise<string | undefined> {
     const { rows } = await pool.query<{ project_id: string }>(
         `select project_id

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember, createTask, listTasks, deleteTask } from "../queries.js";
+import { createUser, createProject, addMember, createTask, listTasks, deleteTask, setTaskPriority } from "../queries.js";
 
 
 //The picture every test here starts from: Ana leads Website, Ben is an Associate in it, Cara is not in it,
@@ -98,6 +98,74 @@ describe("PUT /tasks/:taskId/status", () => {
         const response = await request(app)
             .put("/tasks/1/status")
             .send({ status: "completed" });
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("PUT /tasks/:taskId/priority", () => {
+    it("lets the Lead set a task's priority", async () => {
+        //CREATE
+        const { ana, project, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/priority`)
+            .set("X-User-Id", ana.id)
+            .send({ priority: "high" });
+
+        expect(response.status).toBe(204);
+        expect((await reread(project, ana))?.priority).toBe("high");
+    });
+
+    it("lets the Lead clear the priority with null", async () => {
+        //CREATE
+        const { ana, project, task } = await website();
+        await setTaskPriority({ taskId: task.id, priority: "high" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/priority`)
+            .set("X-User-Id", ana.id)
+            .send({ priority: null });
+
+        expect(response.status).toBe(204);
+        expect((await reread(project, ana))?.priority).toBeNull();
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const { ana, ben, project, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/priority`)
+            .set("X-User-Id", ben.id)
+            .send({ priority: "high" });
+
+        expect(response.status).toBe(403);
+        expect((await reread(project, ana))?.priority).toBeNull();
+    });
+
+    it("refuses a priority that is not on the list", async () => {
+        //CREATE
+        const { ana, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/priority`)
+            .set("X-User-Id", ana.id)
+            .send({ priority: "urgent" });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/tasks/1/priority")
+            .send({ priority: "high" });
 
         expect(response.status).toBe(401);
     });
