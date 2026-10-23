@@ -1,16 +1,11 @@
 # Taskco — Learning path
 
-**Current step:** 5 — the HTTP layer, prepared on 2026-10-09 in
-[`step-5-prep.md`](./step-5-prep.md). *Decided 2026-10-10:* it is built **one endpoint at a time**,
-each listing the functions that share its shape, rather than the four the preparation proposed. The
-first is `GET /projects`, whose copies are `GET /invites` and `GET /routines`; it uses the
-`X-User-Id` header as the stand-in for login. All three were built on 2026-10-10, the copies typed
-from the pattern — one hundred and fifty-nine tests. The second shape — the request carries data
-and the server checks it — began the same day with `POST /projects`: `express.json()`, a Zod
-`strictObject`, `201` or `400` — and its copy, `POST /routines`. One hundred and sixty-nine tests.
-Then the error handler, on 2026-10-11: a JSON "Not found" and a four-parameter handler, so a crash
-answers `500` and one sentence while the details go to the terminal. One hundred and seventy-two
-tests. Step 4c is complete, reviewed in
+**Current step:** 5 — the HTTP layer, **built** on branch `step-5` from 2026-10-10 to 2026-10-22:
+36 endpoints over every function in `queries.ts`, three hundred and forty-seven tests. Its review
+has not been done, and the branch is not merged or pushed. **Next is step 6**, authentication, which
+starts with a migration — and a migration is where the build of 2026-10-22 was told to stop. The
+first migration worth writing before it is `021`, the index on `memberships (project_id)` that the
+new member list now uses. Step 4c is complete, reviewed in
 [`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
 one hundred and fifty tests.
 
@@ -31,8 +26,8 @@ preparation is in [`step-5-prep.md`](./step-5-prep.md), dated the same way.
 Build Taskco to professional standards as a way of gaining engineering experience. The app running
 matters less than understanding why it is built the way it is. Real-world use is optional.
 
-Claude's role is mentor: specify each step, explain the concepts, give the code, review the work.
-Stjepan types the code in himself — Claude does not edit the source files.
+Claude's role is mentor: specify each step, explain the concepts, write the code, and say what it
+does. Stjepan reviews what was built, and decides. *Changed 2026-10-22* — see the rules below.
 
 ---
 
@@ -40,15 +35,20 @@ Stjepan types the code in himself — Claude does not edit the source files.
 
 1. **Claude specifies the step** — what it must do, what "done" looks like, which concepts are
    involved, and what usually goes wrong.
-2. **Claude gives the code** — in small pieces, each with the file and line it goes at and the
-   reason it is written that way. Tests come first, with what the failure should look like.
-3. **Stjepan implements it** on his own branch, typing each piece in by hand rather than having it
-   applied for him.
-4. **Stjepan shows the result** — a diff, a branch, or pasted code.
-5. **Claude reviews** for correctness, for structure, against the standards below, and against
-   `design-decisions.md`.
+2. **Claude writes it into the files**, test-first: each test is seen failing for the expected
+   reason, then the code makes it pass, then the whole suite and the type check run. One commit per
+   endpoint, or per idea, on the step's branch — never pushed.
+3. **Claude stops at the next new migration.** A migration is forward-only and lands in two
+   databases, so it is where Stjepan decides before anything is written.
+4. **Stjepan goes over the commits**, one at a time, and asks about anything he cannot explain.
+5. **The step gets its review** — for correctness, for structure, against the standards below, and
+   against `design-decisions.md`.
 6. **Anything learned gets recorded** — in that document if it changes a decision, in the progress
    log here otherwise.
+
+*Changed 2026-10-22.* Until then, step 2 was "Claude gives the code" and step 3 "Stjepan types each
+piece in by hand". He changed it to start developing sooner: typing every line had become the
+slowest part, and three rounds of hand-typing one route kept landing it below the 404 handler.
 
 ### Rules
 
@@ -57,11 +57,11 @@ Stjepan types the code in himself — Claude does not edit the source files.
   time; looking up a method signature is not.
 - **Stuck for twenty minutes is learning. Stuck for three hours is attrition.** Say so and ask for
   more — up to and including writing it together. There is nothing to prove by struggling.
-- **Claude gives the code; Stjepan types it in.** Implementing it by hand is the learning, so Claude
-  hands over code with its file, line and reasoning, and never edits the source files itself. A
-  description with no code is not a specification. *Corrected 2026-09-30:* this rule used to read
-  "no code gets written for Stjepan by default," which was never how the work was done, and it
-  produced a spec with no code in it the first time a fresh session took it at its word.
+- **Claude writes the code, test-first; Stjepan reviews it.** Every commit must be one he can read on
+  its own: small, with a message that says why, and its tests seen failing first. *Changed
+  2026-10-22:* this rule used to read "Claude gives the code; Stjepan types it in," with Claude never
+  editing the source files. *Corrected 2026-09-30, before that:* it read "no code gets written for
+  Stjepan by default," which was never how the work was done.
 
 ### Starting a fresh session
 
@@ -322,7 +322,9 @@ merged. It found seven questions to answer before the first line — among them 
 comes from, given that a constant cannot be an Associate in a test, and how 43 thrown sentences
 become status codes — plus a proposed order of eight pieces, and thirteen traps, nine of them run
 against Express 5, Zod 4 and `taskco_test`. It proposes keeping this step to four endpoints and
-moving the rest into a step 5b. *Not yet confirmed.*
+moving the rest into a step 5b. *Not taken:* on 2026-10-10 the step was built one endpoint at a
+time instead, and on 2026-10-22 it was finished as one step — every function, no step 5b. How each
+of the seven questions was answered is in `design-decisions.md`, section 14.
 
 ---
 
@@ -649,4 +651,41 @@ including the rows the last red test run left in `taskco_test`, which is how the
 refused to apply. That a lock has a price you can measure: 20 ms per user, five seconds on the
 suite. And that a claim nobody had tried can sit in five documents for a month; trying it took one
 rolled-back transaction.
+
+**Step 5 — The HTTP layer.** Built 2026-10-10 to 2026-10-22 on branch `step-5`, not yet reviewed,
+merged or pushed. The first five endpoints and the error handler were typed by hand from 2026-10-10
+to 2026-10-12 — `GET /projects` and its copies `GET /routines` and `GET /invites`, `POST /projects`
+and `POST /routines`, a JSON 404 and a four-parameter error handler, one hundred and seventy-two
+tests. `GET /projects/:projectId/tasks` and the start of `POST /projects/:projectId/tasks` followed
+by hand on 2026-10-21 and 2026-10-22. Then the way of working changed, and the rest was written in
+one session, in thirty-four commits: refusals with kinds in `src/errors.ts`, `requireMember` and
+`requireLead`, and endpoints for every remaining function — projects and delete mode, members and
+transfer, invites, every task and subtask field, moves, routines' completions and streaks, and the
+account. Eight new functions in `queries.ts`: `listMembers`, `setTaskStatus`, `setTaskPriority`,
+`setSubtaskStatus`, `setSubtaskPriority`, `deleteSubtask`, `findTaskProject` and
+`findSubtaskProject`; and `listProjectsForUser` now carries the asker's role. 36 endpoints, three
+hundred and forty-seven tests in eighteen files, passing in file order and shuffled. No migration:
+the build stopped where the next one would be needed. Three open items closed and ten logged.
+
+*Changed decisions:* the seven step 5 questions answered, three of them differently from the
+preparation — one endpoint at a time and no step 5b; no `project_access` view, because the access
+check reads the asker's own project list; and rows forwarded rather than built field by field. All
+in `design-decisions.md`, section 14. And how the work proceeds: Claude writes the code and Stjepan
+reviews it, corrected in the rules above.
+
+*Learned, in the order the step met them:* that a request is a pipeline, and Express runs it in the
+order things were added — so a route below the "Not found" handler is never reached, which three
+rounds of typing one route proved, each time with `expected 404 to be 200`. That a test which passes
+before its route exists is passing for the wrong reason: the two 404 tests for tasks were green with
+no route at all, and were only shown watching the check once the route was reachable and the check
+was removed on purpose. That an error handler is recognised by having four parameters, which
+TypeScript cannot see. That a refusal needs a kind and not just words, so a status can be chosen
+without reading a sentence that was written for a person. That 404 and 403 answer different
+questions — "you cannot see it" and "you can see it, but may not do this" — and an Associate gets the
+second because pretending a project they can see is not there is a lie they can disprove. That
+middleware typed loosely makes Express forget the route's own path types, and a generic function
+keeps them. That an id in a path is any text until something says otherwise, and `app.param` says it
+once for every route. That a task's project must be found through the task, never taken from the
+path. And that a move wants its own commit: regrouping `app.ts` moved four hundred lines and changed
+none, which is easy to show only when nothing else is in the diff.
 

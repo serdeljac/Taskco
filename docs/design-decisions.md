@@ -1,7 +1,7 @@
 # Taskco — Design Decisions
 
 **Status:** design complete, stack chosen, slices A, B and C and steps 4b and 4c built, each with its
-review done, and step 5 prepared. Last updated 2026-10-09.
+review done, and step 5 — the HTTP layer — built, its review not yet done. Last updated 2026-10-22.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -10,8 +10,8 @@ moves up into the decided sections.
 Companion file: [`learning-path.md`](./learning-path.md) — how the build proceeds, step by step.
 This file holds *what* is being built and why; that one holds *how*.
 
-Section 12 holds seven questions step 5 needs answered before its first line, and four details to
-settle against real code.
+Section 14 records how the HTTP layer was built, answering the seven questions step 5 raised before
+its first line. Section 12 holds four details still to settle against real code.
 
 ---
 
@@ -763,9 +763,10 @@ skills; comfort is in JavaScript, HTML and CSS. Everything under Backend and Tes
 guidance should assume the *concepts* are new and explain them; syntax can be looked up.
 
 **How the build proceeds:** one step at a time. Each step is specified — what it must do, what
-"done" looks like, what to watch for — and Claude gives the code for it. Stjepan types it in
-himself on his own branch, and it is then reviewed. Nothing is built without explicit confirmation
-first.
+"done" looks like, what to watch for. *Changed 2026-10-22:* Claude writes the tests and the code
+into the files, test-first, one commit per endpoint on the step's branch, and stops at the next new
+migration; Stjepan reviews the commits. Until then Claude gave the code and Stjepan typed it in.
+Nothing is built without explicit confirmation first.
 
 ### Frontend
 | Piece | Role |
@@ -827,20 +828,11 @@ Postgres runs natively on Windows rather than in Docker. Both are recorded with 
 
 ## 12. Open questions
 
-**Before step 5**, raised 2026-10-09 while preparing it. These are genuine questions, not detail:
-step 5's first line depends on them. Each is worked through, with a recommendation, in
-[`step-5-prep.md`](./step-5-prep.md); an answered one moves up into a section of this file — most
-likely a new one, on the HTTP layer.
-
-- `step-5-scope` — four endpoints now, and the other thirty functions in a step 5b.
-- `stub-identity` — where the placeholder's user id comes from until step 6, given that a constant
-  can never be an Associate in a test.
-- `error-kinds` — how a refusal in `queries.ts` becomes a status code without matching its words.
-- `permission-check` — whether "may they?" is asked in the HTTP layer or inside each query.
-- `one-place-for-project-access` — whether a view over memberships holds who can see a project. It
-  would correct section 6, which says that rule cannot live in a view.
-- `response-shape` — whether responses are built field by field, and lists wrapped in an object.
-- `unknown-body-keys` — whether a body with keys the server did not ask for is refused.
+*Resolved 2026-10-22:* the seven questions raised on 2026-10-09 before step 5 — `step-5-scope`,
+`stub-identity`, `error-kinds`, `permission-check`, `one-place-for-project-access`,
+`response-shape` and `unknown-body-keys`. Each was worked through in
+[`step-5-prep.md`](./step-5-prep.md); the answers, three of them different from what it
+recommended, are in section 14.
 
 **At build time.** The numbered items below are decided in principle and marked *(at build time)* —
 only the detail is open, and it is cheaper to settle against real code than in the abstract. Refer
@@ -912,3 +904,123 @@ The reusable part. These outlast this app.
   "not in the future" cannot — and a foreign key or code for one that can. And try a limit before
   building around it: for a month this project believed a check could not call `now()`, and nobody
   had asked Postgres.
+- **Name the check on the line it guards.** A rule applied out of sight is one whose absence
+  nobody notices in review; a check named on the route's own line shows when it is missing.
+
+---
+
+## 14. The HTTP layer
+
+Built in step 5, 2026-10-10 to 2026-10-22, on branch `step-5`: Express 5, Zod 4, and 36 endpoints
+over every function in `queries.ts`, each tested through HTTP with Supertest. The seven questions
+raised in [`step-5-prep.md`](./step-5-prep.md) are answered here, by name.
+
+### What a request goes through, in order
+
+1. **Who is asking** — 401 without a usable `X-User-Id`.
+2. **Is every id in the path an id** — 404 for `abc`, before it can reach Postgres as `22P02`.
+3. **May they** — 404 when the asker cannot see the project; 403 when they can but are not its
+   Lead.
+4. **Is the body right** — 400, with Zod's issues.
+5. **The query runs** — and a refusal comes back as 404 or 409.
+
+The order is part of the logic: an Associate is told they cannot do something before being told
+their title is blank, and a test holds that order in place.
+
+### `step-5-scope` — one endpoint at a time
+
+Decided 2026-10-10, in place of the preparation's four endpoints and a step 5b. Each endpoint was
+built test-first and committed alone, the later ones copying the shape of the first. Every function
+in `queries.ts` that a person acts through has an endpoint; the purges and `createUser` do not —
+the purges are a job, and creating a user belongs to step 6's registration.
+
+### `stub-identity` — the `X-User-Id` header
+
+The one piece of middleware that reads it puts the id on `res.locals.userId`, and every route reads
+only that. It breaks section 13's rule — identity from the session, never from the request — on
+purpose, in one place, because a constant could never be an Associate in a test. Step 6 replaces
+the inside of that one function. *Accepted cost:* until then anyone who can reach the server can be
+anyone, so it listens on `127.0.0.1` only. Logged as `stub-identity-trusts-any-id`.
+
+### `error-kinds` — refusals carry a kind, not just words
+
+`src/errors.ts` holds two classes: `NotFound`, when what was named does not exist for the asker, and
+`Refused`, when it exists and a rule says no. `queries.ts` throws them with the same messages as
+before, so every test that matches a message still holds; it knows nothing about HTTP. The error
+handler, and only it, turns a kind into a status:
+
+| Error | Status | Body |
+|---|---|---|
+| Broken JSON | 400 | "The request body is not valid JSON" |
+| A body over 100 kB | 413 | "The request body is too large" |
+| `NotFound` | 404 | "Not found" — the same words as a path that does not exist |
+| `Refused` | 409 | the message, without the name of the function that refused |
+| Anything else | 500 | "Something went wrong"; the whole error goes to the terminal |
+
+One 409 for every refusal keeps the client to one case. The six messages that say "not found, or in
+the wrong state" became `Refused`: by the time a request reaches them, the access check has already
+answered for a project or account that does not exist.
+
+*Not built:* the preparation mapped a database's own refusals too — `23505` to 409, `23514` to 400.
+No test can reach either on purpose, so they still answer 500; `races-answer-500`.
+
+### `permission-check` — asked in the HTTP layer, on each route's own line
+
+`requireMember` and `requireLead` are named on the line of every route that touches a project. A
+route that forgot its check shows it there in review, and if it reads `res.locals.project` anyway it
+crashes rather than letting anyone in. They are generic functions rather than plain middleware,
+because typed as plain middleware they made Express forget the types of the route's own path.
+
+*Accepted cost:* it is a sign. `queries.ts` stays callable by anything; the HTTP layer is only the one
+door users have. The check and the write are also two statements — `check-then-act-in-the-http-layer`.
+
+### `one-place-for-project-access` — still `listProjectsForUser`, without a view
+
+*Different from the preparation*, which proposed a view over memberships, `project_access`, as
+migration `021`. Instead the access check looks the project up in the asker's own project list,
+which now carries their role in each. Who can see a project is still written once, in
+`listProjectsForUser`'s `where` clause, and nothing needed a migration. Section 6's claim that this
+rule "cannot move into a view" was therefore never tested, and stands.
+
+*Accepted cost:* every project-scoped request loads the asker's whole project list —
+`access-check-reads-whole-project-list`.
+
+### A task's project is found through the task
+
+Task and subtask paths name only the task or subtask: `/tasks/:taskId/status`,
+`/subtasks/:subtaskId/notes`. The access check finds the project through it, with `findTaskProject`
+and `findSubtaskProject`, both reading through the views. A request can never pass the check for one
+project while acting on a task in another, which was the trap the preparation recorded for a path
+like `/projects/1/tasks/9`. A deleted task, or one in a project being deleted, has no project to find,
+and is 404.
+
+### One path for each thing that changes
+
+`PUT /tasks/:taskId/status`, `/notes`, `/priority`, `/due-date`, `/assignee`, `/position` — and the
+same for subtasks — rather than one `PATCH` carrying any of them. Section 4 gives permission per field:
+status and notes for any member, everything else for the Lead. One path per field makes that one
+`requireMember` or `requireLead` per route, which reads as section 4's table does.
+
+### Waiting things are small resources
+
+A project's deletion is `POST` and `DELETE` on `/projects/:projectId/deletion`; an account's on
+`/account/deletion`; today's completion of a routine is `PUT` and `DELETE` on
+`/routines/:routineId/completions/today`. Undoing is always a `DELETE` of what was created, and the
+client never names a moment: the path says "today", and the server decides which day that is.
+
+### `response-shape` — lists wrapped, rows forwarded
+
+*Different from the preparation*, which proposed building every response field by field. Lists are
+wrapped, as it said — `{ tasks: [...] }` — so something can be added beside a list later without
+breaking whoever reads it, and single things are wrapped the same way, `{ task }`. But rows leave as
+the queries return them: `snake_case` keys, timestamps as ISO strings. The one table with something
+to hide, `users`, is never returned whole — `listMembers` names its columns — so step 6's password
+hash has no way out through what exists today.
+
+*Accepted cost:* `project-type-drift` now reaches clients — a column added to a table reaches every
+client the day it is migrated. Worth revisiting when step 7 shows what the frontend needs.
+
+### `unknown-body-keys` — refused
+
+Every body is a `z.strictObject`. A body naming something the server derives — `userId`,
+`invitedByUserId`, a `projectId` beside a path that already names one — is a 400, and tests say so.

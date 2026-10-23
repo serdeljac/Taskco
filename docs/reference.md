@@ -3,7 +3,7 @@
 Every file, organised by the step that built it. For each one: **the code**, **what it does**, and
 **what is still open** in that file.
 
-Code blocks are a snapshot taken 2026-09-18. If a block ever disagrees with the file, the file wins.
+Code blocks are a snapshot taken 2026-09-18, except step 5's, taken 2026-10-22. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -41,6 +41,7 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it, then every account past its date that no longer leads a project |
 | `npm run dev` | Starts the server on `http://127.0.0.1:3000` against **taskco_dev**, and restarts it whenever a file changes. `Ctrl+C` stops it |
 | `curl.exe -H "X-User-Id: 1" http://127.0.0.1:3000/projects` | Asks the running server for user 1's projects. Run it in a second terminal |
+| `curl.exe -H "X-User-Id: 1" http://127.0.0.1:3000/projects/1/members` | Project 1's members, as user 1 sees them. Any `GET` in the endpoint table works the same way |
 | `npx vitest run src/test_http` | Runs only the HTTP tests |
 
 **If `curl` cannot connect, the server is not running.** Look in the `npm run dev` terminal: an error
@@ -1095,34 +1096,124 @@ fixed October 2026 dates, one test per rule.
 
 # Step 5 — the HTTP layer
 
-Built one endpoint at a time, starting 2026-10-10 on branch `step-5`. Preparation and the questions
-behind it are in [`step-5-prep.md`](./step-5-prep.md). Express 5.2.1 runs the server; Zod 4.6.5
-checks what a request carries; Supertest 7.2.2 lets a test send it requests without starting it.
+Built on branch `step-5`, 2026-10-10 to 2026-10-22: the first endpoints one at a time by hand, the
+rest in one session once Claude began writing the code. Preparation and the questions behind it are
+in [`step-5-prep.md`](./step-5-prep.md); the decisions, by name, in `design-decisions.md` section 14.
+Express 5.2.1 runs the server; Zod 4.6.5 checks what a request carries; Supertest 7.2.2 lets a test
+send it requests without starting it. Code blocks in this section are a snapshot of 2026-10-22.
+
+## The endpoints
+
+**Every endpoint** answers 401 without a usable `X-User-Id`; 404 for an id in the path that cannot be
+an id; 404 when the asker cannot see the project; 403 when an Associate calls a Lead's endpoint; and
+400 for a body Zod refuses, including one carrying a field it did not ask for. The column on the
+right lists the refusals from `queries.ts`, which answer 409 with their reason unless marked 404.
+
+| Method and path | Who may | Calls | Answers | Refused with |
+|---|---|---|---|---|
+| `GET /projects` | anyone | `listProjectsForUser` | 200 `{ projects }`, each with the asker's `role` | — |
+| `POST /projects` | anyone, who becomes its Lead | `createProject` | 201 `{ project }` | — |
+| `POST /projects/:projectId/deletion` | the Lead | `deleteProject` | 201 `{ scheduledFor }` | already being deleted |
+| `DELETE /projects/:projectId/deletion` | the Lead | `restoreProject` | 204 | not being deleted; past its date; the Lead's account is going |
+| `DELETE /projects/:projectId` | the Lead | `deleteProjectNow` | 204 | already in delete mode |
+| `GET /projects/:projectId/members` | any member | `listMembers` | 200 `{ members }` | — |
+| `DELETE /projects/:projectId/members/:userId` | the Lead, or the member themself | `removeMember` | 204 | removing the Lead; project being deleted; 404 not a member |
+| `POST /projects/:projectId/transfer` | the Lead | `transferLeadership` | 204 | not a current member; account being deleted; already the Lead; project being deleted |
+| `GET /invites` | anyone | `listInvitesForUser` | 200 `{ invites }`, those addressed to the asker | — |
+| `POST /projects/:projectId/invites` | the Lead | `createInvite` | 201 `{ invite }` | "No email found"; already a member; project being deleted |
+| `POST /invites/:inviteId/accept` | its recipient | `acceptInvite` | 200 `{ projectId }` | expired; already a member; project being deleted; 404 not theirs |
+| `DELETE /invites/:inviteId` | its recipient | `declineInvite` | 204 | 404 not theirs |
+| `GET /projects/:projectId/tasks` | any member | `listTasks` | 200 `{ tasks }` | — |
+| `POST /projects/:projectId/tasks` | the Lead | `createTask` | 201 `{ task }` | project being deleted |
+| `PUT /tasks/:taskId/status` | any member | `setTaskStatus` | 204 | — |
+| `PUT /tasks/:taskId/priority` | the Lead | `setTaskPriority` | 204 | — |
+| `PUT /tasks/:taskId/notes` | any member | `setTaskNotes` | 204 | — |
+| `PUT /tasks/:taskId/due-date` | the Lead | `setTaskDueDate` | 200 `{ clearedSubtasks }` | — |
+| `PUT /tasks/:taskId/assignee` | the Lead | `setTaskAssignee` | 204 | not a current member of the project |
+| `PUT /tasks/:taskId/position` | the Lead | `moveTask` | 204 | a neighbour not found, or in another project |
+| `DELETE /tasks/:taskId` | the Lead | `deleteTask` | 204 | — |
+| `GET /tasks/:taskId/subtasks` | any member | `listSubtasks` | 200 `{ subtasks }` | — |
+| `POST /tasks/:taskId/subtasks` | the Lead | `createSubtask` | 201 `{ subtask }` | due after its task; fifty already |
+| `PUT /subtasks/:subtaskId/status` | any member | `setSubtaskStatus` | 204 | — |
+| `PUT /subtasks/:subtaskId/priority` | the Lead | `setSubtaskPriority` | 204 | — |
+| `PUT /subtasks/:subtaskId/notes` | any member | `setSubtaskNotes` | 204 | — |
+| `PUT /subtasks/:subtaskId/due-date` | the Lead | `setSubtaskDueDate` | 204 | due after its task |
+| `PUT /subtasks/:subtaskId/assignee` | the Lead | `setSubtaskAssignee` | 204 | not a current member of the project |
+| `DELETE /subtasks/:subtaskId` | the Lead | `deleteSubtask` | 204 | — |
+| `GET /routines` | anyone | `listRoutines` | 200 `{ routines }`, the asker's own | — |
+| `POST /routines` | anyone | `createRoutine` | 201 `{ routine }` | — |
+| `PUT /routines/:routineId/completions/today` | its owner | `completeRoutine` | 200 `{ doneOn }` | 404 not theirs |
+| `DELETE /routines/:routineId/completions/today` | its owner | `undoCompletion` | 204 | nothing done today |
+| `GET /routines/:routineId/streak` | its owner | `getStreak` | 200 `{ streak }` | 404 not theirs |
+| `POST /account/deletion` | the asker, for themself | `deleteAccount` | 201 `{ scheduledFor }` | already being deleted |
+| `DELETE /account/deletion` | the asker, for themself | `reopenAccount` | 204 | not inside its thirty days |
+
+**What each body holds.** Every body is a `z.strictObject`, so these keys and no others.
+
+| Endpoints | Body |
+|---|---|
+| `POST /projects` | `{ name }` — text, trimmed, not blank |
+| `POST /routines` | `{ name, weekdays }` — weekdays a list of at least one whole number from 1 to 7 |
+| `POST /projects/:projectId/tasks`, `POST /tasks/:taskId/subtasks` | `{ title, dueDate? }` — the date a real calendar day, `"2026-11-20"` |
+| `PUT …/status` | `{ status }` — `not_started`, `in_progress`, `on_hold` or `completed` |
+| `PUT …/priority` | `{ priority }` — `low`, `med`, `high`, or `null` for "Not set" |
+| `PUT …/notes` | `{ notes }` — text, or `null`; blank is stored as empty |
+| `PUT …/due-date` | `{ dueDate }` — a calendar day, or `null` for "TBD" |
+| `PUT …/assignee` | `{ membershipId }` — an id from the members list, or `null` for nobody |
+| `PUT /tasks/:taskId/position` | `{ afterTaskId?, beforeTaskId? }` — at least one |
+| `POST /projects/:projectId/transfer` | `{ toUserId, outgoing }` — `outgoing` is `stay` or `leave` |
+| `POST /projects/:projectId/invites` | `{ email }` — an address, at most 254 characters |
 
 ## `src/app.ts`
 
-```ts
-import express, { type ErrorRequestHandler } from "express";
-import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine } from "./queries.js";
+**What it does.** Builds the server and exports it, without starting it — `server.ts` starts it, and
+the tests use it unstarted. The file reads top to bottom in sections, like `queries.ts`: the setup;
+"who is asking, and may they"; then projects, members, invites, tasks, subtasks, routines and the
+account; then the 404 and the error handler. Express tries things in the order they were added, so
+the order of the file is part of the logic.
 
+### The setup
+
+```ts
 declare global {
     namespace Express {
         interface Locals {
             userId: string;
+            project: ProjectForUser;
         }
     }
 }
+
+const idPattern = /^[1-9][0-9]{0,17}$/;
+const id = z.string().regex(idPattern);
 
 export const app = express();
 
 app.disable("x-powered-by");
 app.use(express.json());
+```
 
+**`declare global`** tells TypeScript what `res.locals` holds. Without it, `res.locals.userId` is
+`any`, and `const n: number = res.locals.userId` passes the type check without a word — tried while
+preparing the step. `project` is set only by `requireMember` and `requireLead`, so only a route that
+names one of them may read it.
+
+**`idPattern`** accepts `1` to eighteen digits and refuses `abc`, `007` and `-1`, which would
+otherwise reach Postgres as `22P02`. **`id`** is the same rule for an id sent in a body.
+
+**`app.disable("x-powered-by")`** stops Express adding `X-Powered-By: Express` to every response.
+
+**`app.use(express.json())` reads the body.** It turns the JSON text a request carries into an object
+on `req.body` — but only when the request says `Content-Type: application/json`. Otherwise, or with
+no body at all, `req.body` is `undefined`, and Zod refuses it.
+
+### Who is asking, and may they
+
+```ts
 app.use((req, res, next) => {
     const userId = req.get("X-User-Id");
 
-    if (!userId || !/^[1-9][0-9]{0,17}$/.test(userId)) {
+    if (!userId || !idPattern.test(userId)) {
         res.status(401).json({ error: "Say who is asking" });
         return;
     }
@@ -1131,58 +1222,120 @@ app.use((req, res, next) => {
     next();
 });
 
-app.get("/projects", async (req, res) => {
-    const projects = await listProjectsForUser(res.locals.userId);
-    res.json({ projects });
-});
-
-app.get("/routines", async (req, res) => {
-    const routines = await listRoutines(res.locals.userId);
-    res.json({ routines });
-});
-
-app.get("/invites", async (req, res) => {
-    const invites = await listInvitesForUser(res.locals.userId);
-    res.json({ invites });
-});
-
-const newProject = z.strictObject({
-    name: z.string().trim().min(1),
-});
-
-app.post("/projects", async (req, res) => {
-    const body = newProject.safeParse(req.body);
-
-    if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
-        return;
-    }
-
-    const project = await createProject(body.data.name, res.locals.userId);
-    res.status(201).json({ project });
-});
-
-const newRoutine = z.strictObject({
-    name: z.string().trim().min(1),
-    weekdays: z.array(z.number().int().min(1).max(7)).min(1),
-});
-
-app.post("/routines", async (req, res) => {
-    const body = newRoutine.safeParse(req.body);
-
-    if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
-        return;
-    }
-
-    const routine = await createRoutine({
-        userId: res.locals.userId,
-        name: body.data.name,
-        weekdays: body.data.weekdays,
+for (const name of ["projectId", "taskId", "subtaskId", "userId", "inviteId", "routineId"]) {
+    app.param(name, (req, res, next, value) => {
+        if (!idPattern.test(value)) {
+            res.status(404).json({ error: "Not found" });
+            return;
+        }
+        next();
     });
-    res.status(201).json({ routine });
+}
+
+type PathIds = { projectId?: string; taskId?: string; subtaskId?: string };
+
+async function projectIdOf(params: PathIds): Promise<string | undefined> {
+    if (params.projectId) return params.projectId;
+    if (params.taskId) return findTaskProject(params.taskId);
+    if (params.subtaskId) return findSubtaskProject(params.subtaskId);
+    return undefined;
+}
+
+async function projectFor(params: PathIds, userId: string): Promise<ProjectForUser | undefined> {
+    const projectId = await projectIdOf(params);
+    const projects = await listProjectsForUser(userId);
+    return projects.find((p) => p.id === projectId);
+}
+
+async function requireLead<P extends PathIds>(req: Request<P>, res: Response, next: NextFunction): Promise<void> {
+    const project = await projectFor(req.params, res.locals.userId);
+
+    if (!project) {
+        res.status(404).json({ error: "Not found" });
+        return;
+    }
+
+    if (project.role !== "lead") {
+        res.status(403).json({ error: "Only the project's Lead can do that" });
+        return;
+    }
+
+    res.locals.project = project;
+    next();
+}
+```
+
+**The first `app.use(...)` is "who is asking"**, and runs before every route. No `X-User-Id` header,
+or one that is not an id → 401, and `return` stops there. Otherwise it stores the id on `res.locals`
+and `next()` hands the request on. **The header is a stand-in for login.** It breaks section 13's
+rule — identity never comes from the request — on purpose, in one place, until step 6 replaces that
+one function with a session. Every route reads `res.locals.userId`; none reads the header.
+
+**`app.param`** runs before any route whose path names that id. An id that cannot be one names
+nothing, so it is 404 — before `abc` can reach Postgres as an error and come back as a 500. Tried:
+with no `app.param`, `DELETE /projects/1/members/abc` answered 500.
+
+**`projectFor` is "may they?"** It finds the project the request is about — named in the path, or
+found through the task or subtask the path names — and looks for it in the asker's own project list.
+So who can see a project is written once, in `listProjectsForUser`, and the role comes with it. A
+task's project is never taken from the path, so a request cannot pass the check for one project
+while acting on a task in another.
+
+**`requireMember` and `requireLead`** are named on the line of every route that touches a project.
+`requireMember` answers 404 to someone who cannot see the project — the same answer as a project that
+does not exist. `requireLead` adds 403 for an Associate, who can already see the project. They are
+generic functions, not `RequestHandler`s: typed as plain middleware they made Express forget the
+types of the route's own path, and `req.params.userId` became `string | string[] | undefined`.
+
+**A route that forgets its check fails closed.** Tried: with `requireLead` removed from
+`POST /projects/:projectId/tasks`, every access test went red — the handler read
+`res.locals.project`, which nothing had set, and crashed with a 500 rather than letting anyone in.
+
+### A route
+
+```ts
+const newTask = z.strictObject({
+    title: z.string().trim().min(1),
+    dueDate: z.iso.date().optional(),
 });
 
+app.post("/projects/:projectId/tasks", requireLead, async (req, res) => {
+    const body = newTask.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const task = await createTask({
+        projectId: res.locals.project.id,
+        title: body.data.title,
+        dueDate: body.data.dueDate,
+    });
+    res.status(201).json({ task });
+});
+```
+
+Every route has this shape, with less in it when there is no body: the check named on its line, the
+body checked, the query, the answer. `safeParse` never throws; it returns `success: true` with the
+cleaned `data`, or `success: false` with `issues` saying what was wrong.
+
+**`strictObject`, not `object`**: a body carrying a field the server did not ask for — `userId`, a
+`projectId` beside a path that names one — is refused rather than quietly stripped. The client sends
+intent; a client that tries to send a fact has a bug, and hears about it at once.
+
+**`z.iso.date()` knows the calendar.** It refuses `2026-02-30`. Tried: with `z.string()` in its place,
+`2026-02-30` reached Postgres as `22008` and answered 500.
+
+**The order is who, may they, the body, then the query.** An Associate sending a blank title hears
+403, not 400. Tried: with the body checked before the role, only the test "answers 403 to an
+Associate before looking at the body" went red.
+
+**No route needs a `try`.** Express 5 passes a rejected `await` to the error handler by itself.
+
+### Not found, and errors
+
+```ts
 app.use((req, res) => {
     res.status(404).json({ error: "Not found" });
 });
@@ -1193,6 +1346,21 @@ const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
         return;
     }
 
+    if (error.type === "entity.too.large") {
+        res.status(413).json({ error: "The request body is too large" });
+        return;
+    }
+
+    if (error instanceof NotFound) {
+        res.status(404).json({ error: "Not found" });
+        return;
+    }
+
+    if (error instanceof Refused) {
+        res.status(409).json({ error: error.message.replace(/^\w+: /, "") });
+        return;
+    }
+
     console.error(error);
     res.status(500).json({ error: "Something went wrong" });
 };
@@ -1200,83 +1368,57 @@ const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
 app.use(handleErrors);
 ```
 
-**What it does.** Builds the server and exports it, without starting it — `server.ts` starts it, and
-the tests use it unstarted.
+**The last two `app.use(...)` calls make every answer JSON.** "Not found" is reached only when no
+route answered, so **every new route goes above it**; anything below is never reached. That happened
+three times while `GET /projects/:projectId/tasks` was typed by hand, each time as
+`expected 404 to be 200`.
 
-**`declare global`** adds `userId: string` to Express's own `Locals` type. Without it,
-`res.locals.userId` is `any`, and `const n: number = res.locals.userId` passes the type check
-without a word — tried while preparing the step.
+**`handleErrors` catches whatever a route throws.** Express recognises it **only because it has four
+parameters**: `next` is never used and has to be there — and TypeScript cannot see that rule. Broken
+JSON and a body over 100 kB are the asker's mistakes, 400 and 413. A `NotFound` from `queries.ts` is
+404, in the same words as a path that does not exist. A `Refused` is 409, with its message minus the
+name of the function that refused: `"createSubtask: a task can have at most 50 subtasks"` reaches the
+asker as `"a task can have at most 50 subtasks"`. Anything else is ours: the whole error goes to the
+terminal, and the asker gets 500 and one sentence — no stack, no table or constraint names.
 
-**`app.use(...)` is "who is asking"**, and runs before every route, in the order it was added. No
-`X-User-Id` header, or one that is not an id → `401`, and `return` stops there. Otherwise it stores
-the id on `res.locals` and `next()` hands the request on. The regular expression accepts `1` to
-eighteen digits and refuses `abc`, `007` and `-1`, which would otherwise reach Postgres as `22P02`.
+**Open** — the items live in [`open-items.md`](./open-items.md), under "The HTTP layer":
+`stub-identity-trusts-any-id`, `races-answer-500`, `refusal-reasons-are-developer-sentences`,
+`access-check-reads-whole-project-list`, `check-then-act-in-the-http-layer` and
+`move-refusals-reveal-other-tasks`.
 
-**The header is a stand-in for login.** It breaks section 13's rule — identity never comes from the
-request — on purpose, in one place, until step 6 replaces that one function with a session. Every
-route reads `res.locals.userId`; none reads the header.
+## `src/errors.ts`
 
-**`app.get("/projects", ...)`** is the first endpoint. It runs `listProjectsForUser` for the asker
-and wraps the list, `{ projects: [...] }`, so something can be added beside it later without
-breaking whoever reads it. Each project goes out as stored: snake_case keys, `created_at` as an ISO
-string, because JSON has no dates.
+```ts
+export class NotFound extends Error {
+    name = "NotFound";
+}
 
-**`app.get("/routines", ...)`** is the first copy — the same shape with a different function, written
-by hand on 2026-10-10 from the pattern above. Each routine carries `due_today` and `done_today`,
-which `listRoutines` works out on every request.
+export class Refused extends Error {
+    name = "Refused";
+}
+```
 
-**`app.get("/invites", ...)`** is the second and last copy of this shape: "give me my own list".
-"Mine" here means *addressed to me* — `listInvitesForUser` matches the asker's email, lowered — so
-the Lead who sent an invite does not see it in their own list.
+**What it does.** Gives a refusal a kind, so the error handler can choose a status without reading
+the sentence. **`NotFound`** is for what was named and does not exist for the asker; **`Refused`**
+for what exists, when a rule says no. Both extend `Error`, so `message` is unchanged and every test
+that matches one still holds. `name` is what the terminal prints in front of the message.
 
-**Every route goes below `app.use(...)`.** Express runs things in the order they were added, so a
-route above the "who is asking" step never passes through it. Tried: with `/routines` moved above it,
-a request with no header got `200`, and Ana's own routines came back empty, because
-`res.locals.userId` was empty and the query asked for nobody's routines.
+`queries.ts` throws fifteen `NotFound`s and twenty-two `Refused`s. The six "the insert returned no
+row" errors stay plain `Error`s: they cannot happen, and if one does, it is ours and a 500.
 
-**`app.disable("x-powered-by")`** stops Express adding `X-Powered-By: Express` to every response.
+## `src/queries.ts` — the step 5 functions
 
-**`app.use(express.json())` reads the body.** It turns the JSON text a request carries into an object
-on `req.body` — but only when the request says `Content-Type: application/json`. Otherwise, or with
-no body at all, `req.body` is `undefined`.
-
-**`app.post("/projects", ...)` is the first endpoint that receives data**, and the first of the
-second shape: check the body, then act. `newProject` is the rule, written once: an object with a
-`name` that is text, trimmed, at least one character — and, because it is `strictObject`, nothing
-else. `safeParse` never throws; it returns `success: true` with the cleaned `data`, or
-`success: false` with an `error` whose `issues` say what was wrong. A wrong body is `400` with those
-issues; a right one runs `createProject` with the trimmed name and answers `201`, created, with the
-new project wrapped as `{ project }`.
-
-**`strictObject`, not `object`**, is design question 7 answered in code: a body carrying a field the
-server did not ask for — `userId`, say — is refused rather than quietly stripped. The client sends
-intent; a client that tries to say who the Lead is has a bug, and hears about it at once.
-
-**`app.post("/routines", ...)`** is the copy of this shape, with a body of two fields. `weekdays`
-reads from the inside out: each item a number, whole, from 1 to 7; together a list of at least one.
-That is the same rule migration `019`'s `routines_weekdays_valid` holds in the database — Zod gives
-the asker a `400` that says what was wrong, and the check keeps the data right if Zod ever misses.
-
-**The last two `app.use(...)` calls make every answer JSON.** Express tries things in the order they
-were added, so the first of them — "Not found" — is reached only when no route answered, and gives
-`404`. Every new route goes above it; anything added below is never reached.
-
-**`handleErrors` catches whatever a route throws** — Express 5 passes a rejected `await` here by
-itself, which is why no route needs a `try`. Express recognises it as an error handler **only
-because it has four parameters**: `next` is never used and has to be there. Broken JSON, which
-`express.json()` marks `type: "entity.parse.failed"`, is the asker's mistake and gets `400`. Anything
-else is ours: the whole error goes to the terminal with `console.error`, and the asker gets `500` and
-one sentence — no stack, no table or constraint names.
-
-**Open**
-
-- `handleErrors` knows one kind of error. A body over `express.json()`'s 100 kB limit carries its own
-  `413`, `type: "entity.too.large"`, and becomes a `500` — tried with a 200,000-character name. And no database refusal is mapped yet: a duplicate (`23505`) or a check
-  (`23514`) that a route lets through also becomes a `500`. The design's answer — refusals with kinds,
-  mapped to `404` and `409` — is question 3 in [`step-5-prep.md`](./step-5-prep.md), for when an
-  endpoint first needs it.
-- The placeholder does not check that the id names a real user. `GET /projects` as user 99 is an
-  empty list, which is honest. A write would fail on a foreign key instead.
+| Function | What it does | Refuses when |
+|---|---|---|
+| `listProjectsForUser(userId)` | *changed:* each project now carries the asker's `role` in it, typed `ProjectForUser` | — |
+| `listMembers({ projectId, userId })` | the project's current members, the Lead first: `membership_id`, `user_id`, `email`, `role`, `joined_at`. Nothing for someone who is not a current member | — |
+| `setTaskStatus({ taskId, status })` | through `visible_tasks`, like `setTaskNotes` | task deleted, missing, or in a project being deleted (`NotFound`) |
+| `setTaskPriority({ taskId, priority })` | `null` is "Not set" | the same |
+| `findTaskProject(taskId)` | the project a visible task is in, or `undefined` | — |
+| `setSubtaskStatus({ subtaskId, status })` | through `visible_subtasks` *and* `visible_tasks`, so a subtask under a deleted task cannot change | subtask or its task deleted, or missing (`NotFound`) |
+| `setSubtaskPriority({ subtaskId, priority })` | the same, for priority | the same |
+| `deleteSubtask(subtaskId)` | sets `deleted_at`; the first thing ever to | the same |
+| `findSubtaskProject(subtaskId)` | the project a visible subtask's visible task is in, or `undefined` | — |
 
 ## `src/server.ts`
 
@@ -1297,83 +1439,67 @@ can reach it — which matters while anyone can claim to be anyone with a header
 
 ## The HTTP tests — `src/test_http`
 
-```
-GET /projects
-  lists the projects the asker is in
-  shows nobody else's projects
-  refuses a request that does not say who is asking
-GET /routines
-  lists the asker's routines
-  shows nobody else's routines
-  refuses a request that does not say who is asking
-GET /invites
-  lists the invites addressed to the asker
-  does not show an invite to the person who sent it
-  refuses a request that does not say who is asking
-POST /projects
-  creates a project in the asker's list
-  refuses a blank name
-  refuses a body with a field it did not ask for
-  refuses a request that does not say who is asking
-POST /routines
-  creates a routine in the asker's list
-  refuses a blank name
-  refuses a day that is not 1 to 7
-  refuses a routine with no days
-  refuses a body with a field it did not ask for
-  refuses a request that does not say who is asking
-errors
-  answers a path that does not exist with JSON
-  answers a body that is not JSON with 400
-  answers a crash with 500, and no details
-```
+| File | Tests | Covers |
+|---|---|---|
+| `projects.test.ts` | 20 | `GET` and `POST /projects`, delete mode and undo, delete now |
+| `members.test.ts` | 18 | the member list, removing and leaving, transfer |
+| `invites.test.ts` | 19 | the asker's invites, sending, accepting, declining |
+| `tasks.test.ts` | 26 | a project's tasks, creating one, moving, deleting |
+| `task-fields.test.ts` | 29 | a task's status, priority, notes, due date and assignee |
+| `subtasks.test.ts` | 35 | a task's subtasks, creating one, every subtask field, deleting |
+| `routines.test.ts` | 20 | the asker's routines, creating, completing and undoing today, the streak |
+| `account.test.ts` | 6 | deleting and reopening the asker's own account |
+| `errors.test.ts` | 4 | a path that does not exist, broken JSON, a body too large, a crash |
 
-`request(app).get("/projects").set("X-User-Id", ana.id)` sends a request to the app without starting
-a server. The same `setup.ts` empties the tables first. Users are made with `createUser` directly;
-there is no endpoint for them until step 6.
+177 HTTP tests and 170 query tests: 347 in eighteen files, passing in file order and shuffled.
 
-**"shows nobody else's projects" is the one that proves the id is used.** Ids restart at 1 before
-every test, so Ana is always user 1, and a route that ignored the header and asked for user `"1"`
-would pass the first test. Cara is user 2 — and changing the route to `listProjectsForUser("1")`
-turns this test red, which was tried.
+`request(app).put(...).set("X-User-Id", ana.id).send({ ... })` sends a request to the app without
+starting a server. The same `setup.ts` empties the tables first. Users are made with `createUser`
+directly; there is no endpoint for them until step 6.
 
-**A 401 test passes before its route exists**, because "who is asking" turns the request away before
-Express looks for a route. Written first, the `/routines` 401 test was green while the other two
-failed with `404`. Moving the route above `app.use(...)` is what showed it watching.
+**One picture per file.** `task-fields.test.ts` and `subtasks.test.ts` start every test from the same
+`website()`: Ana leads Website, Ben is an Associate in it, Cara is not in it, and there is one task
+(and one subtask). The other files set up each test in full, as the query tests do. Setup goes through
+the query functions, never through the endpoint the test is about.
 
-**Two tests, asking as two different people, each catch what the other cannot.** With
-`listInvitesForUser("2")` in the route, the test asking as Ben — user 2 — still passed; only the one
-asking as Ana, the sender, went red. Tried.
+**Every refusal test also checks nothing changed** — after the 403, the priority is still empty;
+after the 404, the task is still not started. A refusal that saved the change anyway would be worse
+than no refusal.
 
-**Every refusal test also checks that nothing was saved** — after the `400`, the asker's list is still
-empty. A refusal that saved the row anyway would be worse than no refusal.
+**Each describe ends with the 401 test**, because every endpoint is behind "who is asking". A 401 test
+passes before its route exists: the request is turned away before Express looks for a route.
 
-**Refusal tests can pass for the wrong reason.** With `app.use(express.json())` deleted, every body
-looked empty and every `POST` was refused: "creates a project" went red with `expected 400 to be
-201`, while both refusal tests stayed green. Only the test where the answer is *yes* noticed. And
-with `z.object` in place of `z.strictObject`, only "refuses a body with a field it did not ask for"
-went red, `expected 201 to be 400`. Both tried.
+**Tests that pass first are broken on purpose.** Tried, each one going red as named:
 
-**When Zod misses, the database still refuses — but the answer is wrong.** With the last `.min(1)`
-removed from `weekdays`, `[]` reached `createRoutine` and `routines_weekdays_valid` refused it, so no
-row was saved. The asker got `500` and Express's HTML page, carrying the stack and the constraint's
-name: `expected 500 to be 400`. Tried. The lock kept the data right; only an error handler can make
-the answer right.
+- With no route at all, both 404 tests for tasks passed — "Not found" answered them. Once the route
+  was reachable, removing its check turned them red: Cara **created a task in Ana's project**,
+  `expected 201 to be 404`, and project 99 crashed on its foreign key, `expected 500 to be 404`.
+- With `.some` in place of the role check, an Associate created a task: `expected 201 to be 403`.
+- With the "only yourself" rule removed, Ben removed Cara: `expected 204 to be 403`.
+- With the `Refused` mapping removed, the 409 tests got 500; with the `NotFound` mapping removed, an
+  invite addressed to someone else crashed rather than answering 404.
+- With `listMembers`'s check on the asker removed, Cara saw Ana's members.
+- With `requireMember` removed from `PUT /tasks/:taskId/status`, Cara changed the task.
 
-**The error tests check the whole body with `toEqual`**, so any extra detail would fail them. Written
-first, all three were red on the body alone — `expected {} to deeply equal …` — while their status
-codes already passed: Express chose `404`, `400` and `500` itself, and sent HTML that Supertest could
-not read as JSON. "A crash" is a real one: user `99` does not exist, so `createProject` fails on the
-membership's foreign key. Its error is printed under the test, by `console.error`, and the test
-passes.
+From the first endpoints, still true:
 
-**TypeScript cannot see the four-parameter rule.** With `next` removed, `npm run typecheck` passed,
-and only the tests went red — "not JSON" and "a crash" both got Express's page back. Tried.
-
-**Some mistakes only reading finds.** The "Not found" block was once typed twice. Every test passed,
-because the second copy could never be reached; it was found by comparing the file line by line.
-
-172 tests in thirteen files.
+- **"shows nobody else's projects" is the one that proves the id is used.** Ids restart at 1 before
+  every test, so Ana is always user 1, and a route that asked for user `"1"` would pass the first
+  test. Changing the route to `listProjectsForUser("1")` turns this one red.
+- **Two tests, asking as two different people, each catch what the other cannot.** With
+  `listInvitesForUser("2")` in the route, the test asking as Ben still passed; only the one asking as
+  Ana, the sender, went red.
+- **Refusal tests can pass for the wrong reason.** With `app.use(express.json())` deleted, every body
+  looked empty and every `POST` was refused: "creates a project" went red with `expected 400 to be
+  201`, while both refusal tests stayed green. Only the test where the answer is *yes* noticed.
+- **When Zod misses, the database still refuses — but the answer is wrong.** With the last `.min(1)`
+  removed from `weekdays`, `[]` reached `createRoutine` and `routines_weekdays_valid` refused it, so
+  no row was saved, but the asker got a 500. The lock kept the data right; only Zod and the error
+  handler can make the answer right.
+- **TypeScript cannot see the four-parameter rule.** With `next` removed, `npm run typecheck` passed,
+  and only the tests went red.
+- **Some mistakes only reading finds.** The "Not found" block was once typed twice. Every test passed,
+  because the second copy could never be reached.
 
 ---
 
@@ -1559,3 +1685,8 @@ Several rules can raise the same code. The error's `constraint` field names the 
   drop the default.
 - A lock is a rule in the database; a sign is a rule in code. Signs only guard the writes that go
   through the code that holds them.
+- Every new route goes **above** `app.use((req, res) => … "Not found")`. Below it, it is never
+  reached, and its tests fail with `expected 404 to be …`.
+- A route that touches a project names `requireMember` or `requireLead` on its own line, and reads
+  the project from `res.locals.project`, never from the path.
+- A refusal in `queries.ts` throws `NotFound` or `Refused`, not `Error`; a plain `Error` answers 500.
