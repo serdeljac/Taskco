@@ -54,6 +54,14 @@ export type Role = "lead" | "associate";
 
 export type ProjectForUser = Project & { role: Role };
 
+export type Member = {
+    membership_id: string;
+    user_id: string;
+    email: string;
+    role: Role;
+    joined_at: Date;
+};
+
 export type Invite = {
     id: string;
     project_id: string;
@@ -335,6 +343,27 @@ export async function transferLeadership(transfer: {
     } finally {
         client.release();
     }
+}
+
+
+
+export async function listMembers(filter: { projectId: string; userId: string }): Promise<Member[]> {
+    const { rows } = await pool.query<Member>(
+        `select m.id as membership_id, m.user_id, u.email, m.role, m.created_at as joined_at
+        from memberships m
+        join users u on u.id = m.user_id
+        where m.project_id = $1
+        and m.ended_at is null
+        and exists (
+            select 1 from memberships asker
+            where asker.project_id = $1
+            and asker.user_id = $2
+            and asker.ended_at is null
+        )
+        order by m.created_at, m.id`,
+        [filter.projectId, filter.userId]
+    );
+    return rows;
 }
 
 

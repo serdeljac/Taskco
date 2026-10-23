@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type Request, type RequestHandler } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -170,6 +170,12 @@ app.delete("/projects/:projectId/deletion", requireLead, async (req, res) => {
 app.delete("/projects/:projectId", requireLead, async (req, res) => {
     await deleteProjectNow(res.locals.project.id);
     res.status(204).end();
+});
+
+//Who is in the project now. Each member's membership_id is what a task's assignee is set to
+app.get("/projects/:projectId/members", requireMember, async (req, res) => {
+    const members = await listMembers({ projectId: res.locals.project.id, userId: res.locals.userId });
+    res.json({ members });
 });
 
 app.use((req, res) => {

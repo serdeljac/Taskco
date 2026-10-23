@@ -13,6 +13,7 @@ import {
     deleteProject,
     transferLeadership,
     deleteAccount,
+    listMembers,
 } from "../queries.js";
 
 
@@ -474,4 +475,49 @@ describe("memberships", () => {
         expect(forBen[0]?.role).toBe("associate");
     });
 
+    it("lists a project's current members, the Lead first", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const members = await listMembers({ projectId: project.id, userId: ben.id });
+
+        expect(members).toMatchObject([
+            { user_id: ana.id, email: "ana@example.com", role: "lead" },
+            { user_id: ben.id, email: "ben@example.com", role: "associate" },
+        ]);
+
+        const memberships = await pool.query<{ id: string }>(
+            "select id from memberships where project_id = $1 order by id",
+            [project.id]
+        );
+        expect(members.map((m) => m.membership_id)).toEqual(memberships.rows.map((row) => row.id));
+    });
+
+    it("leaves out a member who has left", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+        await removeMember({ projectId: project.id, userId: ben.id });
+
+        //TEST
+        const members = await listMembers({ projectId: project.id, userId: ana.id });
+
+        expect(members.map((m) => m.user_id)).toEqual([ana.id]);
+    });
+
+    it("shows no members to someone who is not one", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const cara = await createUser("cara@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        expect(await listMembers({ projectId: project.id, userId: cara.id })).toEqual([]);
+    });
 });
