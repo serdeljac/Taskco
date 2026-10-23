@@ -170,3 +170,120 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("POST /projects/:projectId/transfer", () => {
+    it("hands the project to a member, and keeps the old Lead as an Associate", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/transfer`)
+            .set("X-User-Id", ana.id)
+            .send({ toUserId: ben.id, outgoing: "stay" });
+
+        expect(response.status).toBe(204);
+        expect(await listMembers({ projectId: project.id, userId: ana.id })).toMatchObject([
+            { user_id: ana.id, role: "associate" },
+            { user_id: ben.id, role: "lead" },
+        ]);
+    });
+
+    it("lets the old Lead leave in the same transfer", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/transfer`)
+            .set("X-User-Id", ana.id)
+            .send({ toUserId: ben.id, outgoing: "leave" });
+
+        expect(response.status).toBe(204);
+        expect(await listMembers({ projectId: project.id, userId: ben.id })).toMatchObject([
+            { user_id: ben.id, role: "lead" },
+        ]);
+    });
+
+    it("answers 409 when the new Lead is not a member", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const cara = await createUser("cara@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/transfer`)
+            .set("X-User-Id", ana.id)
+            .send({ toUserId: cara.id, outgoing: "stay" });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "the new Lead must be a current member of the project" });
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/transfer`)
+            .set("X-User-Id", ben.id)
+            .send({ toUserId: ben.id, outgoing: "stay" });
+
+        expect(response.status).toBe(403);
+        expect(await listMembers({ projectId: project.id, userId: ana.id })).toMatchObject([
+            { user_id: ana.id, role: "lead" },
+            { user_id: ben.id, role: "associate" },
+        ]);
+    });
+
+    it("refuses an outgoing Lead who neither stays nor leaves", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/transfer`)
+            .set("X-User-Id", ana.id)
+            .send({ toUserId: ben.id, outgoing: "vanish" });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("refuses a new Lead id that is not an id", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .post(`/projects/${project.id}/transfer`)
+            .set("X-User-Id", ana.id)
+            .send({ toUserId: "abc", outgoing: "stay" });
+
+        expect(response.status).toBe(400);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .post("/projects/1/transfer")
+            .send({ toUserId: "2", outgoing: "stay" });
+
+        expect(response.status).toBe(401);
+    });
+});

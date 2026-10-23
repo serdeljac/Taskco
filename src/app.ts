@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -16,6 +16,9 @@ declare global {
 
 //An id is 1 to 18 digits with no leading zero. Anything else would reach Postgres as an error, not as an id
 const idPattern = /^[1-9][0-9]{0,17}$/;
+
+//The same rule, for an id sent in a body
+const id = z.string().regex(idPattern);
 
 //	Creates the app
 export const app = express();
@@ -204,6 +207,28 @@ app.delete("/projects/:projectId/members/:userId", requireMember, async (req, re
     }
 
     await removeMember({ projectId: res.locals.project.id, userId });
+    res.status(204).end();
+});
+
+const transfer = z.strictObject({
+    toUserId: id,
+    outgoing: z.enum(["stay", "leave"]),
+});
+
+//Hands the project to another member at once. The old Lead chooses to stay as an Associate or to leave
+app.post("/projects/:projectId/transfer", requireLead, async (req, res) => {
+    const body = transfer.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    await transferLeadership({
+        projectId: res.locals.project.id,
+        toUserId: body.data.toUserId,
+        outgoing: body.data.outgoing,
+    });
     res.status(204).end();
 });
 
