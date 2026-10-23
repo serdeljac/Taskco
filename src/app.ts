@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks } from "./queries.js";
 
 //Tells TypeScript that res.locals.userId is a string. Without this it’s any, which TypeScript never checks
 declare global {
@@ -82,6 +82,19 @@ app.post("/routines", async (req, res) => {
         weekdays: body.data.weekdays,
     });
     res.status(201).json({ routine });
+});
+
+app.get("/projects/:projectId/tasks", async (req, res) => {
+    const projectId = req.params.projectId;
+
+    const projects = await listProjectsForUser(res.locals.userId);
+    if (!projects.some((project) => project.id === projectId)) {
+        res.status(404).json({ error: "Not found" });
+        return;
+    }
+
+    const tasks = await listTasks({ projectId, userId: res.locals.userId });
+    res.json({ tasks });
 });
 
 app.use((req, res) => {
