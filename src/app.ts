@@ -1,6 +1,46 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, deleteSubtask, completeRoutine, undoCompletion, getStreak, deleteAccount, reopenAccount, type ProjectForUser } from "./queries.js";
+import {
+    listProjectsForUser,
+    listRoutines,
+    listInvitesForUser,
+    createProject,
+    createRoutine,
+    listTasks,
+    createTask,
+    deleteProject,
+    restoreProject,
+    deleteProjectNow,
+    listMembers,
+    removeMember,
+    transferLeadership,
+    createInvite,
+    acceptInvite,
+    declineInvite,
+    findTaskProject,
+    setTaskStatus,
+    setTaskPriority,
+    setTaskNotes,
+    setTaskDueDate,
+    setTaskAssignee,
+    moveTask,
+    deleteTask,
+    listSubtasks,
+    createSubtask,
+    findSubtaskProject,
+    setSubtaskStatus,
+    setSubtaskPriority,
+    setSubtaskNotes,
+    setSubtaskDueDate,
+    setSubtaskAssignee,
+    deleteSubtask,
+    completeRoutine,
+    undoCompletion,
+    getStreak,
+    deleteAccount,
+    reopenAccount,
+    type ProjectForUser,
+} from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -26,6 +66,10 @@ export const app = express();
 //Stops Express adding an X-Powered-By: Express header to every response
 app.disable("x-powered-by");
 app.use(express.json());
+
+/***********************************
+    WHO IS ASKING, AND MAY THEY
+***********************************/
 
 //Who is asking. This runs before every route. No header, or a header that isn’t an id → 401. Otherwise it stores the id and next() moves on to the route
 app.use((req, res, next) => {
@@ -103,20 +147,15 @@ async function requireLead<P extends PathIds>(req: Request<P>, res: Response, ne
     next();
 }
 
+
+/***********************************
+    PROJECTS
+***********************************/
+
 //The endpoint. GET /projects runs your function with the stored id and sends the list back, wrapped as { projects: [...] }
 app.get("/projects", async (req, res) => {
     const projects = await listProjectsForUser(res.locals.userId);
     res.json({ projects });
-});
-
-app.get("/routines", async (req, res) => {
-    const routines = await listRoutines(res.locals.userId);
-    res.json({ routines });
-});
-
-app.get("/invites", async (req, res) => {
-    const invites = await listInvitesForUser(res.locals.userId);
-    res.json({ invites });
 });
 
 const newProject = z.strictObject({
@@ -133,53 +172,6 @@ app.post("/projects", async (req, res) => {
 
     const project = await createProject(body.data.name, res.locals.userId);
     res.status(201).json({ project });
-});
-
-const newRoutine = z.strictObject({
-    name: z.string().trim().min(1),
-    weekdays: z.array(z.number().int().min(1).max(7)).min(1),
-});
-
-app.post("/routines", async (req, res) => {
-    const body = newRoutine.safeParse(req.body);
-
-    if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
-        return;
-    }
-
-    const routine = await createRoutine({
-        userId: res.locals.userId,
-        name: body.data.name,
-        weekdays: body.data.weekdays,
-    });
-    res.status(201).json({ routine });
-});
-
-app.get("/projects/:projectId/tasks", requireMember, async (req, res) => {
-    const tasks = await listTasks({ projectId: res.locals.project.id, userId: res.locals.userId });
-    res.json({ tasks });
-});
-
-const newTask = z.strictObject({
-    title: z.string().trim().min(1),
-    dueDate: z.iso.date().optional(),
-});
-
-app.post("/projects/:projectId/tasks", requireLead, async (req, res) => {
-    const body = newTask.safeParse(req.body);
-
-    if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
-        return;
-    }
-
-    const task = await createTask({
-        projectId: res.locals.project.id,
-        title: body.data.title,
-        dueDate: body.data.dueDate,
-    });
-    res.status(201).json({ task });
 });
 
 //Delete mode: thirty days in which the Lead can still undo it. The waiting deletion is its own small resource, so undoing it is a DELETE
@@ -199,6 +191,11 @@ app.delete("/projects/:projectId", requireLead, async (req, res) => {
     await deleteProjectNow(res.locals.project.id);
     res.status(204).end();
 });
+
+
+/***********************************
+    MEMBERS
+***********************************/
 
 //Who is in the project now. Each member's membership_id is what a task's assignee is set to
 app.get("/projects/:projectId/members", requireMember, async (req, res) => {
@@ -242,6 +239,16 @@ app.post("/projects/:projectId/transfer", requireLead, async (req, res) => {
     res.status(204).end();
 });
 
+
+/***********************************
+    INVITES
+***********************************/
+
+app.get("/invites", async (req, res) => {
+    const invites = await listInvitesForUser(res.locals.userId);
+    res.json({ invites });
+});
+
 //254 characters is the longest address an email system will carry
 const newInvite = z.strictObject({
     email: z.email().max(254),
@@ -274,6 +281,37 @@ app.post("/invites/:inviteId/accept", async (req, res) => {
 app.delete("/invites/:inviteId", async (req, res) => {
     await declineInvite({ inviteId: req.params.inviteId, userId: res.locals.userId });
     res.status(204).end();
+});
+
+
+/***********************************
+    TASKS
+***********************************/
+
+app.get("/projects/:projectId/tasks", requireMember, async (req, res) => {
+    const tasks = await listTasks({ projectId: res.locals.project.id, userId: res.locals.userId });
+    res.json({ tasks });
+});
+
+const newTask = z.strictObject({
+    title: z.string().trim().min(1),
+    dueDate: z.iso.date().optional(),
+});
+
+app.post("/projects/:projectId/tasks", requireLead, async (req, res) => {
+    const body = newTask.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const task = await createTask({
+        projectId: res.locals.project.id,
+        title: body.data.title,
+        dueDate: body.data.dueDate,
+    });
+    res.status(201).json({ task });
 });
 
 const taskStatus = z.strictObject({
@@ -392,6 +430,11 @@ app.delete("/tasks/:taskId", requireLead, async (req, res) => {
     res.status(204).end();
 });
 
+
+/***********************************
+    SUBTASKS
+***********************************/
+
 app.get("/tasks/:taskId/subtasks", requireMember, async (req, res) => {
     const subtasks = await listSubtasks({ taskId: req.params.taskId, userId: res.locals.userId });
     res.json({ subtasks });
@@ -482,6 +525,37 @@ app.delete("/subtasks/:subtaskId", requireLead, async (req, res) => {
     res.status(204).end();
 });
 
+
+/***********************************
+    ROUTINES
+***********************************/
+
+app.get("/routines", async (req, res) => {
+    const routines = await listRoutines(res.locals.userId);
+    res.json({ routines });
+});
+
+const newRoutine = z.strictObject({
+    name: z.string().trim().min(1),
+    weekdays: z.array(z.number().int().min(1).max(7)).min(1),
+});
+
+app.post("/routines", async (req, res) => {
+    const body = newRoutine.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        return;
+    }
+
+    const routine = await createRoutine({
+        userId: res.locals.userId,
+        name: body.data.name,
+        weekdays: body.data.weekdays,
+    });
+    res.status(201).json({ routine });
+});
+
 //The client says "done today", never which day: the server dates it on the owner's own calendar.
 //A PUT, because doing it twice leaves the same one completion. Routines are private, so no project check applies
 app.put("/routines/:routineId/completions/today", async (req, res) => {
@@ -501,6 +575,11 @@ app.get("/routines/:routineId/streak", async (req, res) => {
     res.json({ streak });
 });
 
+
+/***********************************
+    ACCOUNT
+***********************************/
+
 //The asker's own account. Transfers come first, one project at a time; whatever the account still leads enters delete mode with it
 app.post("/account/deletion", async (req, res) => {
     const { scheduledFor } = await deleteAccount(res.locals.userId);
@@ -512,6 +591,11 @@ app.delete("/account/deletion", async (req, res) => {
     await reopenAccount(res.locals.userId);
     res.status(204).end();
 });
+
+
+/***********************************
+    NOT FOUND, AND ERRORS
+***********************************/
 
 app.use((req, res) => {
     res.status(404).json({ error: "Not found" });
