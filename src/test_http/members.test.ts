@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { createUser, createProject, addMember } from "../queries.js";
+import { createUser, createProject, addMember, listMembers, deleteProject } from "../queries.js";
 
 
 describe("GET /projects/:projectId/members", () => {
@@ -42,6 +42,130 @@ describe("GET /projects/:projectId/members", () => {
     it("refuses a request that does not say who is asking", async () => {
         //TEST
         const response = await request(app).get("/projects/1/members");
+
+        expect(response.status).toBe(401);
+    });
+});
+
+
+describe("DELETE /projects/:projectId/members/:userId", () => {
+    it("lets the Lead remove an Associate", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/members/${ben.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(204);
+
+        const members = await listMembers({ projectId: project.id, userId: ana.id });
+        expect(members.map((m) => m.user_id)).toEqual([ana.id]);
+    });
+
+    it("lets an Associate leave", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/members/${ben.id}`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(204);
+
+        const members = await listMembers({ projectId: project.id, userId: ana.id });
+        expect(members.map((m) => m.user_id)).toEqual([ana.id]);
+    });
+
+    it("answers 403 to an Associate removing someone else", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const cara = await createUser("cara@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+        await addMember({ projectId: project.id, userId: cara.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/members/${cara.id}`)
+            .set("X-User-Id", ben.id);
+
+        expect(response.status).toBe(403);
+        expect(await listMembers({ projectId: project.id, userId: ana.id })).toHaveLength(3);
+    });
+
+    it("answers 409 to the Lead removing themselves", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/members/${ana.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "Cannot remove the project's lead" });
+    });
+
+    it("answers 409 to the Lead while the project is being deleted", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+        await deleteProject(project.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/members/${ben.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "the project is being deleted" });
+    });
+
+    it("answers 404 for someone who is not a member", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const cara = await createUser("cara@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/members/${cara.id}`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: "Not found" });
+    });
+
+    it("answers 404 for a user id that is not a number, before it reaches the database", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .delete(`/projects/${project.id}/members/abc`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toEqual({ error: "Not found" });
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).delete("/projects/1/members/2");
 
         expect(response.status).toBe(401);
     });

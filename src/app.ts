@@ -1,6 +1,6 @@
-import express, { type ErrorRequestHandler, type Request, type RequestHandler } from "express";
+import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -37,16 +37,31 @@ app.use((req, res, next) => {
     next();
 });
 
-//May they? The project a request is about, as the asker sees it — with their role in it — or undefined when they cannot see it.
-//It is looked up in the asker's own project list, so who can see a project stays written once, in listProjectsForUser
-async function projectFor(req: Request, userId: string): Promise<ProjectForUser | undefined> {
-    const projects = await listProjectsForUser(userId);
-    return projects.find((p) => p.id === req.params.projectId);
+//An id in the path that cannot be an id names nothing: 404, before it can reach Postgres as an error
+for (const name of ["projectId", "taskId", "subtaskId", "userId", "inviteId", "routineId"]) {
+    app.param(name, (req, res, next, value) => {
+        if (!idPattern.test(value)) {
+            res.status(404).json({ error: "Not found" });
+            return;
+        }
+        next();
+    });
 }
 
-//For anyone in the project. Someone who cannot see it gets 404: the same answer as a project that does not exist
-const requireMember: RequestHandler = async (req, res, next) => {
-    const project = await projectFor(req, res.locals.userId);
+//The ids a path can name that lead to a project
+type PathIds = { projectId?: string };
+
+//May they? The project a request is about, as the asker sees it — with their role in it — or undefined when they cannot see it.
+//It is looked up in the asker's own project list, so who can see a project stays written once, in listProjectsForUser
+async function projectFor(params: PathIds, userId: string): Promise<ProjectForUser | undefined> {
+    const projects = await listProjectsForUser(userId);
+    return projects.find((p) => p.id === params.projectId);
+}
+
+//For anyone in the project. Someone who cannot see it gets 404: the same answer as a project that does not exist.
+//Written as a generic function rather than a RequestHandler so the route after it keeps the exact types of its own path
+async function requireMember<P extends PathIds>(req: Request<P>, res: Response, next: NextFunction): Promise<void> {
+    const project = await projectFor(req.params, res.locals.userId);
 
     if (!project) {
         res.status(404).json({ error: "Not found" });
@@ -55,11 +70,11 @@ const requireMember: RequestHandler = async (req, res, next) => {
 
     res.locals.project = project;
     next();
-};
+}
 
 //For the Lead only. An Associate gets 403: they can already see the project, so "not found" would be a lie they can disprove
-const requireLead: RequestHandler = async (req, res, next) => {
-    const project = await projectFor(req, res.locals.userId);
+async function requireLead<P extends PathIds>(req: Request<P>, res: Response, next: NextFunction): Promise<void> {
+    const project = await projectFor(req.params, res.locals.userId);
 
     if (!project) {
         res.status(404).json({ error: "Not found" });
@@ -73,7 +88,7 @@ const requireLead: RequestHandler = async (req, res, next) => {
 
     res.locals.project = project;
     next();
-};
+}
 
 //The endpoint. GET /projects runs your function with the stored id and sends the list back, wrapped as { projects: [...] }
 app.get("/projects", async (req, res) => {
@@ -176,6 +191,20 @@ app.delete("/projects/:projectId", requireLead, async (req, res) => {
 app.get("/projects/:projectId/members", requireMember, async (req, res) => {
     const members = await listMembers({ projectId: res.locals.project.id, userId: res.locals.userId });
     res.json({ members });
+});
+
+//The Lead may remove anyone but themselves; anyone else may only remove themselves, which is leaving
+app.delete("/projects/:projectId/members/:userId", requireMember, async (req, res) => {
+    const userId = req.params.userId;
+    const leaving = userId === res.locals.userId;
+
+    if (res.locals.project.role !== "lead" && !leaving) {
+        res.status(403).json({ error: "Only the project's Lead can do that" });
+        return;
+    }
+
+    await removeMember({ projectId: res.locals.project.id, userId });
+    res.status(204).end();
 });
 
 app.use((req, res) => {
