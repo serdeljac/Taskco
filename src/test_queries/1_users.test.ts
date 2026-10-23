@@ -201,5 +201,14 @@ describe("users", () => {
 
         expect(membership.rows).toEqual([{ ended: true }]);
     });
-    
+
+    it("refuses a password stored as plain text", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+
+        //TEST
+        await expect(
+            pool.query("update users set password_hash = 'correct horse battery' where id = $1", [ana.id])
+        ).rejects.toMatchObject({ code: "23514", constraint: "users_password_hash_is_argon2id" });
+    });
 });
