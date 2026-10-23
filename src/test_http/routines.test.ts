@@ -237,3 +237,42 @@ describe("DELETE /routines/:routineId/completions/today", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("GET /routines/:routineId/streak", () => {
+    it("counts the streak, today included once it is done", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+        await completeRoutine({ routineId: routine.id, userId: ana.id });
+
+        //TEST
+        const response = await request(app)
+            .get(`/routines/${routine.id}/streak`)
+            .set("X-User-Id", ana.id);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ streak: 1 });
+    });
+
+    it("answers 404 for someone else's routine", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const cara = await createUser("cara@example.com", "Europe/Zagreb");
+        const routine = await createRoutine({ userId: ana.id, name: "Stretch", weekdays: [1, 2, 3, 4, 5, 6, 7] });
+
+        //TEST
+        const response = await request(app)
+            .get(`/routines/${routine.id}/streak`)
+            .set("X-User-Id", cara.id);
+
+        expect(response.status).toBe(404);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).get("/routines/1/streak");
+
+        expect(response.status).toBe(401);
+    });
+});

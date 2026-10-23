@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, deleteSubtask, completeRoutine, undoCompletion, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, deleteSubtask, completeRoutine, undoCompletion, getStreak, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -493,6 +493,12 @@ app.put("/routines/:routineId/completions/today", async (req, res) => {
 app.delete("/routines/:routineId/completions/today", async (req, res) => {
     await undoCompletion({ routineId: req.params.routineId, userId: res.locals.userId });
     res.status(204).end();
+});
+
+//One routine's streak, computed from its log on every request; nothing about it is stored
+app.get("/routines/:routineId/streak", async (req, res) => {
+    const streak = await getStreak({ routineId: req.params.routineId, userId: res.locals.userId });
+    res.json({ streak });
 });
 
 app.use((req, res) => {
