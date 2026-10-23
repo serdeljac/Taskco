@@ -7,6 +7,8 @@ import {
     createTask,
     createSubtask,
     deleteTask,
+    setTaskStatus,
+    setTaskPriority,
 } from "./queries.js";
 
 await pool.query(
@@ -33,10 +35,8 @@ await deleteTask(dropped.id);
 await createSubtask({ taskId: homepage.id, title: "Write the headline", dueDate: "2026-09-22" });
 await createSubtask({ taskId: homepage.id, title: "Choose a hero image" });
 
-await pool.query(
-    "update tasks set status = 'in_progress', priority = 'high' where id = $1",
-    [homepage.id]
-);
+await setTaskStatus({ taskId: homepage.id, status: "in_progress" });
+await setTaskPriority({ taskId: homepage.id, priority: "high" });
 
 console.log(`seeded taskco_dev — lead id ${lead.id}, project id ${website.id}`);
 
