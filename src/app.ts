@@ -1,6 +1,6 @@
 import express, { type ErrorRequestHandler, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, deleteSubtask, completeRoutine, undoCompletion, getStreak, type ProjectForUser } from "./queries.js";
+import { listProjectsForUser, listRoutines, listInvitesForUser, createProject, createRoutine, listTasks, createTask, deleteProject, restoreProject, deleteProjectNow, listMembers, removeMember, transferLeadership, createInvite, acceptInvite, declineInvite, findTaskProject, setTaskStatus, setTaskPriority, setTaskNotes, setTaskDueDate, setTaskAssignee, moveTask, deleteTask, listSubtasks, createSubtask, findSubtaskProject, setSubtaskStatus, setSubtaskPriority, setSubtaskNotes, setSubtaskDueDate, setSubtaskAssignee, deleteSubtask, completeRoutine, undoCompletion, getStreak, deleteAccount, type ProjectForUser } from "./queries.js";
 import { NotFound, Refused } from "./errors.js";
 
 //Tells TypeScript what res.locals holds. Without this it’s any, which TypeScript never checks.
@@ -499,6 +499,12 @@ app.delete("/routines/:routineId/completions/today", async (req, res) => {
 app.get("/routines/:routineId/streak", async (req, res) => {
     const streak = await getStreak({ routineId: req.params.routineId, userId: res.locals.userId });
     res.json({ streak });
+});
+
+//The asker's own account. Transfers come first, one project at a time; whatever the account still leads enters delete mode with it
+app.post("/account/deletion", async (req, res) => {
+    const { scheduledFor } = await deleteAccount(res.locals.userId);
+    res.status(201).json({ scheduledFor });
 });
 
 app.use((req, res) => {
