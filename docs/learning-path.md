@@ -2,8 +2,8 @@
 
 **Current step:** 7 — the frontend, **prepared** on 2026-10-24 in
 [`step-7-prep.md`](./step-7-prep.md): ten questions to settle before its first line, starting with
-who writes the code and how the browser reaches the API. The first is decided — Stjepan writes the
-first of each kind of thing, and Claude the copies — and nothing is built. It
+who writes the code and how the browser reaches the API. All ten were decided the same day, each as
+recommended — design section 16 — and nothing is built. **Next:** specifying slice 7a. It
 is the first thing that can show a person any of the backend.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
@@ -372,7 +372,19 @@ browser against the real API.
 
 **Decided 2026-10-24:** "hand-coded" now means the first of each kind of thing — a component, a
 form, a route, a loader, a SASS module, a test — typed by Stjepan, and every copy written by Claude.
-Design section 16.
+The other nine questions were decided the same day, each as the preparation recommended:
+
+- one origin, through Vite's proxy, with the API under `/api`;
+- a Fetch Metadata check;
+- seven slices, each specified when it is reached;
+- a `web/` folder;
+- React Router in Data mode;
+- hand-written wire types;
+- refusal codes;
+- a banner for delete mode;
+- component tests.
+
+All in design section 16.
 
 ---
 

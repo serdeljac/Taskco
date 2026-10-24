@@ -2,8 +2,8 @@
 
 **Status:** design complete, stack chosen, the backend built — slices A, B and C, steps 4b and 4c,
 and steps 5 and 6, the HTTP layer and authentication — each with its review done, and merged.
-Step 7, the frontend, is prepared in [`step-7-prep.md`](./step-7-prep.md), with ten questions not
-yet decided. Last updated 2026-10-24.
+Step 7, the frontend, is prepared in [`step-7-prep.md`](./step-7-prep.md), and its ten questions
+were decided on 2026-10-24 — section 16. Nothing of it is built. Last updated 2026-10-24.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -331,7 +331,8 @@ keeps the project's *lifecycle*.
   subtask, membership or invite — with exactly one exception: clearing that date.
 - **Associates cannot see the project at all.** It leaves their list.
 - **The Lead can still read it**, and export it, and undo. Without that the thirty days are a
-  countdown nobody can stop rather than a safety net.
+  countdown nobody can stop rather than a safety net. *Step 7, decided 2026-10-24:* the screen shows
+  a banner with undo and nothing else until export is built — section 16.
 
 *Consequence:* "what projects am I in" stops having one answer. A project being deleted is gone for
 an associate and present, marked, for the Lead — so the filter lives in the query, where the
@@ -778,7 +779,7 @@ Nothing is built without explicit confirmation first.
 | Vite | Build tool and dev server — not a framework |
 | TypeScript | |
 | SASS | Styling |
-| React Router | Routing. Vite ships none |
+| React Router | Routing. Vite ships none. Data mode — section 16 |
 | `fetch` | Data fetching to start. TanStack Query only if hand-managing loading states becomes painful |
 | dnd-kit | Drag ordering. Not needed until there is a list to drag |
 
@@ -787,7 +788,7 @@ Nothing is built without explicit confirmation first.
 |---|---|
 | Node.js | Runtime |
 | Express | HTTP framework |
-| TypeScript | Same language both sides, so task/membership/role types are written once |
+| TypeScript | Same language both sides, so task/membership/role types are written once. *Corrected 2026-10-24:* not at the wire, where every `Date` arrives as text; the frontend keeps its own types — section 16 |
 | `pg` | Postgres driver. Raw SQL, no ORM |
 | Zod | Request validation — where "the client sends intent, the server derives facts" becomes code |
 | `tsx` | Runs `.ts` files on Node. Type *checking* is a separate command, `tsc --noEmit` |
@@ -807,7 +808,8 @@ Schema is hand-written SQL migration files.
 ### Testing
 **Vitest** and **Supertest**. Not optional: the backend is being built before any interface, so
 tests are the only thing that will exercise the model. Without them the code would be written and
-never called.
+never called. *The frontend, decided 2026-10-24:* Vitest with `jsdom` and Testing Library — section
+16.
 
 ### Rejected
 *Next.js* — bundles frontend and backend together. Vite keeps them as separate programs, which suits
@@ -821,7 +823,8 @@ typed query builder that still reads like SQL.
 *SQLite* — simpler and zero-setup, but avoids concurrency and constraint work that is the point.
 
 ### Still open
-Hosting.
+Hosting — which now carries one constraint, from section 16: the built frontend and the API are
+served from one origin.
 
 *Resolved 2026-10-22:* authentication — session cookies, and Argon2id from Node's own `node:crypto`,
 with no package. Section 15.
@@ -1055,7 +1058,9 @@ The cookie is **HttpOnly**, so page scripts cannot read it and a script injected
 steal it; **Secure**, so it travels only over HTTPS — which browsers, and `curl`, also allow for
 `localhost` and `127.0.0.1`; and **SameSite=Strict**, so a request another site starts never
 carries it, which is this app's defence against cross-site request forgery. Bodies are JSON as well,
-which a form on another site cannot send.
+which a form on another site cannot send. *Corrected 2026-10-24, after the step 5 review:* three
+`POST`s have no body, and `SameSite` counts another app on `localhost`, or a sibling subdomain, as the
+same site. A Fetch Metadata check is decided for them — section 16 — and not yet built.
 
 *Rejected — a signed token (JWT):* nothing stored, so logging out cannot end it before it expires;
 ending it early takes a list of revoked tokens, which is a sessions table again. And the client must
@@ -1147,3 +1152,54 @@ reason the way of working changed on 2026-10-22 still holds.
 
 *Rejected — Claude writes it all:* reviewing React without having written any is harder than
 reviewing SQL was.
+
+### The other nine, decided 2026-10-24
+
+Stjepan took each recommendation in [`step-7-prep.md`](./step-7-prep.md), which holds the reasoning,
+the alternatives, and the runs behind them. What was decided:
+
+- **`api-origin` — one origin, the API under `/api`.** In development, Vite's proxy sends `/api` to
+  the server, and `server.ts` mounts the app at `/api`. The path in the browser is the path the
+  server routes, and the tests, which import `app`, do not change. *Carried into hosting:* the built
+  frontend and the API are served from one origin. *Rejected — CORS:* an allow-list, credentials on
+  every call, and a cookie that stops working the day the two sit on different sites.
+- **`request-origin-check` — Fetch Metadata, first in the pipeline.** A request that changes
+  something — any method but `GET`, `HEAD` and `OPTIONS` — carrying a `Sec-Fetch-Site` other than
+  `same-origin` is refused with 403. A request without the header passes. It closes
+  `bodyless-posts-trust-samesite-alone`. *Accepted cost:* a browser too old to send the header has
+  `SameSite` alone.
+- **`step-7-scope` — seven slices, each specified when it is reached.**
+
+  | Slice | What a person can do |
+  |---|---|
+  | 7a | register, log in, see and create projects |
+  | 7b | tasks |
+  | 7c | subtasks |
+  | 7d | dragging |
+  | 7e | invites, members and delete mode |
+  | 7f | routines |
+  | 7g | deleting an account |
+- **`frontend-layout` — a `web/` folder in this repository**, with its own `package.json`,
+  `tsconfig.json`, Vite and Vitest setup. The root stays the API, and its Vitest config collects only
+  `src`'s tests. *Rejected:* npm workspaces, for now; a second repository.
+- **`routing-and-loading` — React Router in Data mode**, with `fetch` underneath. Routes declare
+  loaders and actions; loading is not an effect. TanStack Query stays where section 11 put it.
+  *Rejected:* Declarative mode, where every screen hand-manages its own loading; Framework mode, for
+  the reason Next.js was rejected.
+- **`wire-types` — a hand-written file of the types the API sends**, in `web/`. Ids and timestamps
+  are strings, and a due date is a named alias of `string`. Section 11's "written once" does not
+  hold at the wire, where every `Date` becomes text. *Accepted cost:* a renamed column breaks the
+  frontend silently. Zod at the boundary is the step up if that bites.
+- **`refusal-words` — every refusal carries a stable code.** `Refused` gains a code beside its
+  message, the error handler sends `{ error, code }`, and the frontend turns codes into its own
+  words, with one general sentence for a code it does not know. The browser also checks the form
+  rules it can — eight characters for a password, a name that is not blank — in its own words. Zod
+  stays the server's check.
+- **`delete-mode-screen` — a banner, and no tasks.** The Lead's page for a project being deleted says
+  when, and offers "Undo" and "Delete now". Section 6's "the Lead can still read it" waits for
+  export, which is what reading is for.
+- **`frontend-tests` — component tests**, in Vitest with `jsdom` and Testing Library, written first,
+  for anything with behaviour, with `fetch` replaced by a stand-in. Each slice ends with its flows
+  checked by hand in a browser. End-to-end is reconsidered at 7g.
+
+None of this is built.
