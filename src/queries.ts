@@ -865,6 +865,12 @@ export async function moveTask(move: {
             throw new NotFound("moveTask: task not found");
         }
 
+        // A place is named by the tasks around it, and a task is never around itself. Left through, it is placed
+        // relative to its own old position: on top of the next task's, or at the top once renumbering looks for it
+        if (move.afterTaskId === move.taskId || move.beforeTaskId === move.taskId) {
+            throw new Refused("moveTask: a task cannot be its own neighbour");
+        }
+
         if ((move.afterTaskId && !after) || (move.beforeTaskId && !before)) {
             throw new Refused("moveTask: a neighbour was not found");
         }

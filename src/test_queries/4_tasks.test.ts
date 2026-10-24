@@ -394,6 +394,34 @@ describe("4_tasks", () => {
         ).rejects.toMatchObject({ message: "moveTask: a neighbour was not found" });
     });
 
+    it("refuses a task as its own neighbour, on either side, and moves nothing", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await createTask({ projectId: project.id, title: "First" });
+        const second = await createTask({ projectId: project.id, title: "Second" });
+        await createTask({ projectId: project.id, title: "Third" });
+
+        //TEST
+        const ownNeighbour = { message: "moveTask: a task cannot be its own neighbour" };
+        await expect(moveTask({ taskId: second.id, afterTaskId: second.id })).rejects.toMatchObject(ownNeighbour);
+        await expect(moveTask({ taskId: second.id, beforeTaskId: second.id })).rejects.toMatchObject(ownNeighbour);
+        await expect(
+            moveTask({ taskId: second.id, afterTaskId: second.id, beforeTaskId: second.id })
+        ).rejects.toMatchObject(ownNeighbour);
+
+        const { rows } = await pool.query<{ title: string; position: number }>(
+            "select title, position from tasks where project_id = $1 order by position, id",
+            [project.id]
+        );
+
+        expect(rows.map((row) => `${row.title} ${row.position}`)).toEqual([
+            "First 65536",
+            "Second 131072",
+            "Third 196608",
+        ]);
+    });
+
     it("refuses notes on a deleted task", async () => {
         //CREATE
         const lead = await createUser("lead@example.com", "Europe/Zagreb");

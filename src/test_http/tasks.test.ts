@@ -320,6 +320,27 @@ describe("PUT /tasks/:taskId/position", () => {
         expect(response.body).toEqual({ error: "the task and its neighbours must be in the same project" });
     });
 
+    it("answers 409 for a task named as its own neighbour, and moves nothing", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await createTask({ projectId: project.id, title: "Fix the gate" });
+        const fence = await createTask({ projectId: project.id, title: "Paint the fence" });
+        await createTask({ projectId: project.id, title: "Clean the roof" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${fence.id}/position`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ afterTaskId: fence.id, beforeTaskId: fence.id });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "a task cannot be its own neighbour" });
+
+        const tasks = await listTasks({ projectId: project.id, userId: ana.id });
+        expect(tasks.map((t) => t.title)).toEqual(["Fix the gate", "Paint the fence", "Clean the roof"]);
+    });
+
     it("answers 403 to an Associate, and moves nothing", async () => {
         //CREATE
         const ana = await createUser("ana@example.com", "Europe/Zagreb");
