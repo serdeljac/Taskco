@@ -124,6 +124,25 @@ describe("sessions", () => {
         expect(await listProjectsForUser(ben.id)).toHaveLength(1);
     });
 
+    it("lets two logins at once into an account being deleted, though only one of them can reopen it", async () => {
+        //CREATE
+        const registered = await registerAna();
+        await deleteAccount(registered.id);
+        //Two connections open and waiting, as on a running server. Otherwise the second login waits for a new one,
+        //which is slow on Windows, and only reads the account after the first has reopened it
+        await Promise.all([pool.query("select 1"), pool.query("select 1")]);
+
+        //TEST
+        //Like a double-click: both read the account as being deleted, both spend 40 ms on the password, both reopen
+        const [first, second] = await Promise.all([
+            logIn({ email: "ana@example.com", password: "correct horse battery" }),
+            logIn({ email: "ana@example.com", password: "correct horse battery" }),
+        ]);
+
+        expect(await findSessionUser(first!.token)).toBe(registered.id);
+        expect(await findSessionUser(second!.token)).toBe(registered.id);
+    });
+
     it("refuses an account past its deletion date", async () => {
         //CREATE
         const registered = await registerAna();

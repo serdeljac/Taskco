@@ -329,7 +329,16 @@ export async function logIn(attempt: {
     }
 
     if (found.being_deleted) {
-        await reopenAccount(found.id);
+        try {
+            await reopenAccount(found.id);
+        } catch (error) {
+            // Two logins at once both read the account as being deleted, and only the first can reopen it. If the
+            // account is open now, what this login came to do is done; if it is not, the refusal stands
+            const open = error instanceof Refused && (await getUser(found.id)).deletion_scheduled_at === null;
+            if (!open) {
+                throw error;
+            }
+        }
     }
 
     const token = await createSession(found.id);
