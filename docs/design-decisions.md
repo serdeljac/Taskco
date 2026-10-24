@@ -13,7 +13,8 @@ Companion file: [`learning-path.md`](./learning-path.md) — how the build proce
 This file holds *what* is being built and why; that one holds *how*.
 
 Section 14 records how the HTTP layer was built, answering the seven questions step 5 raised before
-its first line. Section 12 holds four details still to settle against real code.
+its first line. Section 16 collects step 7's answers as they are made. Section 12 holds four details
+still to settle against real code.
 
 ---
 
@@ -1112,3 +1113,37 @@ to check on every request, for a choice the login form can already ask.
 
 Changing or resetting a password, verifying an email address, and limiting how often someone may
 try to log in. Each is an open item.
+
+---
+
+## 16. The frontend
+
+Step 7. Prepared 2026-10-24 in [`step-7-prep.md`](./step-7-prep.md), which raised ten questions. Each
+answer is recorded here as it is made.
+
+### `who-writes-the-frontend` — the first of each kind by hand
+
+Decided 2026-10-24, by Stjepan. **Stjepan writes the first of each kind of thing; Claude writes the
+copies.** A kind is a concept met for the first time. In slice 7a they are:
+
+- a component that shows what it is given;
+- one that keeps state;
+- a route;
+- a loader that fetches;
+- a SASS module;
+- a component test.
+
+For a first, Claude specifies it and explains the concept, with `path:line` for each piece, and
+Stjepan types it — test first, as every piece has been built. The suite and the type check run
+before it is committed. Every later thing of a kind already met is Claude's, test-first and one
+commit per idea, for Stjepan to review, as since 2026-10-22.
+
+*Why:* React, TypeScript and SASS are learning targets, and a concept is learned by writing it once;
+the fifth copy teaches nothing the first did not. It is how step 5 began: `GET /projects` was typed by
+hand, and `GET /routines` and `GET /invites` were its copies.
+
+*Rejected — typing every line:* the most learning per line, and the slowest, on the largest step. The
+reason the way of working changed on 2026-10-22 still holds.
+
+*Rejected — Claude writes it all:* reviewing React without having written any is harder than
+reviewing SQL was.

@@ -2,7 +2,8 @@
 
 **Current step:** 7 — the frontend, **prepared** on 2026-10-24 in
 [`step-7-prep.md`](./step-7-prep.md): ten questions to settle before its first line, starting with
-who writes the code and how the browser reaches the API. None is decided, and nothing is built. It
+who writes the code and how the browser reaches the API. The first is decided — Stjepan writes the
+first of each kind of thing, and Claude the copies — and nothing is built. It
 is the first thing that can show a person any of the backend.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
@@ -55,6 +56,10 @@ does. Stjepan reviews what was built, and decides. *Changed 2026-10-22* — see 
 piece in by hand". He changed it to start developing sooner: typing every line had become the
 slowest part, and three rounds of hand-typing one route kept landing it below the 404 handler.
 
+*For step 7, decided 2026-10-24:* step 2 splits. Stjepan writes the first of each kind of thing —
+its test, then its code — from Claude's specification, with `path:line` for each piece. Claude
+writes every copy, as above. Design section 16.
+
 ### Rules
 
 - **Nothing is built without explicit confirmation first.**
@@ -66,7 +71,8 @@ slowest part, and three rounds of hand-typing one route kept landing it below th
   its own: small, with a message that says why, and its tests seen failing first. *Changed
   2026-10-22:* this rule used to read "Claude gives the code; Stjepan types it in," with Claude never
   editing the source files. *Corrected 2026-09-30, before that:* it read "no code gets written for
-  Stjepan by default," which was never how the work was done.
+  Stjepan by default," which was never how the work was done. *In step 7, decided 2026-10-24:*
+  except the first of each kind of thing, which Stjepan writes.
 
 ### Starting a fresh session
 
@@ -363,6 +369,10 @@ above and the rules since 2026-10-22 disagree; and how the browser reaches the A
 Vite's own port cannot reach it at all today. It proposes slicing the step by what a person can do —
 7a is registering, logging in and the projects list — and lists thirteen traps, most of them run in a
 browser against the real API.
+
+**Decided 2026-10-24:** "hand-coded" now means the first of each kind of thing — a component, a
+form, a route, a loader, a SASS module, a test — typed by Stjepan, and every copy written by Claude.
+Design section 16.
 
 ---
 
