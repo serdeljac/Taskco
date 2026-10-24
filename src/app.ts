@@ -711,6 +711,13 @@ export const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
         return;
     }
 
+    //An error that carries a 4xx of its own says the request is at fault: express.json() given a character set or an
+    //encoding it cannot read (415), or Express given a path with an escape it cannot decode (400). Not ours, so not logged
+    if (typeof error.status === "number" && error.status >= 400 && error.status < 500) {
+        res.status(error.status).json({ error: "The request cannot be read" });
+        return;
+    }
+
     if (error instanceof NotFound) {
         res.status(404).json({ error: "Not found" });
         return;

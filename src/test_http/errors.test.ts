@@ -41,6 +41,42 @@ describe("errors", () => {
         expect(response.body).toEqual({ error: "The request body is too large" });
     });
 
+    it("answers a character set it cannot read with 415, not 500", async () => {
+        //TEST
+        const response = await request(app)
+            .post("/projects")
+            .set("Content-Type", "application/json; charset=latin1")
+            .send('{"name": "Shop"}');
+
+        expect(response.status).toBe(415);
+        expect(response.body).toEqual({ error: "The request cannot be read" });
+    });
+
+    it("answers a content encoding it cannot read with 415, not 500", async () => {
+        //TEST
+        const response = await request(app)
+            .post("/projects")
+            .set("Content-Type", "application/json")
+            .set("Content-Encoding", "compress")
+            .send('{"name": "Shop"}');
+
+        expect(response.status).toBe(415);
+        expect(response.body).toEqual({ error: "The request cannot be read" });
+    });
+
+    it("answers a path with an escape it cannot decode with 400, not 500", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+
+        //TEST
+        const response = await request(app)
+            .get("/projects/%zz/tasks")
+            .set("Cookie", await cookieFor(ana));
+
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: "The request cannot be read" });
+    });
+
     it("answers a crash with 500, and none of its details", async () => {
         //CREATE
         //A one-route app that crashes, ending with the real error handler, the way app.ts ends
