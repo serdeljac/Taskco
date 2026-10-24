@@ -1,16 +1,15 @@
 # Taskco — Learning path
 
-**Current step:** 5 and 6 — the HTTP layer and authentication, **built** on branch `step-5` from
-2026-10-10 to 2026-10-22, and **reviewed** on 2026-10-24 in [`step-5-review.md`](./step-5-review.md).
-Step 5 is 36 endpoints over every function in `queries.ts`; migration `021`, the index on
-`memberships (project_id)` the new member list uses, followed the same day, on Stjepan's go-ahead.
-Step 6 is migrations `022` and `023`, after Stjepan settled its three questions. Three hundred and
-ninety-four tests then; the review's fixes followed on 2026-10-24, and there are now four hundred and
-three. The branch was pushed on 2026-10-22, and nothing since; it is not merged. **Next:** merging
-into `main`, then **step 7**, the frontend, which is the first thing that can show a person any of
-it — starting with its preparation. Step 4c is complete, reviewed in
-[`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
-one hundred and fifty tests.
+**Current step:** 7 — the frontend, **not started**. It begins with its preparation: who writes the
+code, and how the browser reaches the API, come first. It is the first thing that can show a person
+any of the backend.
+
+Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
+2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
+and merged into `main` the same day, as a fast-forward. Step 5 is 36 endpoints over every function in
+`queries.ts`, with migration `021`; step 6 is migrations `022` and `023`. Four hundred and three tests.
+`main` is not pushed: `origin/main` still ends at step 4c's schema diagram, and `origin/step-5` at
+step 6's docs.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -754,7 +753,8 @@ its reopening is refused but the account is open by then. Logging in or register
 whose cookie it replaces, and a wrong password leaves it alone. `handleErrors` answers any error that
 carries its own 4xx with that status — the parser's two 415s, and a path escape Express cannot
 decode, which the review had not found. And `moveTask` refuses a task named as its own neighbour.
-Four items closed; four hundred and three tests. Not merged.
+Four items closed; four hundred and three tests. Merged into `main` the same day, as a
+fast-forward — the suite and the type check run again on `main` — and not pushed.
 
 *Learned:* that a red test is only evidence if it is red in the right place. The first test for the
 race went red with the right message from the wrong call — the test's own reopening, not the login's —
