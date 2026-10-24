@@ -1135,6 +1135,8 @@ copies.** A kind is a concept met for the first time. In slice 7a they are:
 - one that keeps state;
 - a route;
 - a loader that fetches;
+- an action that submits a form — added when 7a was specified, in [`step-7a.md`](./step-7a.md),
+  since Data mode brings it;
 - a SASS module;
 - a component test.
 

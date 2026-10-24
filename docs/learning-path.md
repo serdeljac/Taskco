@@ -3,7 +3,9 @@
 **Current step:** 7 — the frontend, **prepared** on 2026-10-24 in
 [`step-7-prep.md`](./step-7-prep.md): ten questions to settle before its first line, starting with
 who writes the code and how the browser reaches the API. All ten were decided the same day, each as
-recommended — design section 16 — and nothing is built. **Next:** specifying slice 7a. It
+recommended — design section 16 — and nothing is built. Slice 7a — registering, logging in,
+projects — is specified in [`step-7a.md`](./step-7a.md). **Next:** building it, on Stjepan's
+go-ahead, on a branch `step-7a`. It
 is the first thing that can show a person any of the backend.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
@@ -385,6 +387,11 @@ The other nine questions were decided the same day, each as the preparation reco
 - component tests.
 
 All in design section 16.
+
+**Slice 7a specified 2026-10-24**, in [`step-7a.md`](./step-7a.md): what a person can do at its end,
+eighteen pieces in order — twelve for Claude, and six firsts for Stjepan to type, meeting seven new
+kinds of thing — the codes every error answer will carry, and four traps found by running the pinned
+toolchain together.
 
 ---
 
