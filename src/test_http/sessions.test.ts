@@ -158,6 +158,23 @@ describe("POST /users", () => {
 
         expect(response.status).toBe(400);
     });
+
+    it("ends the session whose cookie the new account's replaces", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const old = await cookieFor(ana);
+
+        //TEST
+        const response = await request(app)
+            .post("/users")
+            .set("Cookie", old)
+            .send({ email: "ben@example.com", password: "correct horse battery", timezone: "Europe/Zagreb" });
+
+        expect(response.status).toBe(201);
+
+        const withOld = await request(app).get("/account").set("Cookie", old);
+        expect(withOld.status).toBe(401);
+    });
 });
 
 
@@ -214,6 +231,40 @@ describe("POST /sessions", () => {
 
         expect(response.status).toBe(201);
         expect(response.body.user.deletion_scheduled_at).toBeNull();
+    });
+
+    it("ends the session whose cookie the new one replaces", async () => {
+        //CREATE
+        const ana = await registerAna();
+        const old = await cookieFor(ana);
+
+        //TEST
+        const response = await request(app)
+            .post("/sessions")
+            .set("Cookie", old)
+            .send({ email: "ana@example.com", password: "correct horse battery" });
+
+        expect(response.status).toBe(201);
+
+        const withOld = await request(app).get("/account").set("Cookie", old);
+        expect(withOld.status).toBe(401);
+    });
+
+    it("leaves the session it was sent with alone when the password is wrong", async () => {
+        //CREATE
+        const ana = await registerAna();
+        const old = await cookieFor(ana);
+
+        //TEST
+        const response = await request(app)
+            .post("/sessions")
+            .set("Cookie", old)
+            .send({ email: "ana@example.com", password: "wrong horse battery" });
+
+        expect(response.status).toBe(401);
+
+        const withOld = await request(app).get("/account").set("Cookie", old);
+        expect(withOld.status).toBe(200);
     });
 
     it("refuses a body with a field it did not ask for", async () => {

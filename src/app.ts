@@ -85,8 +85,15 @@ const sessionCookie = "taskco_session";
 //SameSite=Strict: a request another site starts never carries it
 const sessionCookieOptions = { httpOnly: true, secure: true, sameSite: "strict", path: "/" } as const;
 
-//Lasts as long as the session it carries: thirty days
-function setSessionCookie(res: Response, token: string): void {
+//Lasts as long as the session it carries: thirty days. A browser keeps one cookie of this name, so the session the
+//request arrived with, if any, can never be sent from it again. It ends here rather than living out its thirty days
+async function replaceSessionCookie(req: Request, res: Response, token: string): Promise<void> {
+    const replaced = readCookie(req, sessionCookie);
+
+    if (replaced) {
+        await endSession(replaced);
+    }
+
     res.cookie(sessionCookie, token, { ...sessionCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
 }
 
@@ -117,7 +124,7 @@ app.post("/users", async (req, res) => {
     }
 
     const user = await registerUser(body.data);
-    setSessionCookie(res, await createSession(user.id));
+    await replaceSessionCookie(req, res, await createSession(user.id));
     res.status(201).json({ user });
 });
 
@@ -143,7 +150,7 @@ app.post("/sessions", async (req, res) => {
         return;
     }
 
-    setSessionCookie(res, session.token);
+    await replaceSessionCookie(req, res, session.token);
     res.status(201).json({ user: session.user });
 });
 
