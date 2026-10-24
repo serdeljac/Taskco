@@ -10,8 +10,8 @@ Companion to [`design-decisions.md`](./design-decisions.md) (what is being built
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
 [`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md),
 [`step-5-review.md`](./step-5-review.md) — are dated snapshots and no longer carry status.
-Neither does [`step-5-prep.md`](./step-5-prep.md), which says what step 5 will do to each item it
-meets.
+Neither do [`step-5-prep.md`](./step-5-prep.md) and [`step-7-prep.md`](./step-7-prep.md), which
+say what their steps will do to each item they meet.
 
 ## How this file works
 
@@ -56,6 +56,7 @@ becomes a decision; an item here becomes a commit.
 |---|---|---|---|
 | `email-has-no-format-or-length-limit` | Zod covers the boundary at step 5; the database stays open to any other caller | [reference, 002](./reference.md) | Partly — since 2026-10-22 `POST /projects/:projectId/invites`, and since step 6 `POST /users`, refuse an address that is not one, or is over 254 characters. The database still accepts anything |
 | `deactivated-accounts-can-still-be-invited-or-added` | Nothing reads `users.deletion_scheduled_at` except `restoreProject`, `reopenAccount` and the purge. So `createInvite` still finds an account being deleted, `addMember` still adds it, and `acceptInvite` still lets it join — a membership the purge then removes thirty days later. Since step 4c it can also create routines and complete them | Doc pass, 2026-10-08 — this row is the record | Partly — since step 6 the account itself cannot act while it waits: deleting it ends every session, a waiting account's sessions do not count, and logging in reopens it. Others can still invite it or add it, and an invite it accepts after logging in is an ordinary one, since logging in reopened it. Run for the step 5 review: an account past its date, not yet purged, can still be invited — 201. See `gone-account-still-holds-its-address` |
+| `no-timezone-change` | Design section 8 says the timezone is "defaulted from the browser at signup and changeable in settings". Nothing changes it: no function, no endpoint. Someone who moves keeps the old one, and with it the old "today" for routines and streaks | [step 7 prep](./step-7-prep.md) | Open — one function and one endpoint, no migration; the lock from `020` already refuses an unknown name. A settings screen meets it |
 
 ### `memberships` — migration 004
 
@@ -128,7 +129,7 @@ becomes a decision; an item here becomes a commit.
 | `no-subtask-moves` | Subtasks have positions, scoped to their task, and design section 7 says every move goes through one operation. There is no `moveSubtask`, so subtasks stay in the order they were created | [design §7](./design-decisions.md) | Open — `moveTask` and `renumberTasks` are the pattern to copy |
 | `delete-mode-answers-three-ways` | The Lead of a project being deleted gets 200 and an empty list for its tasks, 409 from a route that names the project, and 404 from one that names a task or subtask. One reason, three answers, for step 7 to draw | [5 §5](./step-5-review.md) | Open — decide with `lead-cannot-read-tasks-in-delete-mode`, in step 7's preparation |
 | `undo-answers-409-for-an-unknown-routine` | A routine that does not exist is 404 to `PUT …/completions/today` and to `GET …/streak`, and 409, "not completed today", to `DELETE …/completions/today` | [5 §6](./step-5-review.md) | Open — low; decide 404 or 409 |
-| `frontend-origin-not-decided` | A browser's preflight from another origin is answered 401 by "who is asking", with no CORS headers, so a frontend served on Vite's own port cannot call the API. Vite's dev proxy or CORS on the server | [5 §8](./step-5-review.md) | Waits for step 7's preparation — and settles `bodyless-posts-trust-samesite-alone`'s defence |
+| `frontend-origin-not-decided` | A browser's preflight from another origin is answered 401 by "who is asking", with no CORS headers, so a frontend served on Vite's own port cannot call the API. Vite's dev proxy or CORS on the server | [5 §8](./step-5-review.md) | Open — question 2 of [`step-7-prep.md`](./step-7-prep.md), which recommends Vite's proxy and the API mounted under `/api`, run end to end in a browser. Settles `bodyless-posts-trust-samesite-alone`'s defence, question 3 |
 
 ### Authentication — migrations 022 and 023
 
@@ -139,7 +140,7 @@ becomes a decision; an item here becomes a commit.
 | `no-password-change-or-reset` | No function changes a password, and nothing resets a forgotten one. Resetting needs email, a deliberate deferral (design section 12) | [design §15](./design-decisions.md) | Open |
 | `email-not-verified` | Anyone can register any address, so an invite can reach an account whose owner never proved the address is theirs | [design §15](./design-decisions.md) | Open — waits for email |
 | `accounts-without-a-password` | `password_hash` may be empty, and `createUser` makes every account that way. Such an account cannot log in. Kept so the tests do not spend 40 ms hashing for every user they create | [design §15](./design-decisions.md) | Open — accepted |
-| `secure-cookie-needs-a-secure-origin` | The session cookie is `Secure`, so a browser keeps it only from HTTPS, or from `localhost` and `127.0.0.1`. The step 7 frontend must be served from one of those in development, and the server from HTTPS once hosted | [design §15](./design-decisions.md) | Open — a note for step 7 and for hosting |
+| `secure-cookie-needs-a-secure-origin` | The session cookie is `Secure`, so a browser keeps it only from HTTPS, or from `localhost` and `127.0.0.1`. The step 7 frontend must be served from one of those in development, and the server from HTTPS once hosted | [design §15](./design-decisions.md) | Open — for hosting. For development, run for step 7's preparation: through Vite's proxy, a browser kept the cookie on plain `http://localhost` and sent it back |
 | `sessions-end-after-thirty-days` | A session lasts thirty days from login whether it is used or not, so someone active every day is logged out once a month | [design §15](./design-decisions.md) | Open — a product decision |
 | `reopen-and-session-are-two-steps` | Logging in to an account being deleted reopens it, then creates the session, in two transactions. If the second fails the account is reopened with no session — logging in again works | [reference, step 6](./reference.md) | Open — reasoned, not run; harmless |
 | `gone-account-still-holds-its-address` | Past its date and before the purge, an account cannot log in, but registering its address is 409, "an account already uses that email", and a Lead can still invite it. For accounts the purge changes answers, which section 6 says a purge never does | [5 §4](./step-5-review.md) | Open — a decision: treat an account past its date as absent, or accept the window until the purge runs on a timer |

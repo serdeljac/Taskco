@@ -1,8 +1,9 @@
 # Taskco — Design Decisions
 
-**Status:** design complete, stack chosen, slices A, B and C and steps 4b and 4c built, each with its
-review done, and steps 5 and 6 — the HTTP layer and authentication — built, their reviews not yet
-done. Last updated 2026-10-22.
+**Status:** design complete, stack chosen, the backend built — slices A, B and C, steps 4b and 4c,
+and steps 5 and 6, the HTTP layer and authentication — each with its review done, and merged.
+Step 7, the frontend, is prepared in [`step-7-prep.md`](./step-7-prep.md), with ten questions not
+yet decided. Last updated 2026-10-24.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it

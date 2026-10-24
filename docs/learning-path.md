@@ -1,8 +1,9 @@
 # Taskco — Learning path
 
-**Current step:** 7 — the frontend, **not started**. It begins with its preparation: who writes the
-code, and how the browser reaches the API, come first. It is the first thing that can show a person
-any of the backend.
+**Current step:** 7 — the frontend, **prepared** on 2026-10-24 in
+[`step-7-prep.md`](./step-7-prep.md): ten questions to settle before its first line, starting with
+who writes the code and how the browser reaches the API. None is decided, and nothing is built. It
+is the first thing that can show a person any of the backend.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -18,7 +19,8 @@ Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-revi
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
 [`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md),
 [`step-5-review.md`](./step-5-review.md), which covers step 6 as well. Step 5's preparation is in
-[`step-5-prep.md`](./step-5-prep.md), dated the same way.
+[`step-5-prep.md`](./step-5-prep.md), and step 7's in [`step-7-prep.md`](./step-7-prep.md), dated the
+same way.
 [`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
 [`open-items.md`](./open-items.md) is the one place that says whether something is still open.
 
@@ -354,6 +356,13 @@ to an account being deleted reopens it. Built the same day; `design-decisions.md
 
 React, Vite, TypeScript and SASS, hand-coded as its own learning exercise once the backend is real.
 Deliberately last.
+
+**Prepared 2026-10-24**, in [`step-7-prep.md`](./step-7-prep.md), after steps 5 and 6 merged. It
+found ten questions to answer before the first line. Among them: who writes the code, since "hand-coded"
+above and the rules since 2026-10-22 disagree; and how the browser reaches the API, since a page on
+Vite's own port cannot reach it at all today. It proposes slicing the step by what a person can do —
+7a is registering, logging in and the projects list — and lists thirteen traps, most of them run in a
+browser against the real API.
 
 ---
 
