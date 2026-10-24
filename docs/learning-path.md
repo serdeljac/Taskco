@@ -1,12 +1,13 @@
 # Taskco — Learning path
 
-**Current step:** 5 — the HTTP layer, **built** on branch `step-5` from 2026-10-10 to 2026-10-22:
-36 endpoints over every function in `queries.ts`, three hundred and forty-seven tests. Its review
-has not been done, and the branch is not merged or pushed. Migration `021`, the index on
+**Current step:** 5 and 6 — the HTTP layer and authentication, **built** on branch `step-5` from
+2026-10-10 to 2026-10-22, and **reviewed** on 2026-10-24 in [`step-5-review.md`](./step-5-review.md).
+Step 5 is 36 endpoints over every function in `queries.ts`; migration `021`, the index on
 `memberships (project_id)` the new member list uses, followed the same day, on Stjepan's go-ahead.
-**Step 6**, authentication, followed too — migrations `022` and `023`, three hundred and ninety-four
-tests — after Stjepan settled its three questions. Neither step has had its review. **Next is step
-7**, the frontend, which is the first thing that can show a person any of it. Step 4c is complete, reviewed in
+Step 6 is migrations `022` and `023`, after Stjepan settled its three questions. Three hundred and
+ninety-four tests. The branch was pushed on 2026-10-22 and is not merged. **Next:** the review's three
+fixes, then merging into `main`, then **step 7**, the frontend, which is the first thing that can show
+a person any of it — starting with its preparation. Step 4c is complete, reviewed in
 [`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
 one hundred and fifty tests.
 
@@ -15,8 +16,9 @@ why. This file holds *how the building proceeds* and *what to learn at each stag
 
 Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-review.md),
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
-[`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md). Step 5's
-preparation is in [`step-5-prep.md`](./step-5-prep.md), dated the same way.
+[`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md),
+[`step-5-review.md`](./step-5-review.md), which covers step 6 as well. Step 5's preparation is in
+[`step-5-prep.md`](./step-5-prep.md), dated the same way.
 [`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
 [`open-items.md`](./open-items.md) is the one place that says whether something is still open.
 
@@ -726,3 +728,21 @@ routes anyone may use are simply above "who is asking". That a test leaning on t
 crash caused by asking as user 99, who did not exist — has to change when the stand-in goes, because
 a real session cannot belong to nobody. And that stopping a background server leaves node listening
 on Windows, so the port is checked and freed every time.
+
+**After steps 5 and 6 — the review.** Written 2026-10-24, as one review for both, in
+[`step-5-review.md`](./step-5-review.md): ten items, every behaviour run against `taskco_test`
+through the real app except those marked as reasoned. Three are worth fixing before merging:
+two logins at once to an account being deleted answer one of them 409; the parser's own 415s answer
+500; and a task named as its own neighbour is moved, answering 204. Three more wait for step 7's
+preparation — where the frontend's requests come from, what the three bodyless `POST`s trust, and
+the three answers a Lead gets in delete mode — and one for purging. The suite passed shuffled, seed
+2410, and failed login times came out equal to within a millisecond or two. The two entries above say
+the branch was not pushed; it was, on 2026-10-22 at 22:23. Not yet fixed or merged.
+
+*Learned:* that `SameSite` compares sites, not origins, and a site ignores the port, so every app on
+`localhost` is the same site as every other. That a purge is cleanup only if *every* answer already
+treats the row as gone, and registering an address did not. That a race needs no load to happen
+when each request spends 40 ms hashing first — a double-click is two requests side by side. That a
+trap named in the preparation can be closed for the cases someone tried and stay open for the rest
+of its kind. And that a route can be right about the rule and still answer three different ways,
+depending on which id its path starts from.
