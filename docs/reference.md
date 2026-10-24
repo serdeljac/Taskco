@@ -3,7 +3,8 @@
 Every file, organised by the step that built it. For each one: **the code**, **what it does**, and
 **what is still open** in that file.
 
-Code blocks are a snapshot taken 2026-09-18, except step 5's, taken 2026-10-22. If a block ever disagrees with the file, the file wins.
+Code blocks are a snapshot taken 2026-09-18, except steps 5 and 6's, taken 2026-10-22, and the review
+fixes after them, taken 2026-10-24. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -906,7 +907,7 @@ Summarised rather than reproduced: they are long, and the file is the source of 
 | `createTask({ projectId, title, dueDate? })` | appends at `max(position) + 65536` | — | no | blank title (`23514`), no such project (`23503`) |
 | `listTasks({ projectId, userId })` | the project's tasks, in position order | `visible_tasks`, current membership | no | — an outsider gets an empty list |
 | `deleteTask(taskId)` | sets `deleted_at`; deleting twice keeps the first time | — | no | — |
-| `moveTask({ taskId, afterTaskId?, beforeTaskId? })` | places a task between neighbours, or at either end; renumbers the project when there is no room | `visible_tasks` | yes | task or neighbour missing or deleted; a neighbour in another project |
+| `moveTask({ taskId, afterTaskId?, beforeTaskId? })` | places a task between neighbours, or at either end; renumbers the project when there is no room | `visible_tasks` | yes | task or neighbour missing or deleted; a neighbour in another project; the task named as its own neighbour |
 | `setTaskDueDate({ taskId, dueDate })` | sets the date, clears subtask dates past it, returns `{ clearedSubtasks }` | `visible_tasks` | yes | task missing or deleted, or its project being deleted |
 | `setTaskNotes({ taskId, notes })` | blank text becomes empty | — | no | — deleted tasks are skipped |
 | `createSubtask({ taskId, title, dueDate? })` | appends a subtask within its task | `visible_tasks`, `visible_subtasks` | no | task missing or deleted; 50 already; due after the task |
@@ -1135,7 +1136,7 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 | `PUT /tasks/:taskId/notes` | any member | `setTaskNotes` | 204 | — |
 | `PUT /tasks/:taskId/due-date` | the Lead | `setTaskDueDate` | 200 `{ clearedSubtasks }` | — |
 | `PUT /tasks/:taskId/assignee` | the Lead | `setTaskAssignee` | 204 | not a current member of the project |
-| `PUT /tasks/:taskId/position` | the Lead | `moveTask` | 204 | a neighbour not found, or in another project |
+| `PUT /tasks/:taskId/position` | the Lead | `moveTask` | 204 | a neighbour not found, or in another project; the task named as its own neighbour |
 | `DELETE /tasks/:taskId` | the Lead | `deleteTask` | 204 | — |
 | `GET /tasks/:taskId/subtasks` | any member | `listSubtasks` | 200 `{ subtasks }` | — |
 | `POST /tasks/:taskId/subtasks` | the Lead | `createSubtask` | 201 `{ subtask }` | due after its task; fifty already |
@@ -1706,6 +1707,98 @@ session cannot belong to nobody. It now builds a one-route app that throws, in f
 
 **Three rules were removed for one run each**, and their tests went red: the lowering in `logIn`'s
 lookup, the expiry in `findSessionUser`, and its check that the account is not being deleted.
+
+---
+
+# After steps 5 and 6 — review fixes
+
+The three items [`step-5-review.md`](./step-5-review.md) marked for fixing before merging, and a
+fourth that lives in the same route, built test-first on branch `step-5` on 2026-10-24: each test was
+seen failing for the reason it names before the change that made it pass. Four commits, nine new
+tests. **403 tests in twenty-one files.**
+
+## `logIn` — two logins at once
+
+```ts
+if (found.being_deleted) {
+    try {
+        await reopenAccount(found.id);
+    } catch (error) {
+        const open = error instanceof Refused && (await getUser(found.id)).deletion_scheduled_at === null;
+        if (!open) {
+            throw error;
+        }
+    }
+}
+```
+
+**What it does.** Two logins at once both read the account as being deleted, and both call
+`reopenAccount`. The second finds nothing left to reopen, and refuses. If the account is open by
+then, the refusal is about work already done, and the login goes on; if it is still not open, the
+refusal stands. Closes `racing-logins-answer-409`.
+
+**The test opens two connections first.** Its first version started a login, then reopened the
+account from the test while the login checked its password. It went red — but the stack showed the
+*test's* `reopenAccount` refusing, not the login's. The test had waited for a new connection, which
+Postgres on Windows is slow to open, and the login had got there first. The second version runs two
+logins at once after `await Promise.all([pool.query("select 1"), pool.query("select 1")])`. Without
+the fix it fails inside `logIn`, three runs in three. Without that line it passes with or without
+the fix: the second login waits for a connection and arrives after the reopening. That one line is
+what makes the test watch anything.
+
+## `replaceSessionCookie` — the session a login replaces
+
+```ts
+async function replaceSessionCookie(req: Request, res: Response, token: string): Promise<void> {
+    const replaced = readCookie(req, sessionCookie);
+
+    if (replaced) {
+        await endSession(replaced);
+    }
+
+    res.cookie(sessionCookie, token, { ...sessionCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+}
+```
+
+**What it does.** Takes the place of `setSessionCookie` in `POST /users` and `POST /sessions`. A
+browser keeps one cookie of this name, so the session a request arrived with can never be sent from
+that browser again. It ends here rather than living out its thirty days for whoever else holds the
+token. It runs only once the login or registration has succeeded, so a wrong password leaves the
+session alone. That test passed from the start, and went red — `expected 401 to be 200` — with the
+session ended before the password was checked. Closes `login-leaves-the-replaced-session-alive`.
+
+## `handleErrors` — an error that carries its own 4xx
+
+```ts
+if (typeof error.status === "number" && error.status >= 400 && error.status < 500) {
+    res.status(error.status).json({ error: "The request cannot be read" });
+    return;
+}
+```
+
+**What it does.** Sits after the two parser refusals that have sentences of their own. `express.json()`
+refuses a character set or a content encoding it cannot read with 415, and Express refuses a path
+whose escape it cannot decode — `/projects/%zz/tasks` — with 400. Each error carries its status, and
+each was answered 500 and logged as the server's own failure. The path case was not in the review: it
+turned up while checking whether the parser's were the only ones. Closes `parser-refusals-answer-500`.
+`races-answer-500` stays open, because a database's refusal carries a code, not a status.
+
+## `moveTask` — a task as its own neighbour
+
+Refuses an `afterTaskId` or a `beforeTaskId` equal to the task's own id, with `Refused`: "a task
+cannot be its own neighbour", 409 over HTTP. It lives in `moveTask` rather than in the route's schema,
+so it holds for anything that calls it. It is checked after "task not found", so a task that does not
+exist is still 404. Closes `move-accepts-the-task-as-its-own-neighbour`.
+
+## The tests
+
+| File | New | What they say |
+|---|---|---|
+| `8_sessions.test.ts` | 1 | two logins at once into an account being deleted both get in |
+| `sessions.test.ts` | 3 | logging in and registering end the session they replace; a wrong password does not |
+| `errors.test.ts` | 3 | an unreadable character set and content encoding are 415, an undecodable path escape 400 |
+| `4_tasks.test.ts` | 1 | a task as its own neighbour, on either side, is refused and nothing moves |
+| `tasks.test.ts` | 1 | the same over HTTP: 409, and the order is unchanged |
 
 ---
 

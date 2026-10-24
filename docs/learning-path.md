@@ -5,9 +5,10 @@
 Step 5 is 36 endpoints over every function in `queries.ts`; migration `021`, the index on
 `memberships (project_id)` the new member list uses, followed the same day, on Stjepan's go-ahead.
 Step 6 is migrations `022` and `023`, after Stjepan settled its three questions. Three hundred and
-ninety-four tests. The branch was pushed on 2026-10-22 and is not merged. **Next:** the review's three
-fixes, then merging into `main`, then **step 7**, the frontend, which is the first thing that can show
-a person any of it — starting with its preparation. Step 4c is complete, reviewed in
+ninety-four tests then; the review's fixes followed on 2026-10-24, and there are now four hundred and
+three. The branch was pushed on 2026-10-22, and nothing since; it is not merged. **Next:** merging
+into `main`, then **step 7**, the frontend, which is the first thing that can show a person any of
+it — starting with its preparation. Step 4c is complete, reviewed in
 [`step-4c-review.md`](./step-4c-review.md), and merged into `main` on 2026-10-09 — migration `020`,
 one hundred and fifty tests.
 
@@ -746,3 +747,20 @@ when each request spends 40 ms hashing first — a double-click is two requests 
 trap named in the preparation can be closed for the cases someone tried and stay open for the rest
 of its kind. And that a route can be right about the rule and still answer three different ways,
 depending on which id its path starts from.
+
+**After the review — the fixes.** 2026-10-24, on branch `step-5`, in four commits, each test seen
+failing first. Two logins at once into an account being deleted both get in: `logIn` goes on when
+its reopening is refused but the account is open by then. Logging in or registering ends the session
+whose cookie it replaces, and a wrong password leaves it alone. `handleErrors` answers any error that
+carries its own 4xx with that status — the parser's two 415s, and a path escape Express cannot
+decode, which the review had not found. And `moveTask` refuses a task named as its own neighbour.
+Four items closed; four hundred and three tests. Not merged.
+
+*Learned:* that a red test is only evidence if it is red in the right place. The first test for the
+race went red with the right message from the wrong call — the test's own reopening, not the login's —
+because Postgres on Windows is slow to open a connection, so the login won by waiting less. Reading
+which line the stack named found it. That a race test needs the conditions of a running server, and
+here that was one line opening two connections; without it the test passed with or without the fix.
+That a test passing from the start — a wrong password leaves the old session alone — is shown to be
+watching by breaking the code in the one way it guards against. And that fixing a kind of error, not
+an instance, means asking what else carries a status: Express's own router did.
