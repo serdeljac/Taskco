@@ -43,7 +43,9 @@ No migration.
   the code — and the form keeps the email.
 - **Registering a taken address** says so in the frontend's words. **A password under eight
   characters** is refused in the browser, before anything is sent.
-- **Creating a project** adds it to the list. **A blank name** is refused in the browser.
+- **Creating a project** adds it to the list. **A blank name** is refused in the browser. **A name
+  already on the dashboard** shows "You already have a project called …" while it is typed, and
+  creating it anyway works.
 - **Reloading** keeps you logged in. **Logging out** returns you to `/login`, and the back button does
   not bring the projects back.
 - **A session ended elsewhere** — logged out in another tab — sends the next navigation to `/login`.
@@ -76,7 +78,7 @@ commit per idea.
 | F3 | a route | the router, and `/login` showing the login form |
 | F4 | an action | the login form submits: the API is asked, success goes to `/`, a refusal is shown |
 | F5 | a loader | `/` loads the projects before it shows, through `ProjectList` |
-| F6 | a component that keeps state | `NewProject`: a "New project" button that opens a name field, with Cancel, and refuses a blank name |
+| F6 | a component that keeps state | `NewProject`: a "New project" button that opens a name field, with Cancel. It refuses a blank name, and hints at a name already on the dashboard without refusing it |
 
 Section 16 named six kinds for 7a. An action is the seventh: Data mode brings it, and it is not a
 loader.
@@ -227,9 +229,22 @@ Tests for each. Check: reload, log out, the back button, and logging out in a se
 form. Tests.
 
 **F6 — first component that keeps state.** `NewProject` is a "New project" button. It opens a name
-field and "Create", with "Cancel" closing it again. A blank name is refused before anything is sent,
-with "Give the project a name". It posts to C9's action. Tests: opening and closing, the blank-name
-refusal, and that a name is sent. Check: create a project, and see it in the list.
+field and "Create", with "Cancel" closing it again. It is given the names already in the dashboard's
+list.
+
+- **A blank name** is refused before anything is sent, with "Give the project a name".
+- **A name already in the list** shows a hint while it is typed: "You already have a project called
+  Garden." It ignores case and surrounding spaces, so "garden " matches. It does not refuse: Create
+  still works, and two projects may share a name (design section 3).
+
+It posts to C9's action. Tests:
+
+- opening and closing;
+- the blank-name refusal;
+- the hint appearing for a name in the list, in any case, and not for a new one;
+- that a name in the list is still sent when Create is pressed.
+
+Check: create a project, see it in the list, then start typing its name again and see the hint.
 
 **C10 — registering**, a copy of F3 and F4. `/register` takes an email, a password and nothing else.
 The timezone is the browser's own, from `Intl.DateTimeFormat().resolvedOptions().timeZone`. In the

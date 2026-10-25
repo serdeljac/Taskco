@@ -121,6 +121,15 @@ says to reference things by id in the first place.
   none of which serve the goal of this project.
 - "Solo" is not a project type. It is a project that currently has one member. The rule underneath
   is the same in both cases: an assignee must be a member of the project.
+- **Project names need not be unique** — not across Taskco, and not among one person's projects.
+  Decided 2026-10-24, the same decision as duplicate task titles (slice B) and routine names (step
+  4c). Ben may lead two projects called "Garden".
+  *Why:* a name belongs to a project, and projects change hands. If names had to be unique per Lead,
+  Ana handing her "Garden" to Ben, who already leads one, would have to be refused, or one of them
+  renamed. And two of the same name can be meant: this year's garden and next year's.
+  *The screen helps instead of refusing:* while someone types a new project's name, a gentle hint
+  says they already have one by that name — section 16. It never blocks the form, and the server
+  checks nothing.
 
 ---
 
@@ -1205,3 +1214,19 @@ the alternatives, and the runs behind them. What was decided:
   checked by hand in a browser. End-to-end is reconsidered at 7g.
 
 None of this is built.
+
+### Where a rule is checked, on a screen
+
+Decided 2026-10-24, with duplicate project names (section 3). Two kinds of rule, two places:
+
+- **A rule the browser can check from what it already has** — a blank name, a password under eight
+  characters, or a name that matches one already on the dashboard — is shown while typing, or on
+  submit, with no request.
+- **A rule only the server can answer** — an email already taken, a project being deleted — is
+  answered after submitting, by the server, which is the only one that knows for sure. Another
+  device may have changed things a second earlier.
+
+**The duplicate-name hint is the first of the first kind that does not refuse.** As a new project's
+name is typed, `NewProject` compares it with the names in the dashboard's list, ignoring case and
+surrounding spaces. On a match it says "You already have a project called Garden." The Create button
+still works. Slice 7a, piece F6.
