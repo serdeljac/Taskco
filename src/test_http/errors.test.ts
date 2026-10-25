@@ -17,7 +17,7 @@ describe("errors", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
     });
 
     it("answers a body that is not JSON with 400, before asking who is asking", async () => {
@@ -28,7 +28,22 @@ describe("errors", () => {
             .send('{"name": "Shop');
 
         expect(response.status).toBe(400);
-        expect(response.body).toEqual({ error: "The request body is not valid JSON" });
+        expect(response.body).toEqual({ error: "The request body is not valid JSON", code: "invalid-json" });
+    });
+
+    it("answers a body the rules refuse with 400, its code, and what was wrong", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+
+        //TEST
+        const response = await request(app)
+            .post("/projects")
+            .set("Cookie", await cookieFor(ana))
+            .send({ name: "" });
+
+        expect(response.status).toBe(400);
+        expect(response.body.code).toBe("invalid-body");
+        expect(response.body.issues[0].path).toEqual(["name"]);
     });
 
     it("answers a body over the size limit with 413", async () => {
@@ -38,7 +53,7 @@ describe("errors", () => {
             .send({ name: "x".repeat(200000) });
 
         expect(response.status).toBe(413);
-        expect(response.body).toEqual({ error: "The request body is too large" });
+        expect(response.body).toEqual({ error: "The request body is too large", code: "body-too-large" });
     });
 
     it("answers a character set it cannot read with 415, not 500", async () => {
@@ -49,7 +64,7 @@ describe("errors", () => {
             .send('{"name": "Shop"}');
 
         expect(response.status).toBe(415);
-        expect(response.body).toEqual({ error: "The request cannot be read" });
+        expect(response.body).toEqual({ error: "The request cannot be read", code: "unreadable-request" });
     });
 
     it("answers a content encoding it cannot read with 415, not 500", async () => {
@@ -61,7 +76,7 @@ describe("errors", () => {
             .send('{"name": "Shop"}');
 
         expect(response.status).toBe(415);
-        expect(response.body).toEqual({ error: "The request cannot be read" });
+        expect(response.body).toEqual({ error: "The request cannot be read", code: "unreadable-request" });
     });
 
     it("answers a path with an escape it cannot decode with 400, not 500", async () => {
@@ -74,7 +89,7 @@ describe("errors", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(400);
-        expect(response.body).toEqual({ error: "The request cannot be read" });
+        expect(response.body).toEqual({ error: "The request cannot be read", code: "unreadable-request" });
     });
 
     it("answers a crash with 500, and none of its details", async () => {
@@ -90,6 +105,6 @@ describe("errors", () => {
         const response = await request(crashing).get("/crash");
 
         expect(response.status).toBe(500);
-        expect(response.body).toEqual({ error: "Something went wrong" });
+        expect(response.body).toEqual({ error: "Something went wrong", code: "server-error" });
     });
 });

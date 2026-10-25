@@ -149,7 +149,7 @@ describe("POST /projects/:projectId/deletion", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "project not found, or already being deleted" });
+        expect(response.body).toEqual({ error: "project not found, or already being deleted", code: "project-being-deleted" });
     });
 
     it("answers 404 to someone who is not in the project", async () => {

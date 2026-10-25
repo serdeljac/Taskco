@@ -52,7 +52,7 @@ describe("GET /projects/:projectId/tasks", () => {
             .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
     });
 
     it("answers 404 for a project that does not exist", async () => {
@@ -65,7 +65,7 @@ describe("GET /projects/:projectId/tasks", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
     });
 
     it("refuses a request that does not say who is asking", async () => {
@@ -169,7 +169,7 @@ describe("POST /projects/:projectId/tasks", () => {
             .send({ title: "Fix the gate" });
 
         expect(response.status).toBe(403);
-        expect(response.body).toEqual({ error: "Only the project's Lead can do that" });
+        expect(response.body).toEqual({ error: "Only the project's Lead can do that", code: "lead-only" });
         expect(await listTasks({ projectId: project.id, userId: ana.id })).toHaveLength(0);
     });
 
@@ -202,7 +202,7 @@ describe("POST /projects/:projectId/tasks", () => {
             .send({ title: "Fix the gate" });
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
         expect(await listTasks({ projectId: project.id, userId: ana.id })).toHaveLength(0);
     });
 
@@ -217,7 +217,7 @@ describe("POST /projects/:projectId/tasks", () => {
             .send({ title: "Fix the gate" });
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
     });
 
     it("answers 409 to the Lead while the project is being deleted", async () => {
@@ -233,7 +233,7 @@ describe("POST /projects/:projectId/tasks", () => {
             .send({ title: "Fix the gate" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "the project is being deleted" });
+        expect(response.body).toEqual({ error: "the project is being deleted", code: "project-being-deleted" });
     });
 
     it("refuses a request that does not say who is asking", async () => {
@@ -317,7 +317,7 @@ describe("PUT /tasks/:taskId/position", () => {
             .send({ afterTaskId: till.id });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "the task and its neighbours must be in the same project" });
+        expect(response.body).toEqual({ error: "the task and its neighbours must be in the same project", code: "neighbour-in-another-project" });
     });
 
     it("answers 409 for a task named as its own neighbour, and moves nothing", async () => {
@@ -335,7 +335,7 @@ describe("PUT /tasks/:taskId/position", () => {
             .send({ afterTaskId: fence.id, beforeTaskId: fence.id });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "a task cannot be its own neighbour" });
+        expect(response.body).toEqual({ error: "a task cannot be its own neighbour", code: "own-neighbour" });
 
         const tasks = await listTasks({ projectId: project.id, userId: ana.id });
         expect(tasks.map((t) => t.title)).toEqual(["Fix the gate", "Paint the fence", "Clean the roof"]);

@@ -37,7 +37,7 @@ describe("GET /projects/:projectId/members", () => {
             .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
     });
 
     it("refuses a request that does not say who is asking", async () => {
@@ -115,7 +115,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "Cannot remove the project's lead" });
+        expect(response.body).toEqual({ error: "Cannot remove the project's lead", code: "cannot-remove-lead" });
     });
 
     it("answers 409 to the Lead while the project is being deleted", async () => {
@@ -132,7 +132,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "the project is being deleted" });
+        expect(response.body).toEqual({ error: "the project is being deleted", code: "project-being-deleted" });
     });
 
     it("answers 404 for someone who is not a member", async () => {
@@ -147,7 +147,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
     });
 
     it("answers 404 for a user id that is not a number, before it reaches the database", async () => {
@@ -161,7 +161,7 @@ describe("DELETE /projects/:projectId/members/:userId", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
     });
 
     it("refuses a request that does not say who is asking", async () => {
@@ -226,7 +226,7 @@ describe("POST /projects/:projectId/transfer", () => {
             .send({ toUserId: cara.id, outgoing: "stay" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "the new Lead must be a current member of the project" });
+        expect(response.body).toEqual({ error: "the new Lead must be a current member of the project", code: "new-lead-not-a-member" });
     });
 
     it("answers 403 to an Associate", async () => {

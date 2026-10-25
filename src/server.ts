@@ -12,7 +12,7 @@ server.use("/api", app);
 
 // Anything outside /api names nothing. JSON, like every other answer, rather than Express's own page
 server.use((req, res) => {
-    res.status(404).json({ error: "Not found" });
+    res.status(404).json({ error: "Not found", code: "not-found" });
 });
 
 server.listen(port, "127.0.0.1", () => {

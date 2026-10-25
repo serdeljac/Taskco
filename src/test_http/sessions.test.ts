@@ -46,7 +46,7 @@ describe("who is asking", () => {
             .set("X-User-Id", ana.id);
 
         expect(response.status).toBe(401);
-        expect(response.body).toEqual({ error: "Log in first" });
+        expect(response.body).toEqual({ error: "Log in first", code: "not-logged-in" });
     });
 
     it("refuses a session that has ended", async () => {
@@ -127,7 +127,7 @@ describe("POST /users", () => {
             .send({ email: "Ana@Example.com", password: "correct horse battery", timezone: "Europe/Zagreb" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "an account already uses that email" });
+        expect(response.body).toEqual({ error: "an account already uses that email", code: "email-taken" });
         expect(sessionFrom(response)).toBeUndefined();
     });
 
@@ -138,7 +138,7 @@ describe("POST /users", () => {
             .send({ email: "ana@example.com", password: "correct horse battery", timezone: "Mars/Olympus" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "that timezone is not one the server knows" });
+        expect(response.body).toEqual({ error: "that timezone is not one the server knows", code: "unknown-timezone" });
     });
 
     it("refuses a password shorter than eight characters", async () => {
@@ -205,7 +205,7 @@ describe("POST /sessions", () => {
             .send({ email: "ana@example.com", password: "wrong horse battery" });
 
         expect(response.status).toBe(401);
-        expect(response.body).toEqual({ error: "The email or password is wrong" });
+        expect(response.body).toEqual({ error: "The email or password is wrong", code: "wrong-email-or-password" });
         expect(sessionFrom(response)).toBeUndefined();
     });
 
@@ -216,7 +216,7 @@ describe("POST /sessions", () => {
             .send({ email: "nobody@example.com", password: "correct horse battery" });
 
         expect(response.status).toBe(401);
-        expect(response.body).toEqual({ error: "The email or password is wrong" });
+        expect(response.body).toEqual({ error: "The email or password is wrong", code: "wrong-email-or-password" });
     });
 
     it("reopens an account being deleted", async () => {

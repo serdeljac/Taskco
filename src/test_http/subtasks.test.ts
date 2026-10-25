@@ -102,7 +102,7 @@ describe("POST /tasks/:taskId/subtasks", () => {
             .send({ title: "Oil the latch", dueDate: "2026-11-20" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "a subtask cannot be due after its task" });
+        expect(response.body).toEqual({ error: "a subtask cannot be due after its task", code: "subtask-due-after-task" });
         expect(await reread(task, ana)).toHaveLength(1);
     });
 
@@ -120,7 +120,7 @@ describe("POST /tasks/:taskId/subtasks", () => {
             .send({ title: "One too many" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "a task can have at most 50 subtasks" });
+        expect(response.body).toEqual({ error: "a task can have at most 50 subtasks", code: "subtask-limit" });
     });
 
     it("answers 403 to an Associate", async () => {
@@ -365,7 +365,7 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
             .send({ dueDate: "2026-11-20" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "a subtask cannot be due after its task" });
+        expect(response.body).toEqual({ error: "a subtask cannot be due after its task", code: "subtask-due-after-task" });
         expect((await reread(task, ana))[0]?.due_date).toBeNull();
     });
 
@@ -438,7 +438,7 @@ describe("PUT /subtasks/:subtaskId/assignee", () => {
             .send({ membershipId: caras?.membership_id });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "the assignee must be a current member of the project" });
+        expect(response.body).toEqual({ error: "the assignee must be a current member of the project", code: "assignee-not-a-member" });
         expect((await reread(task, ana))[0]?.assignee_membership_id).not.toBe(caras?.membership_id);
     });
 

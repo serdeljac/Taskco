@@ -19,7 +19,7 @@ describe("a request started on another site", () => {
             .send({ name: "Shop" });
 
         expect(response.status).toBe(403);
-        expect(response.body).toEqual({ error: "This request came from another site" });
+        expect(response.body).toEqual({ error: "This request came from another site", code: "other-origin" });
         expect(await listProjectsForUser(ana.id)).toHaveLength(0);
     });
 

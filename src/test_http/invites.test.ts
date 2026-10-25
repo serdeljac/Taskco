@@ -102,7 +102,7 @@ describe("POST /projects/:projectId/invites", () => {
             .send({ email: "nobody@example.com" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "No email found" });
+        expect(response.body).toEqual({ error: "No email found", code: "no-account" });
     });
 
     it("answers 409 when they are already a member", async () => {
@@ -119,7 +119,7 @@ describe("POST /projects/:projectId/invites", () => {
             .send({ email: "ben@example.com" });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "they are already a member of this project" });
+        expect(response.body).toEqual({ error: "they are already a member of this project", code: "already-a-member" });
     });
 
     it("refuses an address that is not an email", async () => {
@@ -214,7 +214,7 @@ describe("POST /invites/:inviteId/accept", () => {
             .set("Cookie", await cookieFor(cara));
 
         expect(response.status).toBe(404);
-        expect(response.body).toEqual({ error: "Not found" });
+        expect(response.body).toEqual({ error: "Not found", code: "not-found" });
         expect(await listProjectsForUser(cara.id)).toHaveLength(0);
         expect(await listInvitesForUser(ben.id)).toHaveLength(1);
     });
@@ -236,7 +236,7 @@ describe("POST /invites/:inviteId/accept", () => {
             .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "this invite has expired" });
+        expect(response.body).toEqual({ error: "this invite has expired", code: "invite-expired" });
         expect(await listProjectsForUser(ben.id)).toHaveLength(0);
     });
 
@@ -254,7 +254,7 @@ describe("POST /invites/:inviteId/accept", () => {
             .set("Cookie", await cookieFor(ben));
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "the project is being deleted" });
+        expect(response.body).toEqual({ error: "the project is being deleted", code: "project-being-deleted" });
     });
 
     it("refuses a request that does not say who is asking", async () => {

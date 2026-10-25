@@ -387,7 +387,7 @@ describe("PUT /tasks/:taskId/assignee", () => {
             .send({ membershipId: caras?.membership_id });
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "the assignee must be a current member of the project" });
+        expect(response.body).toEqual({ error: "the assignee must be a current member of the project", code: "assignee-not-a-member" });
         expect((await reread(project, ana))?.assignee_membership_id).not.toBe(caras?.membership_id);
     });
 

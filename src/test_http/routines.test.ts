@@ -228,7 +228,7 @@ describe("DELETE /routines/:routineId/completions/today", () => {
             .set("Cookie", await cookieFor(ana));
 
         expect(response.status).toBe(409);
-        expect(response.body).toEqual({ error: "not completed today" });
+        expect(response.body).toEqual({ error: "not completed today", code: "not-completed-today" });
     });
 
     it("refuses a request that does not say who is asking", async () => {

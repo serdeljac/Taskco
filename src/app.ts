@@ -82,7 +82,7 @@ app.use((req, res, next) => {
     const startedOn = req.get("Sec-Fetch-Site");
 
     if (!readOnlyMethods.has(req.method) && startedOn !== undefined && startedOn !== "same-origin") {
-        res.status(403).json({ error: "This request came from another site" });
+        res.status(403).json({ error: "This request came from another site", code: "other-origin" });
         return;
     }
 
@@ -136,7 +136,7 @@ app.post("/users", async (req, res) => {
     const body = newAccount.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -156,14 +156,14 @@ app.post("/sessions", async (req, res) => {
     const body = credentials.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
     const session = await logIn(body.data);
 
     if (!session) {
-        res.status(401).json({ error: "The email or password is wrong" });
+        res.status(401).json({ error: "The email or password is wrong", code: "wrong-email-or-password" });
         return;
     }
 
@@ -183,7 +183,7 @@ app.use(async (req, res, next) => {
     const userId = token ? await findSessionUser(token) : undefined;
 
     if (!token || !userId) {
-        res.status(401).json({ error: "Log in first" });
+        res.status(401).json({ error: "Log in first", code: "not-logged-in" });
         return;
     }
 
@@ -196,7 +196,7 @@ app.use(async (req, res, next) => {
 for (const name of ["projectId", "taskId", "subtaskId", "userId", "inviteId", "routineId"]) {
     app.param(name, (req, res, next, value) => {
         if (!idPattern.test(value)) {
-            res.status(404).json({ error: "Not found" });
+            res.status(404).json({ error: "Not found", code: "not-found" });
             return;
         }
         next();
@@ -229,7 +229,7 @@ async function requireMember<P extends PathIds>(req: Request<P>, res: Response, 
     const project = await projectFor(req.params, res.locals.userId);
 
     if (!project) {
-        res.status(404).json({ error: "Not found" });
+        res.status(404).json({ error: "Not found", code: "not-found" });
         return;
     }
 
@@ -242,12 +242,12 @@ async function requireLead<P extends PathIds>(req: Request<P>, res: Response, ne
     const project = await projectFor(req.params, res.locals.userId);
 
     if (!project) {
-        res.status(404).json({ error: "Not found" });
+        res.status(404).json({ error: "Not found", code: "not-found" });
         return;
     }
 
     if (project.role !== "lead") {
-        res.status(403).json({ error: "Only the project's Lead can do that" });
+        res.status(403).json({ error: "Only the project's Lead can do that", code: "lead-only" });
         return;
     }
 
@@ -274,7 +274,7 @@ app.post("/projects", async (req, res) => {
     const body = newProject.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -317,7 +317,7 @@ app.delete("/projects/:projectId/members/:userId", requireMember, async (req, re
     const leaving = userId === res.locals.userId;
 
     if (res.locals.project.role !== "lead" && !leaving) {
-        res.status(403).json({ error: "Only the project's Lead can do that" });
+        res.status(403).json({ error: "Only the project's Lead can do that", code: "lead-only" });
         return;
     }
 
@@ -335,7 +335,7 @@ app.post("/projects/:projectId/transfer", requireLead, async (req, res) => {
     const body = transfer.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -367,7 +367,7 @@ app.post("/projects/:projectId/invites", requireLead, async (req, res) => {
     const body = newInvite.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -410,7 +410,7 @@ app.post("/projects/:projectId/tasks", requireLead, async (req, res) => {
     const body = newTask.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -431,7 +431,7 @@ app.put("/tasks/:taskId/status", requireMember, async (req, res) => {
     const body = taskStatus.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -448,7 +448,7 @@ app.put("/tasks/:taskId/priority", requireLead, async (req, res) => {
     const body = taskPriority.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -465,7 +465,7 @@ app.put("/tasks/:taskId/notes", requireMember, async (req, res) => {
     const body = taskNotes.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -483,7 +483,7 @@ app.put("/tasks/:taskId/due-date", requireLead, async (req, res) => {
     const body = dueDate.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -500,7 +500,7 @@ app.put("/tasks/:taskId/assignee", requireLead, async (req, res) => {
     const body = assignee.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -520,7 +520,7 @@ app.put("/tasks/:taskId/position", requireLead, async (req, res) => {
     const body = position.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -553,7 +553,7 @@ app.post("/tasks/:taskId/subtasks", requireLead, async (req, res) => {
     const body = newTask.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -570,7 +570,7 @@ app.put("/subtasks/:subtaskId/status", requireMember, async (req, res) => {
     const body = taskStatus.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -582,7 +582,7 @@ app.put("/subtasks/:subtaskId/priority", requireLead, async (req, res) => {
     const body = taskPriority.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -594,7 +594,7 @@ app.put("/subtasks/:subtaskId/notes", requireMember, async (req, res) => {
     const body = taskNotes.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -607,7 +607,7 @@ app.put("/subtasks/:subtaskId/due-date", requireLead, async (req, res) => {
     const body = dueDate.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -619,7 +619,7 @@ app.put("/subtasks/:subtaskId/assignee", requireLead, async (req, res) => {
     const body = assignee.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -652,7 +652,7 @@ app.post("/routines", async (req, res) => {
     const body = newRoutine.safeParse(req.body);
 
     if (!body.success) {
-        res.status(400).json({ error: "The request body is not valid", issues: body.error.issues });
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
         return;
     }
 
@@ -714,40 +714,41 @@ app.delete("/sessions/current", async (req, res) => {
 ***********************************/
 
 app.use((req, res) => {
-    res.status(404).json({ error: "Not found" });
+    res.status(404).json({ error: "Not found", code: "not-found" });
 });
 
 export const handleErrors: ErrorRequestHandler = (error, req, res, next) => {
     if (error.type === "entity.parse.failed") {
-        res.status(400).json({ error: "The request body is not valid JSON" });
+        res.status(400).json({ error: "The request body is not valid JSON", code: "invalid-json" });
         return;
     }
 
     if (error.type === "entity.too.large") {
-        res.status(413).json({ error: "The request body is too large" });
+        res.status(413).json({ error: "The request body is too large", code: "body-too-large" });
         return;
     }
 
     //An error that carries a 4xx of its own says the request is at fault: express.json() given a character set or an
     //encoding it cannot read (415), or Express given a path with an escape it cannot decode (400). Not ours, so not logged
     if (typeof error.status === "number" && error.status >= 400 && error.status < 500) {
-        res.status(error.status).json({ error: "The request cannot be read" });
+        res.status(error.status).json({ error: "The request cannot be read", code: "unreadable-request" });
         return;
     }
 
     if (error instanceof NotFound) {
-        res.status(404).json({ error: "Not found" });
+        res.status(404).json({ error: "Not found", code: "not-found" });
         return;
     }
 
-    //A refusal's message starts with the function that refused, for whoever reads the terminal. The asker gets only the reason
+    //A refusal's message starts with the function that refused, for whoever reads the terminal. The asker gets the reason
+    //in words, and its code, which is what a screen reads to choose its own words
     if (error instanceof Refused) {
-        res.status(409).json({ error: error.message.replace(/^\w+: /, "") });
+        res.status(409).json({ error: error.message.replace(/^\w+: /, ""), code: error.code });
         return;
     }
 
     console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: "Something went wrong", code: "server-error" });
 };
 
 app.use(handleErrors);
