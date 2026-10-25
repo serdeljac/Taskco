@@ -143,10 +143,10 @@ export async function registerUser(account: {
         const constraint = (error as { constraint?: string }).constraint;
 
         if (constraint === "users_email_lower_idx") {
-            throw new Refused("registerUser: an account already uses that email");
+            throw new Refused("email-taken", "registerUser: an account already uses that email");
         }
         if (constraint === "users_timezone_known") {
-            throw new Refused("registerUser: that timezone is not one the server knows");
+            throw new Refused("unknown-timezone", "registerUser: that timezone is not one the server knows");
         }
         throw error;
     }
@@ -184,7 +184,7 @@ export async function deleteAccount(userId: string): Promise<{ scheduledFor: Dat
 
         const scheduled = rows[0];
         if (!scheduled) {
-            throw new Refused("deleteAccount: account not found, or already being deleted");
+            throw new Refused("account-being-deleted", "deleteAccount: account not found, or already being deleted");
         }
 
         // Every session ends now. Logging in again reopens the account, and must not bring an old session back with it
@@ -240,7 +240,7 @@ export async function reopenAccount(userId: string): Promise<void> {
         );
 
         if (reopened.rowCount === 0) {
-            throw new Refused("reopenAccount: account not found, or not inside its deletion window");
+            throw new Refused("account-not-reopenable", "reopenAccount: account not found, or not inside its deletion window");
         }
 
         await client.query(
@@ -396,7 +396,7 @@ export async function addMember(member: {
     );
 
     if (added.rowCount === 0) {
-        throw new Refused("addMember: project not found, or being deleted");
+        throw new Refused("project-being-deleted", "addMember: project not found, or being deleted");
     }
 }
 
@@ -459,15 +459,15 @@ export async function transferLeadership(transfer: {
         const recipient = next.rows[0];
 
         if (!recipient) {
-            throw new Refused("transferLeadership: the new Lead must be a current member of the project");
+            throw new Refused("new-lead-not-a-member", "transferLeadership: the new Lead must be a current member of the project");
         }
 
         if (recipient.leaving) {
-            throw new Refused("transferLeadership: the new Lead's account is being deleted");
+            throw new Refused("new-lead-being-deleted", "transferLeadership: the new Lead's account is being deleted");
         }
 
         if (recipient.role === "lead") {
-            throw new Refused("transferLeadership: they already lead this project");
+            throw new Refused("already-lead", "transferLeadership: they already lead this project");
         }
 
         await client.query(
@@ -587,7 +587,7 @@ export async function deleteProject(projectId: string): Promise<{ scheduledFor: 
 
     const scheduled = rows[0];
     if (!scheduled) {
-        throw new Refused("deleteProject: project not found, or already being deleted");
+        throw new Refused("project-being-deleted", "deleteProject: project not found, or already being deleted");
     }
 
     return { scheduledFor: scheduled.deletion_scheduled_at };
@@ -612,6 +612,7 @@ export async function restoreProject(projectId: string): Promise<void> {
 
     if (restored.rowCount === 0) {
         throw new Refused(
+            "project-not-restorable",
             "restoreProject: project not found, not inside its deletion window, or its Lead's account is being deleted"
         );
     }
@@ -626,7 +627,7 @@ export async function deleteProjectNow(projectId: string): Promise<void> {
     );
 
     if (deleted.rowCount === 0) {
-        throw new Refused("deleteProjectNow: project not found, or already being deleted");
+        throw new Refused("project-being-deleted", "deleteProjectNow: project not found, or already being deleted");
     }
 }
 
@@ -868,24 +869,24 @@ export async function moveTask(move: {
         // A place is named by the tasks around it, and a task is never around itself. Left through, it is placed
         // relative to its own old position: on top of the next task's, or at the top once renumbering looks for it
         if (move.afterTaskId === move.taskId || move.beforeTaskId === move.taskId) {
-            throw new Refused("moveTask: a task cannot be its own neighbour");
+            throw new Refused("own-neighbour", "moveTask: a task cannot be its own neighbour");
         }
 
         if ((move.afterTaskId && !after) || (move.beforeTaskId && !before)) {
-            throw new Refused("moveTask: a neighbour was not found");
+            throw new Refused("neighbour-not-found", "moveTask: a neighbour was not found");
         }
 
         const neighbour = after ?? before;
 
         if (!neighbour) {
-            throw new Refused("moveTask: give at least one neighbour");
+            throw new Refused("no-neighbour", "moveTask: give at least one neighbour");
         }
 
         if (
             (after && after.project_id !== moved.project_id) ||
             (before && before.project_id !== moved.project_id)
         ) {
-            throw new Refused("moveTask: the task and its neighbours must be in the same project");
+            throw new Refused("neighbour-in-another-project", "moveTask: the task and its neighbours must be in the same project");
         }
 
         let candidate: number;
@@ -1014,7 +1015,7 @@ export async function createSubtask(subtask: {
     }
 
     if ((counted.rows[0]?.count ?? 0) >= 50) {
-        throw new Refused("createSubtask: a task can have at most 50 subtasks");
+        throw new Refused("subtask-limit", "createSubtask: a task can have at most 50 subtasks");
     }
 
     const { rows } = await pool.query<Subtask>(
@@ -1242,7 +1243,7 @@ export async function createInvite(invite: {
         const recipientId = recipient.rows[0]?.id;
 
         if (!recipientId) {
-            throw new Refused("No email found");
+            throw new Refused("no-account", "No email found");
         }
 
         const member = await client.query<{ id: string }>(
@@ -1254,7 +1255,7 @@ export async function createInvite(invite: {
         );
 
         if (member.rows.length > 0) {
-            throw new Refused("createInvite: they are already a member of this project");
+            throw new Refused("already-a-member", "createInvite: they are already a member of this project");
         }
 
         await client.query(
@@ -1312,7 +1313,7 @@ export async function acceptInvite(accept: {
         }
 
         if (invite.expired) {
-            throw new Refused("acceptInvite: this invite has expired");
+            throw new Refused("invite-expired", "acceptInvite: this invite has expired");
         }
 
         await refuseIfProjectIsBeingDeleted(client, invite.project_id);
@@ -1326,7 +1327,7 @@ export async function acceptInvite(accept: {
         );
 
         if (member.rows.length > 0) {
-            throw new Refused("acceptInvite: you are already a member of this project");
+            throw new Refused("already-a-member", "acceptInvite: you are already a member of this project");
         }
 
         await client.query(
@@ -1462,7 +1463,7 @@ export async function undoCompletion(undo: {
     );
 
     if (deleted.rowCount === 0) {
-        throw new Refused("undoCompletion: not completed today");
+        throw new Refused("not-completed-today", "undoCompletion: not completed today");
     }
 }
 
@@ -1524,7 +1525,7 @@ async function refuseDueDateAfterParent(taskId: string, dueDate: string): Promis
     const parentDueDate = rows[0]?.due_date;
 
     if (parentDueDate && dueDate > parentDueDate) {
-        throw new Refused("a subtask cannot be due after its task");
+        throw new Refused("subtask-due-after-task", "a subtask cannot be due after its task");
     }
 }
 
@@ -1554,7 +1555,7 @@ async function refuseUnlessCurrentMember(
     );
 
     if (rows.length === 0) {
-        throw new Refused("the assignee must be a current member of the project");
+        throw new Refused("assignee-not-a-member", "the assignee must be a current member of the project");
     }
 }
 
@@ -1571,7 +1572,7 @@ async function refuseIfProjectIsBeingDeleted(
     );
 
     if (rows[0]?.deletion_scheduled_at) {
-        throw new Refused("the project is being deleted");
+        throw new Refused("project-being-deleted", "the project is being deleted");
     }
 }
 
@@ -1595,7 +1596,7 @@ async function endMembership(
     }
 
     if (membership.role === "lead") {
-        throw new Refused("Cannot remove the project's lead");
+        throw new Refused("cannot-remove-lead", "Cannot remove the project's lead");
     }
 
     await client.query(
