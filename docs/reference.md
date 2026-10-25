@@ -40,10 +40,10 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `npx tsx src/preview.ts 2` | The same page, as user 2 sees it |
 | `Invoke-Item preview.html` | Opens the page in your browser |
 | `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it, then every account past its date that no longer leads a project |
-| `npm run dev` | Starts the server on `http://127.0.0.1:3000` against **taskco_dev**, and restarts it whenever a file changes. `Ctrl+C` stops it |
-| `curl.exe -c cookies.txt --json '{"email":"lead@example.com","password":"taskco-demo"}' http://127.0.0.1:3000/sessions` | Logs in to the running server as the seeded Lead, and saves the session cookie in `cookies.txt`. Run it in a second terminal |
-| `curl.exe -b cookies.txt http://127.0.0.1:3000/projects` | Asks as whoever `cookies.txt` is logged in as. Any `GET` in the endpoint tables works the same way |
-| `curl.exe -b cookies.txt -c cookies.txt -X DELETE http://127.0.0.1:3000/sessions/current` | Logs out, and empties the cookie in `cookies.txt` |
+| `npm run dev` | Starts the server on `http://127.0.0.1:3000/api` against **taskco_dev**, and restarts it whenever a file changes. `Ctrl+C` stops it |
+| `curl.exe -c cookies.txt --json '{"email":"lead@example.com","password":"taskco-demo"}' http://127.0.0.1:3000/api/sessions` | Logs in to the running server as the seeded Lead, and saves the session cookie in `cookies.txt`. Run it in a second terminal |
+| `curl.exe -b cookies.txt http://127.0.0.1:3000/api/projects` | Asks as whoever `cookies.txt` is logged in as. Any `GET` in the endpoint tables works the same way |
+| `curl.exe -b cookies.txt -c cookies.txt -X DELETE http://127.0.0.1:3000/api/sessions/current` | Logs out, and empties the cookie in `cookies.txt` |
 | `npx vitest run src/test_http` | Runs only the HTTP tests |
 
 **If `curl` cannot connect, the server is not running.** Look in the `npm run dev` terminal: an error
