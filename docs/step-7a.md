@@ -158,7 +158,8 @@ A code names a reason, not a line of code: one reason refused in four places has
 
 ### The frontend's ground
 
-**C6 — `web/`.** Installed with `--save-exact`, at the versions in the preparation's table: React
+**C6 — `web/`, now Stjepan's.** *Changed 2026-10-24:* Claude built it, then removed it so Stjepan
+could set it up himself. A setup he has never seen counts as a first too. Installed with `--save-exact`, at the versions in the preparation's table: React
 19.3.0, React Router 8.4.0, Vite 8.3.2, Vitest 5.0.3, and the rest.
 
 - `engines` in `web/package.json` and in the root's: Node 24.7 or later. That closes
