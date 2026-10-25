@@ -72,6 +72,23 @@ export const app = express();
 
 //Stops Express adding an X-Powered-By: Express header to every response
 app.disable("x-powered-by");
+
+//A browser marks every request with where it was started, in Sec-Fetch-Site; Taskco's own pages send same-origin.
+//A request that changes something, started anywhere else — another site, or another app on this machine — is refused
+//before anything else runs. No header at all (curl, the tests, a browser too old to send it) passes
+const readOnlyMethods = new Set(["GET", "HEAD", "OPTIONS"]);
+
+app.use((req, res, next) => {
+    const startedOn = req.get("Sec-Fetch-Site");
+
+    if (!readOnlyMethods.has(req.method) && startedOn !== undefined && startedOn !== "same-origin") {
+        res.status(403).json({ error: "This request came from another site" });
+        return;
+    }
+
+    next();
+});
+
 app.use(express.json());
 
 /***********************************
