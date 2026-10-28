@@ -13,5 +13,7 @@ export default defineConfig({
     test: {
         environment: "jsdom",
         setupFiles: ["./src/testing/setup.ts"],
+        // A fetch a test replaced goes back to the real one before the next test
+        unstubGlobals: true,
     },
 });
