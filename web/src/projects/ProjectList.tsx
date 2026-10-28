@@ -1,3 +1,5 @@
+import styles from "./ProjectList.module.scss";
+
 type Props = {
     projects: { id: string; name: string }[];
 };
@@ -8,7 +10,7 @@ export function ProjectList({ projects }: Props) {
     }
 
     return (
-        <ul>
+        <ul className={styles.list}>
             {projects.map((project) => (
                 <li key={project.id}>{project.name}</li>
             ))}
