@@ -3,6 +3,20 @@ import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
 import { wordsFor } from "../api/words";
 
+// Someone already logged in has no use for the form, so on to /. Here a 401 is the answer, not a
+// reason to come to /login: the form shows
+export async function loginLoader() {
+    try {
+        await api<{ user: User }>("GET", "/account");
+    } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+            return null;
+        }
+        throw error;
+    }
+    return redirect("/");
+}
+
 export async function loginAction({ request }: ActionFunctionArgs) {
     const form = await request.formData();
 

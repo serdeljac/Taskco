@@ -3,24 +3,30 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { routes } from "../routes";
-import { standInFetch } from "../testing/standInFetch";
+import { standInApi, type Answer } from "../testing/standInApi";
+
+const notLoggedIn: Answer = [401, { error: "Log in first", code: "not-logged-in" }];
 
 describe("/login", () => {
-    it("shows an email field, a password field, and a Log in button", () => {
+    it("shows an email field, a password field, and a Log in button", async () => {
+        standInApi({ "GET /account": notLoggedIn });
         const router = createMemoryRouter(routes, { initialEntries: ["/login"] });
         render(<RouterProvider router={router} />);
 
-        expect(screen.getByLabelText("Email")).toBeDefined();
+        expect(await screen.findByLabelText("Email")).toBeDefined();
         expect(screen.getByLabelText("Password")).toBeDefined();
         expect(screen.getByRole("button", { name: "Log in" })).toBeDefined();
     });
 
     it("says a wrong email or password in Taskco's words, and keeps the email", async () => {
-        standInFetch(401, { error: "The email or password is wrong", code: "wrong-email-or-password" });
+        standInApi({
+            "GET /account": notLoggedIn,
+            "POST /sessions": [401, { error: "The email or password is wrong", code: "wrong-email-or-password" }],
+        });
         const router = createMemoryRouter(routes, { initialEntries: ["/login"] });
         render(<RouterProvider router={router} />);
 
-        await userEvent.type(screen.getByLabelText("Email"), "lead@example.com");
+        await userEvent.type(await screen.findByLabelText("Email"), "lead@example.com");
         await userEvent.type(screen.getByLabelText("Password"), "not-the-password");
         await userEvent.click(screen.getByRole("button", { name: "Log in" }));
 
@@ -29,15 +35,36 @@ describe("/login", () => {
     });
 
     it("asks the API with what was typed, and leaves /login once it says yes", async () => {
-        const fetch = standInFetch(201, { user: { id: "1", email: "lead@example.com" } });
+        const session = { loggedIn: false };
+        const fetch = standInApi({
+            "GET /account": () => (session.loggedIn ? [200, { user: { id: "1", email: "lead@example.com" } }] : notLoggedIn),
+            "POST /sessions": () => {
+                session.loggedIn = true;
+                return [201, { user: { id: "1", email: "lead@example.com" } }];
+            },
+            "GET /projects": [200, { projects: [] }],
+        });
         const router = createMemoryRouter(routes, { initialEntries: ["/login"] });
         render(<RouterProvider router={router} />);
 
-        await userEvent.type(screen.getByLabelText("Email"), "lead@example.com");
+        await userEvent.type(await screen.findByLabelText("Email"), "lead@example.com");
         await userEvent.type(screen.getByLabelText("Password"), "taskco-demo");
         await userEvent.click(screen.getByRole("button", { name: "Log in" }));
 
         await waitFor(() => expect(router.state.location.pathname).toBe("/"));
-        expect(fetch.mock.calls[0]?.[1]?.body).toBe('{"email":"lead@example.com","password":"taskco-demo"}');
+        const loggingIn = fetch.mock.calls.find(([, init]) => init?.method === "POST");
+        expect(loggingIn?.[1]?.body).toBe('{"email":"lead@example.com","password":"taskco-demo"}');
+    });
+
+    it("sends someone already logged in on to /", async () => {
+        standInApi({
+            "GET /account": [200, { user: { id: "1", email: "lead@example.com" } }],
+            "GET /projects": [200, { projects: [] }],
+        });
+        const router = createMemoryRouter(routes, { initialEntries: ["/login"] });
+        render(<RouterProvider router={router} />);
+
+        expect(await screen.findByText("No projects yet")).toBeDefined();
+        expect(router.state.location.pathname).toBe("/");
     });
 });
