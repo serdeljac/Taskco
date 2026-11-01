@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router";
 import { AccountLayout, accountLoader } from "./account/AccountLayout";
 import { logoutAction } from "./account/logout";
 import { LoginPage, loginAction, loginLoader } from "./login/LoginPage";
+import { createProjectAction } from "./projects/createProject";
 import { ProjectsPage, projectsLoader } from "./projects/ProjectsPage";
 import { RootError } from "./RootError";
 
@@ -15,7 +16,15 @@ export const routes: RouteObject[] = [
                 // Pages for someone logged in
                 element: <AccountLayout />,
                 loader: accountLoader,
-                children: [{ path: "/", element: <ProjectsPage />, loader: projectsLoader }],
+                children: [
+                    {
+                        id: "projects",
+                        path: "/",
+                        element: <ProjectsPage />,
+                        loader: projectsLoader,
+                        action: createProjectAction,
+                    },
+                ],
             },
             { path: "/login", element: <LoginPage />, loader: loginLoader, action: loginAction },
             { path: "/logout", action: logoutAction },
