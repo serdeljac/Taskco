@@ -237,13 +237,17 @@ list.
 - **A name already in the list** shows a hint while it is typed: "You already have a project called
   Garden." It ignores case and surrounding spaces, so "garden " matches. It does not refuse: Create
   still works, and two projects may share a name (design section 3).
+- **Once a name is sent**, the form closes, as Cancel does. *Decided 2026-11-02, by Stjepan:* the
+  spec said nothing, and left open the field kept the name just created, so the hint showed at once.
+  If sending fails, the name is typed again.
 
 It posts to C9's action. Tests:
 
 - opening and closing;
 - the blank-name refusal;
 - the hint appearing for a name in the list, in any case, and not for a new one;
-- that a name in the list is still sent when Create is pressed.
+- that a name in the list is still sent when Create is pressed;
+- that the form closes once a name is sent.
 
 Check: create a project, see it in the list, then start typing its name again and see the hint.
 
