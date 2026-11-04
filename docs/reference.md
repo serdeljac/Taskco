@@ -2009,10 +2009,12 @@ function browserTimezone(): string {
 ```
 
   `getTimezoneOffset` is minutes *behind* UTC, and the timezone database writes `Etc` names with the
-  sign reversed: 480 is `Etc/GMT+8`, eight hours behind. Right today, an hour off after a
-  daylight-saving change. A half-hour offset has no `Etc` name, and the API answers
+  sign reversed: 480 is `Etc/GMT+8`, eight hours behind. Only as good as the browser's clock, and an
+  hour off after a daylight-saving change. A half-hour offset has no `Etc` name, and the API answers
   `unknown-timezone`. Why it is needed: this machine is set to *British Columbia Standard Time*, a
-  Windows zone too new for the timezone data in Node and in Chromium, so both name no zone.
+  Windows zone too new for the timezone data in Node and in Chromium, so both name no zone. *The
+  review found* the same data puts the browser's clock an hour behind Windows' here, so the guess is
+  `Etc/GMT+8` where `America/Vancouver`, UTC−7, is right: `clock-timezone-follows-a-wrong-clock`.
 
 **`account/AccountLayout.tsx`, `account/logout.ts`, `RootError.tsx`** — who is logged in, logging
 out, and where errors go, as in the routes above.

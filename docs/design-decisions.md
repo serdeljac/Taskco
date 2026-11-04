@@ -1244,9 +1244,14 @@ Columbia Standard Time*, a Windows zone too new for the timezone data in Node an
 
 **When the browser names no zone, registering works one out from the clock.** The offset becomes an
 `Etc` name, its sign reversed as the timezone database writes it: eight hours behind UTC is
-`Etc/GMT+8`, which Postgres knows. "Today" is right when the account is made, and an hour off after a
-daylight-saving change, until a settings screen can change it — `no-timezone-change`. A half-hour
-offset has no `Etc` name, and the API refuses it as `unknown-timezone`.
+`Etc/GMT+8`, which Postgres knows. The guess is only as good as the browser's clock, and an hour off
+after a daylight-saving change, until a settings screen can change it — `no-timezone-change`. A
+half-hour offset has no `Etc` name, and the API refuses it as `unknown-timezone`.
+
+*Corrected 2026-11-03, by the 7a review:* this said "today" was right when the account is made. On
+this machine it was not: the browser's clock was an hour behind Windows', so the guess was
+`Etc/GMT+8` where `America/Vancouver`, UTC−7, was right. Item 1 of
+[`step-7a-review.md`](./step-7a-review.md), `clock-timezone-follows-a-wrong-clock`.
 
 *Rejected — a list to choose from, when the browser names none:* always right, and one more piece to
 build in a slice that was finishing. *Rejected — UTC:* simplest, and "today" would start at 4pm here.

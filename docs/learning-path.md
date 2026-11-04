@@ -3,8 +3,9 @@
 **Current step:** 7 — the frontend. Slice 7a — registering, logging in, projects — is **built**, on
 branch `step-7a`, 2026-10-24 to 2026-11-03, as specified in [`step-7a.md`](./step-7a.md): the first
 thing that shows a person any of the backend. Stjepan typed its six firsts; every flow in its "done
-looks like" was checked in a browser. **Next:** Stjepan goes over the commits, then 7a's review, then
-merging it and specifying 7b, tasks.
+looks like" was checked in a browser. Stjepan went over the commits on 2026-11-03, and the review
+followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items. **Next:** Stjepan's
+decision on the timezone guess, the three small fixes, then merging it and specifying 7b, tasks.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -19,7 +20,8 @@ why. This file holds *how the building proceeds* and *what to learn at each stag
 Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-review.md),
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
 [`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md),
-[`step-5-review.md`](./step-5-review.md), which covers step 6 as well. Step 5's preparation is in
+[`step-5-review.md`](./step-5-review.md), which covers step 6 as well, and
+[`step-7a-review.md`](./step-7a-review.md). Step 5's preparation is in
 [`step-5-prep.md`](./step-5-prep.md), and step 7's in [`step-7-prep.md`](./step-7-prep.md), dated the
 same way.
 [`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
@@ -827,3 +829,17 @@ anyway is invisible to every test. And that a browser can name no timezone at al
 Windows zone is too new for the timezone data in Node and in Chromium. So registering sent none, and
 the page blamed the address. The test had passed because Node named none either, on both sides of
 the comparison. The fix was found in the browser, not the suite.
+
+**After slice 7a — the review.** Written 2026-11-03, after Stjepan went over the commits, in
+[`step-7a-review.md`](./step-7a-review.md): four items, each run before it was written down. The
+timezone guessed from the clock was wrong from the start on this machine. The browser's clock is an
+hour behind Windows', so it guessed `Etc/GMT+8` where `America/Vancouver`, UTC−7, was right. That
+needs Stjepan's decision. Three are small: an unknown address says "Something went wrong", `/logout`
+typed in shows a blank page, and New project drops the keyboard's focus. Both suites passed shuffled,
+seed 703. Four claims in the docs about the guess are corrected. Not yet fixed or merged.
+
+*Learned:* that a fallback is only as good as what it falls back on. The timezone data that could not
+name the zone also could not tell the right time, so the clock was wrong before Taskco read it. That
+it showed only by comparing the browser's clock with the taskbar's. And that the claim "Vite's proxy
+answers 502 when the server is down" had been tested only with a stand-in, until the proxy was
+pointed at a port where nothing listened.
