@@ -258,8 +258,9 @@ The timezone is the browser's own, from `Intl.DateTimeFormat().resolvedOptions()
 browser: the address must look like one, and the password must be 8 to 128 characters, both in the
 frontend's words. `email-taken` and `unknown-timezone` come back from the server in its words.
 Success lands on `/`. `/login` and `/register` link to each other. Tests. *Added 2026-11-03, by
-Stjepan's choice:* a browser that names no timezone sends one worked out from the clock, `Etc/GMT+8`
-for eight hours behind UTC — design section 16. Found when this machine's Chromium named none.
+Stjepan's choice:* when the browser names no timezone, the page asks, with a guess from the clock
+chosen already — design section 16. Found when this machine's Chromium named none; a guess sent
+without asking came first, and the review found it an hour wrong here.
 
 **C11 — the other SASS modules**, copies of F2: the login and register forms, the layout, and
 `NewProject`.

@@ -1994,27 +1994,26 @@ a name", "That doesn't look like an email address." and "A password needs 8 to 1
   `noValidate`, or the browser's own checks would answer first, in its words.
 - **The address check is looser than the API's** — `new@example.c` passes it — so the API's
   `invalid-body` is said in the same words. Nothing else in the body can be invalid by then.
-- **The timezone is the browser's own**, from `Intl`. When the browser names none, it is worked out
-  from the clock:
+- **The timezone is the browser's own**, from `Intl`. When the browser names none, the page asks:
 
 ```ts
-function browserTimezone(): string {
-    const named = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (named) {
-        return named;
-    }
+function clockGuess(): { zone: string; words: string } {
     const hours = new Date().getTimezoneOffset() / 60;
-    return `Etc/GMT${hours < 0 ? "-" : "+"}${Math.abs(hours)}`;
+    return {
+        zone: `Etc/GMT${hours < 0 ? "-" : "+"}${Math.abs(hours)}`,
+        words: `UTC${hours > 0 ? "-" : "+"}${Math.abs(hours)} (a guess from this computer's clock)`,
+    };
 }
 ```
 
+  `TimezoneField` shows "Your browser doesn't say which timezone you're in, so choose yours." and a
+  list: the clock's guess first, chosen already, then every zone in `Intl.supportedValuesOf`. The
+  action sends the browser's zone if it names one, and the chosen one otherwise.
   `getTimezoneOffset` is minutes *behind* UTC, and the timezone database writes `Etc` names with the
-  sign reversed: 480 is `Etc/GMT+8`, eight hours behind. Only as good as the browser's clock, and an
-  hour off after a daylight-saving change. A half-hour offset has no `Etc` name, and the API answers
-  `unknown-timezone`. Why it is needed: this machine is set to *British Columbia Standard Time*, a
-  Windows zone too new for the timezone data in Node and in Chromium, so both name no zone. *The
-  review found* the same data puts the browser's clock an hour behind Windows' here, so the guess is
-  `Etc/GMT+8` where `America/Vancouver`, UTC−7, is right: `clock-timezone-follows-a-wrong-clock`.
+  sign reversed: 480 is `Etc/GMT+8`, eight hours behind. *Why a guess is not enough:* this machine
+  is set to *British Columbia Standard Time*, a Windows zone too new for the timezone data in Node and
+  in Chromium. They name no zone, and their clock is an hour behind Windows', so the guess is
+  `Etc/GMT+8` where `America/Vancouver`, UTC−7, is right — `clock-timezone-follows-a-wrong-clock`.
 
 **`account/AccountLayout.tsx`, `account/logout.ts`, `RootError.tsx`** — who is logged in, logging
 out, and where errors go, as in the routes above.

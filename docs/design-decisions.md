@@ -1242,16 +1242,18 @@ timezone from the browser at signup. A browser can name none: this machine is se
 Columbia Standard Time*, a Windows zone too new for the timezone data in Node and in Chromium, and
 `Intl` gives `undefined`. Registering sent no timezone, and the API refused the body.
 
-**When the browser names no zone, registering works one out from the clock.** The offset becomes an
-`Etc` name, its sign reversed as the timezone database writes it: eight hours behind UTC is
-`Etc/GMT+8`, which Postgres knows. The guess is only as good as the browser's clock, and an hour off
-after a daylight-saving change, until a settings screen can change it — `no-timezone-change`. A
-half-hour offset has no `Etc` name, and the API refuses it as `unknown-timezone`.
+**When the browser names no zone, the register page asks.** It says the browser doesn't say which
+timezone you're in, and shows every zone the browser knows, with a guess from the clock at the top
+and chosen already: "UTC-8 (a guess from this computer's clock)", sent as `Etc/GMT+8`, its sign
+reversed as the timezone database writes it. Whatever is chosen is sent. A browser that names its
+zone asks nothing.
 
-*Corrected 2026-11-03, by the 7a review:* this said "today" was right when the account is made. On
-this machine it was not: the browser's clock was an hour behind Windows', so the guess was
-`Etc/GMT+8` where `America/Vancouver`, UTC−7, was right. Item 1 of
-[`step-7a-review.md`](./step-7a-review.md), `clock-timezone-follows-a-wrong-clock`.
+*How it got here.* The first answer, the same day, was the guess alone, sent without asking. The
+7a review found it wrong from the start on this machine: the timezone data that cannot name the zone
+also puts the browser's clock an hour behind Windows', so the guess was `Etc/GMT+8` where
+`America/Vancouver`, UTC−7, was right. Nothing in the browser can see the right offset, so Stjepan
+chose the list — item 1 of [`step-7a-review.md`](./step-7a-review.md),
+`clock-timezone-follows-a-wrong-clock`.
 
-*Rejected — a list to choose from, when the browser names none:* always right, and one more piece to
-build in a slice that was finishing. *Rejected — UTC:* simplest, and "today" would start at 4pm here.
+*Rejected — the guess alone:* wrong here, and nothing could change it afterwards until
+`no-timezone-change`. *Rejected — UTC:* simplest, and "today" would start at 5pm here.

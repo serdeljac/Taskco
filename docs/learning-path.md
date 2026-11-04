@@ -4,8 +4,9 @@
 branch `step-7a`, 2026-10-24 to 2026-11-03, as specified in [`step-7a.md`](./step-7a.md): the first
 thing that shows a person any of the backend. Stjepan typed its six firsts; every flow in its "done
 looks like" was checked in a browser. Stjepan went over the commits on 2026-11-03, and the review
-followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items. **Next:** Stjepan's
-decision on the timezone guess, the three small fixes, then merging it and specifying 7b, tasks.
+followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items. The first is fixed: the register
+page asks for the timezone when the browser names none. **Next:** the three small fixes, then
+merging it and specifying 7b, tasks.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
