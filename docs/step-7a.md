@@ -2,8 +2,10 @@
 
 Specified 2026-10-24, from the ten decisions in [`design-decisions.md`](./design-decisions.md)
 section 16 and the preparation in [`step-7-prep.md`](./step-7-prep.md). The first slice of step 7,
-in [`learning-path.md`](./learning-path.md). Nothing here is built. It starts on Stjepan's go-ahead,
-on a new branch, `step-7a`, from `main`.
+in [`learning-path.md`](./learning-path.md). **Built** 2026-10-24 to 2026-11-03 on branch `step-7a`,
+not yet reviewed. Three things were added on the way, each marked where it belongs: the form closing
+once a name is sent (F6), a refusal from creating shown under New project, and a timezone worked out
+from the clock when the browser names none (C10, and design section 16).
 
 **The toolchain below was run together on 2026-10-24**, in a throwaway folder, with exactly the
 pinned versions:
@@ -255,7 +257,9 @@ Check: create a project, see it in the list, then start typing its name again an
 The timezone is the browser's own, from `Intl.DateTimeFormat().resolvedOptions().timeZone`. In the
 browser: the address must look like one, and the password must be 8 to 128 characters, both in the
 frontend's words. `email-taken` and `unknown-timezone` come back from the server in its words.
-Success lands on `/`. `/login` and `/register` link to each other. Tests.
+Success lands on `/`. `/login` and `/register` link to each other. Tests. *Added 2026-11-03, by
+Stjepan's choice:* a browser that names no timezone sends one worked out from the clock, `Etc/GMT+8`
+for eight hours behind UTC — design section 16. Found when this machine's Chromium named none.
 
 **C11 — the other SASS modules**, copies of F2: the login and register forms, the layout, and
 `NewProject`.

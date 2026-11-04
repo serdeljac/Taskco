@@ -1,12 +1,10 @@
 # Taskco — Learning path
 
-**Current step:** 7 — the frontend, **prepared** on 2026-10-24 in
-[`step-7-prep.md`](./step-7-prep.md): ten questions to settle before its first line, starting with
-who writes the code and how the browser reaches the API. All ten were decided the same day, each as
-recommended — design section 16 — and nothing is built. Slice 7a — registering, logging in,
-projects — is specified in [`step-7a.md`](./step-7a.md). **Next:** building it, on Stjepan's
-go-ahead, on a branch `step-7a`. It
-is the first thing that can show a person any of the backend.
+**Current step:** 7 — the frontend. Slice 7a — registering, logging in, projects — is **built**, on
+branch `step-7a`, 2026-10-24 to 2026-11-03, as specified in [`step-7a.md`](./step-7a.md): the first
+thing that shows a person any of the backend. Stjepan typed its six firsts; every flow in its "done
+looks like" was checked in a browser. **Next:** Stjepan goes over the commits, then 7a's review, then
+merging it and specifying 7b, tasks.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -392,6 +390,8 @@ All in design section 16.
 eighteen pieces in order — twelve for Claude, and six firsts for Stjepan to type, meeting seven new
 kinds of thing — the codes every error answer will carry, and four traps found by running the pinned
 toolchain together.
+
+**Slice 7a built 2026-10-24 to 2026-11-03**, on branch `step-7a`. See the progress log.
 
 ---
 
@@ -802,3 +802,28 @@ here that was one line opening two connections; without it the test passed with 
 That a test passing from the start — a wrong password leaves the old session alone — is shown to be
 watching by breaking the code in the one way it guards against. And that fixing a kind of error, not
 an instance, means asking what else carries a status: Express's own router did.
+
+**Step 7, slice 7a — registering, logging in, projects.** Built 2026-10-24 to 2026-11-03 on branch
+`step-7a`, in twenty-two commits, not yet reviewed; `origin/step-7a` ends at the removal of `web/`.
+Four changes to the server came first. The root's test run collects only `src`. The API is served
+under `/api`. A write started on another site is refused with 403 before anything else runs. Every
+refusal carries a code, and every error answer is `{ error, code }`, so thirty-nine HTTP tests changed
+to expect it. Then `web/`: Claude set it up, and removed it again, because a setup Stjepan had never
+seen counted as a first. Stjepan set it up himself, and typed the six firsts, test first:
+`ProjectList`, its SASS module, `/login`'s route, its action, `/`'s loader, and `NewProject`. The last
+was walked through in five steps, and ended in a choice of his: the form closes once a name is sent.
+Claude wrote the copies: the API client and its words, who is logged in, creating a project and
+showing its refusal, registering, and three more SASS modules. Four hundred and nine tests at the
+root and forty-seven in `web/`, and both type checks are clean. Every flow in the slice's "done looks
+like" was checked in a browser against `taskco_dev`, with `curl` for a write from another site. Four
+items closed and one opened, `new-project-refusal-outlives-typing`.
+
+*Learned:* that state lasts as long as its component. A field taken off the page forgets what was
+typed by itself, but state in a component that stays on the page has to be reset by hand, and
+Cancel ended up resetting three things. That a value worked out on every draw cannot fall out of step
+with what it comes from, which is why the duplicate-name hint is not state. That an action runs in
+the browser, so "refused before anything is sent" can live there. That a redirect a loader would make
+anyway is invisible to every test. And that a browser can name no timezone at all. This machine's
+Windows zone is too new for the timezone data in Node and in Chromium. So registering sent none, and
+the page blamed the address. The test had passed because Node named none either, on both sides of
+the comparison. The fix was found in the browser, not the suite.

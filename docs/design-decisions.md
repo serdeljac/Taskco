@@ -1213,7 +1213,10 @@ the alternatives, and the runs behind them. What was decided:
   for anything with behaviour, with `fetch` replaced by a stand-in. Each slice ends with its flows
   checked by hand in a browser. End-to-end is reconsidered at 7g.
 
-None of this is built.
+**Built in slice 7a**, 2026-10-24 to 2026-11-03, on branch `step-7a`: `api-origin`,
+`request-origin-check`, `frontend-layout`, `routing-and-loading`, `wire-types`, `refusal-words` and
+`frontend-tests`, for registering, logging in, and seeing and creating projects. `delete-mode-screen`
+waits for slice 7e. What each file does is in the reference, under step 7a.
 
 ### Where a rule is checked, on a screen
 
@@ -1229,4 +1232,21 @@ Decided 2026-10-24, with duplicate project names (section 3). Two kinds of rule,
 **The duplicate-name hint is the first of the first kind that does not refuse.** As a new project's
 name is typed, `NewProject` compares it with the names in the dashboard's list, ignoring case and
 surrounding spaces. On a match it says "You already have a project called Garden." The Create button
-still works. Slice 7a, piece F6.
+still works. Slice 7a, piece F6. *Decided 2026-11-02, by Stjepan:* once a name is sent, the form
+closes, as Cancel does; left open, it kept the name just created, and the hint showed at once.
+
+### A browser that names no timezone
+
+Decided 2026-11-03, by Stjepan, while slice 7a was checked in a browser. Section 8 defaults the
+timezone from the browser at signup. A browser can name none: this machine is set to *British
+Columbia Standard Time*, a Windows zone too new for the timezone data in Node and in Chromium, and
+`Intl` gives `undefined`. Registering sent no timezone, and the API refused the body.
+
+**When the browser names no zone, registering works one out from the clock.** The offset becomes an
+`Etc` name, its sign reversed as the timezone database writes it: eight hours behind UTC is
+`Etc/GMT+8`, which Postgres knows. "Today" is right when the account is made, and an hour off after a
+daylight-saving change, until a settings screen can change it — `no-timezone-change`. A half-hour
+offset has no `Etc` name, and the API refuses it as `unknown-timezone`.
+
+*Rejected — a list to choose from, when the browser names none:* always right, and one more piece to
+build in a slice that was finishing. *Rejected — UTC:* simplest, and "today" would start at 4pm here.

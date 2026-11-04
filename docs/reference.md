@@ -3,8 +3,8 @@
 Every file, organised by the step that built it. For each one: **the code**, **what it does**, and
 **what is still open** in that file.
 
-Code blocks are a snapshot taken 2026-09-18, except steps 5 and 6's, taken 2026-10-22, and the review
-fixes after them, taken 2026-10-24. If a block ever disagrees with the file, the file wins.
+Code blocks are a snapshot taken 2026-09-18, except steps 5 and 6's, taken 2026-10-22, the review
+fixes after them, taken 2026-10-24, and slice 7a's, taken 2026-11-03. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -45,6 +45,10 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `curl.exe -b cookies.txt http://127.0.0.1:3000/api/projects` | Asks as whoever `cookies.txt` is logged in as. Any `GET` in the endpoint tables works the same way |
 | `curl.exe -b cookies.txt -c cookies.txt -X DELETE http://127.0.0.1:3000/api/sessions/current` | Logs out, and empties the cookie in `cookies.txt` |
 | `npx vitest run src/test_http` | Runs only the HTTP tests |
+| `cd web; npm run dev` | Serves the frontend on `http://localhost:5173`, passing `/api` on to the server. Run the root's `npm run dev` too, in another terminal |
+| `cd web; npm test` | Runs the frontend's tests once |
+| `cd web; npm run typecheck` | The frontend's type check |
+| `cd web; npm run build` | Builds the frontend into `web/dist`, as it would be hosted. Here, a check that it builds |
 
 **If `curl` cannot connect, the server is not running.** Look in the `npm run dev` terminal: an error
 there stops the server while `tsx watch` stays open, waiting for a change. `EADDRINUSE` means
@@ -1799,6 +1803,274 @@ exist is still 404. Closes `move-accepts-the-task-as-its-own-neighbour`.
 | `errors.test.ts` | 3 | an unreadable character set and content encoding are 415, an undecodable path escape 400 |
 | `4_tasks.test.ts` | 1 | a task as its own neighbour, on either side, is refused and nothing moves |
 | `tasks.test.ts` | 1 | the same over HTTP: 409, and the order is unchanged |
+
+---
+
+# Step 7a — the frontend: registering, logging in, projects
+
+Built 2026-10-24 to 2026-11-03 on branch `step-7a`, as specified in [`step-7a.md`](./step-7a.md),
+from the decisions in design section 16. Four changes to the server first, then `web/`. The six
+firsts — `ProjectList`, its SASS module, the first route, action and loader, and `NewProject` — were
+typed by Stjepan, test first; everything else is Claude's.
+
+## The backend changes
+
+### `vitest.config.ts` — only `src`'s tests
+
+```ts
+include: ["src/**/*.test.ts"],
+```
+
+The root's `npm test` collects nothing from `web/`, which has its own runner, environment and setup.
+
+### `src/server.ts` — the API under `/api`
+
+```ts
+const server = express();
+server.disable("x-powered-by");
+server.use("/api", app);
+
+server.use((req, res) => {
+    res.status(404).json({ error: "Not found", code: "not-found" });
+});
+```
+
+**What it does.** Serves `app` under `/api`, the path the browser uses through Vite's proxy, and
+the path it will use once hosted. Anything outside `/api` names nothing, and gets JSON like every
+other answer. The tests import `app` itself, so they call it without the prefix and not one changed.
+
+### `src/app.ts` — a write from another site is refused
+
+```ts
+const readOnlyMethods = new Set(["GET", "HEAD", "OPTIONS"]);
+
+app.use((req, res, next) => {
+    const startedOn = req.get("Sec-Fetch-Site");
+
+    if (!readOnlyMethods.has(req.method) && startedOn !== undefined && startedOn !== "same-origin") {
+        res.status(403).json({ error: "This request came from another site", code: "other-origin" });
+        return;
+    }
+
+    next();
+});
+```
+
+**What it does.** A browser marks every request with where it was started. Taskco's own pages send
+`same-origin`. A request that changes something, started anywhere else — another site, or another
+app on `localhost`, which `SameSite` counts as the same site — is refused before anything else runs:
+above `express.json()`, and above the two routes anyone may use. A request with no header at all
+passes: `curl`, the tests, and a browser too old to send it. Run on 2026-11-03 against the dev
+server, logged in: a `POST /api/projects` marked `cross-site` or `same-site` was 403 and created
+nothing, and a `GET` marked `cross-site` was answered.
+
+### `src/errors.ts` and `handleErrors` — every refusal carries a code
+
+```ts
+export class Refused extends Error {
+    name = "Refused";
+
+    constructor(
+        readonly code: RefusalCode,
+        message: string
+    ) {
+        super(message);
+    }
+}
+```
+
+**What it does.** A refusal now names its reason as a code, for a program, beside its message, for
+whoever reads the terminal. `RefusalCode` is a fixed list, so a misspelt code does not compile.
+`handleErrors` and every fixed answer in `app.ts` send `{ error, code }`, and `invalid-body` keeps
+its Zod `issues` beside them. A screen reads the code and chooses its own words; it never reads
+`error`. **A code names a reason, not a place:** `project-being-deleted` is thrown from many
+functions and is one code. Codes do not change once a screen uses them.
+
+| Code | Status | Answered when |
+|---|---|---|
+| `invalid-body` | 400 | Zod refused the body; `issues` come with it |
+| `invalid-json` | 400 | the body is not JSON |
+| `unreadable-request` | 400, 415 | a character set, encoding or path escape that cannot be read |
+| `body-too-large` | 413 | over 100 kB |
+| `wrong-email-or-password` | 401 | any failed login |
+| `not-logged-in` | 401 | no live session |
+| `other-origin` | 403 | a write from another site, above |
+| `lead-only` | 403 | an Associate asking for the Lead's action |
+| `not-found` | 404 | every `NotFound`, and every path that names nothing |
+| `email-taken` | 409 | `registerUser` |
+| `unknown-timezone` | 409 | `registerUser`: a name Postgres does not know |
+| `account-being-deleted` | 409 | `deleteAccount` twice |
+| `account-not-reopenable` | 409 | `reopenAccount` outside its window |
+| `project-being-deleted` | 409 | `addMember`, `deleteProject`, `deleteProjectNow`, and every writer through `refuseIfProjectIsBeingDeleted` |
+| `project-not-restorable` | 409 | `restoreProject` |
+| `new-lead-not-a-member`, `new-lead-being-deleted`, `already-lead` | 409 | `transferLeadership` |
+| `cannot-remove-lead` | 409 | `endMembership` |
+| `own-neighbour`, `neighbour-not-found`, `no-neighbour`, `neighbour-in-another-project` | 409 | `moveTask` |
+| `subtask-limit` | 409 | `createSubtask` |
+| `subtask-due-after-task` | 409 | `refuseDueDateAfterParent` |
+| `assignee-not-a-member` | 409 | `refuseUnlessCurrentMember` |
+| `no-account`, `already-a-member` | 409 | `createInvite`; `already-a-member` from `acceptInvite` too |
+| `invite-expired` | 409 | `acceptInvite` |
+| `not-completed-today` | 409 | `undoCompletion` |
+| `server-error` | 500 | anything else |
+
+The step 5 snapshot of `handleErrors` and `errors.ts`, above, is from before the codes.
+
+## `web/`
+
+The frontend, with its own `package.json`, run from `web\`. Vite serves it on port 5173 and passes
+`/api` to the server on 3000, so the browser sees one origin and the session cookie, which is
+`Secure`, is kept on plain `http://localhost`.
+
+### The setup
+
+| File | What it holds |
+|---|---|
+| `package.json` | Exact versions: React 19.3.0, React Router 8.4.0, Vite 8.3.2, Vitest 5.0.3, TypeScript 7.0.2, `sass-embedded` 1.105.1, `jsdom` 30.1.1, Testing Library. `engines`: Node 24.7 or later, as in the root's. Scripts: `dev`, `test`, `typecheck`, `build` |
+| `vite.config.ts` | The React plugin; port 5173, strictly; the proxy `/api` → `http://127.0.0.1:3000`; Vitest in `jsdom`, with `src/testing/setup.ts`, and `unstubGlobals`, so a `fetch` a test replaced is the real one again in the next |
+| `tsconfig.json` | DOM types, `react-jsx`, bundler resolution, `vite/client` types so a `.module.scss` import has a type, `strict` and `noUncheckedIndexedAccess` as at the root |
+| `index.html`, `src/main.tsx` | One `<div id="root">`. `main.tsx` builds the router from `routes.tsx` with `createBrowserRouter`, and shows it through `RouterProvider` from `react-router/dom`, in `StrictMode` |
+
+**Two `RouterProvider`s.** The browser's comes from `react-router/dom`; the tests' from
+`react-router`, around a memory router. Each works in its own place.
+
+### The routes — `src/routes.tsx`
+
+| Path | Shows | Loader | Action |
+|---|---|---|---|
+| (around everything) | `RootError` for any error no page handles; "Loading…" while the first page loads | — | — |
+| (around `/`) | `AccountLayout`: the email and Log out, above the page | `accountLoader`: `GET /account` | — |
+| `/` | `ProjectsPage` | `projectsLoader`: `GET /projects` | `createProjectAction`: `POST /projects` |
+| `/login` | `LoginPage` | `loginLoader`: someone logged in goes on to `/` | `loginAction`: `POST /sessions`, then `/` |
+| `/register` | `RegisterPage` | `loginLoader`, the same | `registerAction`: `POST /users`, then `/` |
+| `/logout` | — | — | `logoutAction`: `DELETE /sessions/current`, then `/login` |
+
+**Every 401 goes to `/login` from one place, `RootError`.** A loader lets its 401 through; the
+error page turns it into `/login`, so a session ended in another tab sends the next navigation
+there. Anything else is one sentence in the frontend's words. **The login form's own 401 is not
+that rule:** a wrong password is 401 too, and `loginAction` catches it and shows the words.
+`/` has the id `"projects"`, so a test can read what its action returned.
+
+### Asking the API — `src/api/`
+
+```ts
+export async function api<T>(method: string, path: string, body?: unknown): Promise<T>
+```
+
+**`client.ts`.** The one way a screen asks. It adds `/api`, sends a body as JSON, and reads no
+body from a 204. A refusal is thrown as an `ApiError` carrying the status, the code and the
+server's sentence. `fetch` fails only when nothing answers, which is `unreachable`, status 0. So is
+the 502, with no body, that Vite's proxy gives when the server is not running, since `fetch` does
+not fail then. Any other answer without the API's body is `server-error`.
+
+**`types.ts`.** What the API sends, as it arrives, written by hand from the endpoint tables: ids and
+moments are strings, a due date is `DueDate`, a named `string`. Nothing checks them, so a renamed
+column must be changed here too.
+
+**`words.ts`.** `wordsFor(code)`: the words a person reads, from a `Map`, so a code like `toString`
+finds nothing. One general sentence for any code without words of its own.
+
+| Code | Words |
+|---|---|
+| `wrong-email-or-password` | The email or password is wrong. |
+| `email-taken` | An account already uses that email. Log in instead? |
+| `unknown-timezone` | Your browser's timezone isn't one Taskco knows. |
+| `unreachable` | Taskco can't be reached. Is the server running? |
+| any other | Something went wrong. Try again. |
+
+Three more sentences belong to the pages that check them before anything is sent: "Give the project
+a name", "That doesn't look like an email address." and "A password needs 8 to 128 characters."
+
+### The pages
+
+**`login/LoginPage.tsx`** — the form, its loader and action. A refusal shows in an element with
+`role="alert"`, which a screen reader announces, and the email stays in its box. Links to
+`/register`.
+
+**`register/RegisterPage.tsx`** — a copy, with three differences:
+
+- **It checks before sending**, in the action, which runs in the browser: an address that does not
+  look like one, and a password outside 8 to 128 characters, the API's own rule. The form has
+  `noValidate`, or the browser's own checks would answer first, in its words.
+- **The address check is looser than the API's** — `new@example.c` passes it — so the API's
+  `invalid-body` is said in the same words. Nothing else in the body can be invalid by then.
+- **The timezone is the browser's own**, from `Intl`. When the browser names none, it is worked out
+  from the clock:
+
+```ts
+function browserTimezone(): string {
+    const named = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (named) {
+        return named;
+    }
+    const hours = new Date().getTimezoneOffset() / 60;
+    return `Etc/GMT${hours < 0 ? "-" : "+"}${Math.abs(hours)}`;
+}
+```
+
+  `getTimezoneOffset` is minutes *behind* UTC, and the timezone database writes `Etc` names with the
+  sign reversed: 480 is `Etc/GMT+8`, eight hours behind. Right today, an hour off after a
+  daylight-saving change. A half-hour offset has no `Etc` name, and the API answers
+  `unknown-timezone`. Why it is needed: this machine is set to *British Columbia Standard Time*, a
+  Windows zone too new for the timezone data in Node and in Chromium, so both name no zone.
+
+**`account/AccountLayout.tsx`, `account/logout.ts`, `RootError.tsx`** — who is logged in, logging
+out, and where errors go, as in the routes above.
+
+**`projects/ProjectsPage.tsx`** — `/`: the heading, `NewProject` given the names in the list, and
+`ProjectList`.
+
+**`projects/ProjectList.tsx`** — each project's name, in the order given, or "No projects yet".
+
+**`projects/NewProject.tsx`** — the first component that keeps state:
+
+| State | What it is |
+|---|---|
+| `open` | whether the name field is showing, or the New project button |
+| `name` | what is typed; the field shows it, and every key press stores it |
+| `refusal` | "Give the project a name", after Create is pressed on a blank one |
+
+The hint, "You already have a project called Garden.", is not state: it is worked out on every
+draw, from `name` and the names `ProjectsPage` passes in, ignoring case and spaces at either end. It
+does not refuse. Create on a blank name calls `preventDefault()`, so nothing is sent; any other name
+is sent, and the form closes, as Cancel does. React Router reads the form before React takes it off
+the page. A refusal from the API, read with `useActionData`, shows under New project.
+
+**`projects/createProject.ts`** — `/`'s action. It sends the name as typed; the API trims it. After
+it, the router reloads `/`'s data, so the list shows the new project with nothing more written.
+
+### The styles
+
+| Module | Used by | What it does |
+|---|---|---|
+| `projects/ProjectList.module.scss` | `ProjectList` | no bullets or browser spacing; a gap and a line under each name |
+| `AccountForm.module.scss` | `LoginPage`, `RegisterPage` | one field under another, at most 20rem wide, a refusal in red |
+| `account/AccountLayout.module.scss` | `AccountLayout` | the email and Log out on one line, a line under them |
+| `projects/NewProject.module.scss` | `NewProject` | the field and its buttons on one line; the hint and any refusal on their own line, after the buttons |
+
+Each class reaches the page renamed — `.form` becomes `_form_` and a hash — so no other file's
+`.form` can clash with it.
+
+### The tests — `web/src/**/*.test.tsx`
+
+Forty-seven tests in ten files, in `jsdom`, finding things by role, label and text, and typing and
+clicking with `userEvent`, the way a person would.
+
+| File | What it holds |
+|---|---|
+| `testing/setup.ts` | `cleanup()` after every test. Testing Library does it by itself only where test functions are global, and here they are imported |
+| `testing/standInFetch.ts` | a `fetch` that answers every request the same way, for `client.ts`'s tests |
+| `testing/standInApi.ts` | a `fetch` that answers each request by name, `"GET /account"`; an answer given as a function is read at that moment, so a session can end midway |
+
+**Pages are tested through the real routes**, in a memory router, so the loaders, actions and the
+error page run as they do in the browser. **A test that passed from the start was broken on
+purpose** to be seen failing, in the one way it guards against. Two things no test sees: the
+redirect after registering, which `/register`'s loader would make anyway once the session exists,
+and how the pages look. **The register tests pin the browser's timezone**, since Node here names
+none.
+
+**Open:** `no-timezone-change`, which the clock's `Etc` zones make more pressing, and
+`new-project-refusal-outlives-typing`.
 
 ---
 
