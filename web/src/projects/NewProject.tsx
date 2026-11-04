@@ -1,5 +1,6 @@
 import {useState, type SubmitEvent} from 'react'
-import {Form} from 'react-router';
+import {Form, useActionData} from 'react-router';
+import type { createProjectAction } from "./createProject";
 
 type Props = {
     names: string[];
@@ -9,6 +10,8 @@ export function NewProject({ names }: Props) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState("");
     const [refusal, setRefusal] = useState<string | null>(null);
+    // What /'s action last answered. The form has closed by then, so a refusal shows by the button
+    const answer = useActionData<typeof createProjectAction>();
 
     // Create was pressed: a blank name stops here. Any other name is sent, and the form closes
     function create(event: SubmitEvent<HTMLFormElement>) {
@@ -29,9 +32,12 @@ export function NewProject({ names }: Props) {
 
     if(!open) {
         return (
-            <button type="button" onClick={() => setOpen(true)}>
-                New project
-            </button>
+            <>
+                <button type="button" onClick={() => setOpen(true)}>
+                    New project
+                </button>
+                {answer?.refusal && <p role="alert">{answer.refusal}</p>}
+            </>
         )
     }
 

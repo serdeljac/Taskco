@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { routes } from "../routes";
 import { standInApi, type Answer } from "../testing/standInApi";
@@ -65,5 +66,16 @@ describe("creating a project", () => {
 
         expect(await screen.findByLabelText("Email")).toBeDefined();
         expect(router.state.location.pathname).toBe("/login");
+    });
+
+    it("shows a refusal beside New project, since the form has closed", async () => {
+        await showProjects(() => [502]);
+
+        await userEvent.click(screen.getByRole("button", { name: "New project" }));
+        await userEvent.type(screen.getByLabelText("Name"), "Garden");
+        await userEvent.click(screen.getByRole("button", { name: "Create" }));
+
+        expect(await screen.findByText("Taskco can't be reached. Is the server running?")).toBeDefined();
+        expect(screen.getByRole("button", { name: "New project" })).toBeDefined();
     });
 });
