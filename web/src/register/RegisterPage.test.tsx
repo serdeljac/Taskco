@@ -92,6 +92,30 @@ describe("/register", () => {
     });
 
     it.each([
+        [480, "Etc/GMT+8"],
+        [-120, "Etc/GMT-2"],
+    ])("works the timezone out from the clock when the browser names none: %i minutes is %s", async (offset, zone) => {
+        // A computer set to a zone too new for the browser's data, 8 hours behind UTC or 2 ahead
+        const known = new Intl.DateTimeFormat().resolvedOptions();
+        const named = vi
+            .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+            .mockReturnValue({ ...known, timeZone: undefined as unknown as string });
+        const clock = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(offset);
+        onTestFinished(() => {
+            named.mockRestore();
+            clock.mockRestore();
+        });
+        const { fetch } = showRegister({ "POST /users": [409, { error: "refused", code: "email-taken" }] });
+
+        await register("new@example.com", "taskco-demo");
+
+        await waitFor(() => {
+            const registering = fetch.mock.calls.find(([, init]) => init?.method === "POST");
+            expect(JSON.parse(String(registering?.[1]?.body)).timezone).toBe(zone);
+        });
+    });
+
+    it.each([
         ["email-taken", "An account already uses that email. Log in instead?"],
         ["unknown-timezone", "Your browser's timezone isn't one Taskco knows."],
     ])("says the API's %s in Taskco's words, and keeps the email", async (code, words) => {

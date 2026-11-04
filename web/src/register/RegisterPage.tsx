@@ -18,6 +18,19 @@ function refusalFor(email: string, password: string): string | null {
     return null;
 }
 
+// The browser's own timezone. A computer set to a zone too new for the browser's data gets no name,
+// so one is worked out from its clock: 480 minutes behind UTC is Etc/GMT+8, the sign reversed as the
+// timezone database writes it. Right today; an hour off after a daylight-saving change. A half-hour
+// offset has no such name, and the API refuses it in words of its own
+function browserTimezone(): string {
+    const named = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (named) {
+        return named;
+    }
+    const hours = new Date().getTimezoneOffset() / 60;
+    return `Etc/GMT${hours < 0 ? "-" : "+"}${Math.abs(hours)}`;
+}
+
 export async function registerAction({ request }: ActionFunctionArgs) {
     const form = await request.formData();
     const email = String(form.get("email"));
@@ -29,16 +42,12 @@ export async function registerAction({ request }: ActionFunctionArgs) {
     }
 
     try {
-        // The timezone is the browser's own. Registering logs the new account in at once
-        await api<{ user: User }>("POST", "/users", {
-            email,
-            password,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        });
+        // Registering logs the new account in at once
+        await api<{ user: User }>("POST", "/users", { email, password, timezone: browserTimezone() });
     } catch (error) {
         if (error instanceof ApiError) {
-            // The password passed the API's own rules above, and the timezone is a name the browser
-            // gave, so a body the API refuses has an address its stricter rule does not take
+            // The password passed the API's own rules above, and there is always a timezone to send,
+            // so a body the API refuses has an address its stricter rule does not take
             return { refusal: error.code === "invalid-body" ? notAnAddress : wordsFor(error.code) };
         }
         throw error;
