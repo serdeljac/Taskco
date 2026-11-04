@@ -1,6 +1,7 @@
 import {useState, type SubmitEvent} from 'react'
 import {Form, useActionData} from 'react-router';
 import type { createProjectAction } from "./createProject";
+import styles from "./NewProject.module.scss";
 
 type Props = {
     names: string[];
@@ -32,12 +33,12 @@ export function NewProject({ names }: Props) {
 
     if(!open) {
         return (
-            <>
+            <div className={styles.newProject}>
                 <button type="button" onClick={() => setOpen(true)}>
                     New project
                 </button>
                 {answer?.refusal && <p role="alert">{answer.refusal}</p>}
-            </>
+            </div>
         )
     }
 
@@ -45,7 +46,7 @@ export function NewProject({ names }: Props) {
     const taken = names.find((listed) => listed.toLowerCase() === name.trim().toLowerCase());
 
     return (
-        <Form method="post" onSubmit={create}>
+        <Form method="post" onSubmit={create} className={styles.newProject}>
             <label>
                 Name
                 <input name="name" value={name} onChange={(event) => setName(event.target.value)} />

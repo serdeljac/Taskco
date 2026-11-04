@@ -1,0 +1,30 @@
+// The login and register forms: one field under another, narrow enough to read at a glance
+$gap: 0.75rem;
+$label-gap: 0.25rem;
+$refusal: #b00020;
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $gap;
+    max-width: 20rem;
+
+    h1 {
+        margin: 0;
+    }
+
+    label {
+        display: flex;
+        flex-direction: column;
+        gap: $label-gap;
+    }
+
+    button {
+        align-self: flex-start;
+    }
+
+    p[role="alert"] {
+        margin: 0;
+        color: $refusal;
+    }
+}

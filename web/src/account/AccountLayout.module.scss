@@ -1,0 +1,19 @@
+// Around every page for someone logged in: who they are and Log out on one line, the page under it
+$gap: 1rem;
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $gap;
+    padding-bottom: $gap;
+    border-bottom: 1px solid #ddd;
+
+    form {
+        margin: 0;
+    }
+}
+
+.main {
+    padding-top: $gap;
+}

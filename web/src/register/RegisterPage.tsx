@@ -2,6 +2,7 @@ import { Form, Link, redirect, useActionData, type ActionFunctionArgs } from "re
 import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
 import { wordsFor } from "../api/words";
+import styles from "../AccountForm.module.scss";
 
 const notAnAddress = "That doesn't look like an email address.";
 
@@ -52,7 +53,7 @@ export function RegisterPage() {
 
     return (
         <>
-            <Form method="post" noValidate>
+            <Form method="post" noValidate className={styles.form}>
                 <h1>Register</h1>
                 {answer?.refusal && <p role="alert">{answer.refusal}</p>}
                 <label>

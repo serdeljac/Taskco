@@ -2,6 +2,7 @@ import { Form, Link, redirect, useActionData, type ActionFunctionArgs } from "re
 import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
 import { wordsFor } from "../api/words";
+import styles from "../AccountForm.module.scss";
 
 // Someone already logged in has no use for the form, so on to /. Here a 401 is the answer, not a
 // reason to come to /login: the form shows
@@ -40,7 +41,7 @@ export function LoginPage() {
 
     return (
         <>
-            <Form method="post">
+            <Form method="post" className={styles.form}>
                 <h1>Log in</h1>
                 {answer?.refusal && <p role="alert">{answer.refusal}</p>}
                 <label>
