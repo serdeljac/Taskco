@@ -4,6 +4,7 @@ import { logoutAction } from "./account/logout";
 import { LoginPage, loginAction, loginLoader } from "./login/LoginPage";
 import { createProjectAction } from "./projects/createProject";
 import { ProjectsPage, projectsLoader } from "./projects/ProjectsPage";
+import { RegisterPage, registerAction } from "./register/RegisterPage";
 import { RootError } from "./RootError";
 
 export const routes: RouteObject[] = [
@@ -27,6 +28,8 @@ export const routes: RouteObject[] = [
                 ],
             },
             { path: "/login", element: <LoginPage />, loader: loginLoader, action: loginAction },
+            // The same loader as /login's: someone already logged in has no use for either form
+            { path: "/register", element: <RegisterPage />, loader: loginLoader, action: registerAction },
             { path: "/logout", action: logoutAction },
         ],
     },
