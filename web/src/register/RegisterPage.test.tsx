@@ -28,6 +28,25 @@ function sentAnything(fetch: ReturnType<typeof standInApi>) {
     return fetch.mock.calls.some(([, init]) => init?.method === "POST");
 }
 
+function sentTimezone(fetch: ReturnType<typeof standInApi>) {
+    const registering = fetch.mock.calls.find(([, init]) => init?.method === "POST");
+    return registering ? JSON.parse(String(registering[1]?.body)).timezone : undefined;
+}
+
+// Pins what the browser says about time for one test: the zone it names, or none, as on a computer
+// set to a zone too new for its data, and the clock's minutes behind UTC
+function pinBrowser(timeZone: string | undefined, offset = 0) {
+    const known = new Intl.DateTimeFormat().resolvedOptions();
+    const named = vi
+        .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+        .mockReturnValue({ ...known, timeZone: timeZone as string });
+    const clock = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(offset);
+    onTestFinished(() => {
+        named.mockRestore();
+        clock.mockRestore();
+    });
+}
+
 describe("/register", () => {
     it("shows an email field, a password field, a Register button, and a way to log in instead", async () => {
         showRegister();
@@ -63,14 +82,8 @@ describe("/register", () => {
         expect(sentAnything(fetch)).toBe(false);
     });
 
-    it("sends what was typed with the browser's own timezone, and lands on / logged in", async () => {
-        // Node on Windows can report no timezone at all, so the browser's is pinned here
-        const known = new Intl.DateTimeFormat().resolvedOptions();
-        const timezone = vi
-            .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
-            .mockReturnValue({ ...known, timeZone: "Europe/Zagreb" });
-        onTestFinished(() => timezone.mockRestore());
-
+    it("sends what was typed with the browser's own timezone, asking nothing about it, and lands on /", async () => {
+        pinBrowser("Europe/Zagreb");
         const session = { loggedIn: false };
         const { router, fetch } = showRegister({
             "GET /account": () => (session.loggedIn ? [200, { user: newUser }] : notLoggedIn),
@@ -81,38 +94,38 @@ describe("/register", () => {
             "GET /projects": [200, { projects: [] }],
         });
 
+        expect(await screen.findByLabelText("Email")).toBeDefined();
+        expect(screen.queryByLabelText("Timezone")).toBeNull();
         await register("new@example.com", "taskco-demo");
 
         expect(await screen.findByText("No projects yet")).toBeDefined();
         expect(router.state.location.pathname).toBe("/");
-        const registering = fetch.mock.calls.find(([, init]) => init?.method === "POST");
-        expect(registering?.[1]?.body).toBe(
-            JSON.stringify({ email: "new@example.com", password: "taskco-demo", timezone: "Europe/Zagreb" })
-        );
+        expect(sentTimezone(fetch)).toBe("Europe/Zagreb");
     });
 
     it.each([
-        [480, "Etc/GMT+8"],
-        [-120, "Etc/GMT-2"],
-    ])("works the timezone out from the clock when the browser names none: %i minutes is %s", async (offset, zone) => {
-        // A computer set to a zone too new for the browser's data, 8 hours behind UTC or 2 ahead
-        const known = new Intl.DateTimeFormat().resolvedOptions();
-        const named = vi
-            .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
-            .mockReturnValue({ ...known, timeZone: undefined as unknown as string });
-        const clock = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(offset);
-        onTestFinished(() => {
-            named.mockRestore();
-            clock.mockRestore();
-        });
+        [480, "Etc/GMT+8", "UTC-8 (a guess from this computer's clock)"],
+        [-120, "Etc/GMT-2", "UTC+2 (a guess from this computer's clock)"],
+    ])("asks for the timezone when the browser names none, the clock's guess chosen: %i minutes is %s", async (offset, zone, words) => {
+        pinBrowser(undefined, offset);
         const { fetch } = showRegister({ "POST /users": [409, { error: "refused", code: "email-taken" }] });
 
+        const list = await screen.findByLabelText("Timezone");
+        expect(list).toHaveProperty("value", zone);
+        expect(screen.getByRole("option", { name: words, selected: true })).toBeDefined();
         await register("new@example.com", "taskco-demo");
 
-        await waitFor(() => {
-            const registering = fetch.mock.calls.find(([, init]) => init?.method === "POST");
-            expect(JSON.parse(String(registering?.[1]?.body)).timezone).toBe(zone);
-        });
+        await waitFor(() => expect(sentTimezone(fetch)).toBe(zone));
+    });
+
+    it("sends the timezone picked from the list", async () => {
+        pinBrowser(undefined, 480);
+        const { fetch } = showRegister({ "POST /users": [409, { error: "refused", code: "email-taken" }] });
+
+        await userEvent.selectOptions(await screen.findByLabelText("Timezone"), "America/Vancouver");
+        await register("new@example.com", "taskco-demo");
+
+        await waitFor(() => expect(sentTimezone(fetch)).toBe("America/Vancouver"));
     });
 
     it.each([

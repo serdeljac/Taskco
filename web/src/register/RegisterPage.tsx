@@ -18,17 +18,43 @@ function refusalFor(email: string, password: string): string | null {
     return null;
 }
 
-// The browser's own timezone. A computer set to a zone too new for the browser's data gets no name,
-// so one is worked out from its clock: 480 minutes behind UTC is Etc/GMT+8, the sign reversed as the
-// timezone database writes it. Right today; an hour off after a daylight-saving change. A half-hour
-// offset has no such name, and the API refuses it in words of its own
-function browserTimezone(): string {
-    const named = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (named) {
-        return named;
-    }
+// The browser's own timezone, or undefined: a computer set to a zone too new for the browser's data
+// gets no name, and then the person is asked
+function namedTimezone(): string | undefined {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+}
+
+// A guess from the clock, chosen already when the person is asked: 480 minutes behind UTC is
+// Etc/GMT+8, the sign reversed as the timezone database writes it. Only a guess: the same data that
+// cannot name the zone can get the clock wrong too, an hour behind on this machine
+function clockGuess(): { zone: string; words: string } {
     const hours = new Date().getTimezoneOffset() / 60;
-    return `Etc/GMT${hours < 0 ? "-" : "+"}${Math.abs(hours)}`;
+    return {
+        zone: `Etc/GMT${hours < 0 ? "-" : "+"}${Math.abs(hours)}`,
+        words: `UTC${hours > 0 ? "-" : "+"}${Math.abs(hours)} (a guess from this computer's clock)`,
+    };
+}
+
+// Shown only when the browser names no zone: every zone it knows, with the clock's guess first
+function TimezoneField() {
+    const guess = clockGuess();
+
+    return (
+        <>
+            <p>Your browser doesn't say which timezone you're in, so choose yours.</p>
+            <label>
+                Timezone
+                <select name="timezone" defaultValue={guess.zone}>
+                    <option value={guess.zone}>{guess.words}</option>
+                    {Intl.supportedValuesOf("timeZone").map((zone) => (
+                        <option key={zone} value={zone}>
+                            {zone}
+                        </option>
+                    ))}
+                </select>
+            </label>
+        </>
+    );
 }
 
 export async function registerAction({ request }: ActionFunctionArgs) {
@@ -42,8 +68,9 @@ export async function registerAction({ request }: ActionFunctionArgs) {
     }
 
     try {
-        // Registering logs the new account in at once
-        await api<{ user: User }>("POST", "/users", { email, password, timezone: browserTimezone() });
+        // The browser's zone, or the one chosen from the list. Registering logs the new account in at once
+        const timezone = namedTimezone() ?? String(form.get("timezone"));
+        await api<{ user: User }>("POST", "/users", { email, password, timezone });
     } catch (error) {
         if (error instanceof ApiError) {
             // The password passed the API's own rules above, and there is always a timezone to send,
@@ -73,6 +100,7 @@ export function RegisterPage() {
                     Password
                     <input type="password" name="password" autoComplete="new-password" />
                 </label>
+                {namedTimezone() === undefined && <TimezoneField />}
                 <button type="submit">Register</button>
             </Form>
             <p>
