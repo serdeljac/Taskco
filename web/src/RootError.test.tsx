@@ -53,11 +53,13 @@ describe("the root's error page", () => {
         expect(screen.queryByText(/projects is undefined/)).toBeNull();
     });
 
-    it("is the error page of every route, a page that does not exist included", async () => {
+    it("says there is no page at an address that names none, with a way to the projects", async () => {
         standInApi({});
         const router = createMemoryRouter(routes, { initialEntries: ["/nowhere"] });
         render(<RouterProvider router={router} />);
 
-        expect(await screen.findByText("Something went wrong. Try again.")).toBeDefined();
+        expect(await screen.findByText("There's no page here.")).toBeDefined();
+        expect(screen.queryByText("Something went wrong. Try again.")).toBeNull();
+        expect(screen.getByRole("link", { name: "Go to your projects" }).getAttribute("href")).toBe("/");
     });
 });
