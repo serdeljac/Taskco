@@ -5,14 +5,13 @@ branch `step-7a`, 2026-10-24 to 2026-11-03, as specified in [`step-7a.md`](./ste
 thing that shows a person any of the backend. Stjepan typed its six firsts; every flow in its "done
 looks like" was checked in a browser. Stjepan went over the commits on 2026-11-03, and the review
 followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items, all fixed by 2026-11-05 — see
-the progress log. **Next:** merging `step-7a` into `main`, then specifying 7b, tasks.
+the progress log — and **merged into `main`** on 2026-11-05, as a fast-forward of thirty-one commits.
+`main` is not pushed: `origin/main` ends at 7a's specification. **Next:** specifying 7b, tasks.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
 and merged into `main` the same day, as a fast-forward. Step 5 is 36 endpoints over every function in
 `queries.ts`, with migration `021`; step 6 is migrations `022` and `023`. Four hundred and three tests.
-`main` is not pushed: `origin/main` still ends at step 4c's schema diagram, and `origin/step-5` at
-step 6's docs.
 
 Companion to [`design-decisions.md`](./design-decisions.md), which holds *what* is being built and
 why. This file holds *how the building proceeds* and *what to learn at each stage*.
@@ -851,7 +850,8 @@ review had found wrong here. An unknown address says "There's no page here." wit
 projects. `/logout` typed in goes on to `/`. And New project keeps the keyboard's focus, typed by
 Stjepan. Four items closed. The review's reasoned half of the last item is
 `hint-status-may-go-unannounced`, still open with `new-project-refusal-outlives-typing`. Fifty tests
-in `web/`. Not yet merged.
+in `web/`. Merged into `main` on 2026-11-05, as a fast-forward — both suites and both type checks
+run again on `main` — and not pushed.
 
 *Learned:* that focus is part of what a component shows. Take the pressed button off the page and
 focus has nowhere to go. And `autoFocus` alone would grab it on the first page load too, so
