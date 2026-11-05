@@ -17,6 +17,7 @@ import {
     findTaskProject,
     setTaskStatus,
     setTaskPriority,
+    renameTask,
 } from "../queries.js";
 
 
@@ -900,5 +901,56 @@ describe("4_tasks", () => {
         await expect(
             setTaskPriority({ taskId: task.id, priority: "low" })
         ).rejects.toMatchObject({ message: "setTaskPriority: task not found" });
+    });
+
+    it("renames a task", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        //TEST
+        await renameTask({ taskId: task.id, title: "Draft the landing page" });
+
+        const tasks = await listTasks({ projectId: project.id, userId: lead.id });
+        expect(tasks[0]?.title).toBe("Draft the landing page");
+    });
+
+    it("refuses a blank title when renaming", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+
+        //TEST
+        await expect(
+            renameTask({ taskId: task.id, title: "   " })
+        ).rejects.toMatchObject({ code: "23514", constraint: "tasks_title_not_blank" });
+    });
+
+    it("refuses to rename a deleted task", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await deleteTask(task.id);
+
+        //TEST
+        await expect(
+            renameTask({ taskId: task.id, title: "Draft the landing page" })
+        ).rejects.toMatchObject({ message: "renameTask: task not found" });
+    });
+
+    it("refuses to rename a task while its project is being deleted", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await deleteProject(project.id);
+
+        //TEST
+        await expect(
+            renameTask({ taskId: task.id, title: "Draft the landing page" })
+        ).rejects.toMatchObject({ message: "renameTask: task not found" });
     });
 });

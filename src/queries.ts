@@ -786,6 +786,24 @@ export async function setTaskNotes(change: {
     }
 }
 
+//Through visible_tasks, like every other change to a task: a deleted task, or one in a project being deleted, is not found.
+//A blank title is refused by tasks_title_not_blank
+export async function renameTask(change: {
+    taskId: string;
+    title: string;
+}): Promise<void> {
+    const updated = await pool.query(
+        `update tasks
+        set title = $1
+        where id in (select id from visible_tasks where id = $2)`,
+        [change.title, change.taskId]
+    );
+
+    if (updated.rowCount === 0) {
+        throw new NotFound("renameTask: task not found");
+    }
+}
+
 export async function setTaskStatus(change: {
     taskId: string;
     status: TaskStatus;

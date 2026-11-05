@@ -21,6 +21,7 @@ import {
     setTaskStatus,
     setTaskPriority,
     setTaskNotes,
+    renameTask,
     setTaskDueDate,
     setTaskAssignee,
     moveTask,
@@ -470,6 +471,23 @@ app.put("/tasks/:taskId/notes", requireMember, async (req, res) => {
     }
 
     await setTaskNotes({ taskId: req.params.taskId, notes: body.data.notes });
+    res.status(204).end();
+});
+
+//A new title, by the same rule as a new task's: trimmed, and not blank
+const taskTitle = z.strictObject({
+    title: z.string().trim().min(1),
+});
+
+app.put("/tasks/:taskId/title", requireLead, async (req, res) => {
+    const body = taskTitle.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
+        return;
+    }
+
+    await renameTask({ taskId: req.params.taskId, title: body.data.title });
     res.status(204).end();
 });
 

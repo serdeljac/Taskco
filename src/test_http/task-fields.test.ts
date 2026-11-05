@@ -426,3 +426,72 @@ describe("PUT /tasks/:taskId/assignee", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("PUT /tasks/:taskId/title", () => {
+    it("lets the Lead rename a task, trimming the title", async () => {
+        //CREATE
+        const { ana, project, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/title`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ title: "  Mend the gate  " });
+
+        expect(response.status).toBe(204);
+        expect((await reread(project, ana))?.title).toBe("Mend the gate");
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const { ana, ben, project, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/title`)
+            .set("Cookie", await cookieFor(ben))
+            .send({ title: "Mend the gate" });
+
+        expect(response.status).toBe(403);
+        expect((await reread(project, ana))?.title).toBe("Fix the gate");
+    });
+
+    it("refuses a blank title", async () => {
+        //CREATE
+        const { ana, project, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/title`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ title: "   " });
+
+        expect(response.status).toBe(400);
+        expect(response.body.code).toBe("invalid-body");
+        expect((await reread(project, ana))?.title).toBe("Fix the gate");
+    });
+
+    it("answers 404 for a deleted task", async () => {
+        //CREATE
+        const { ana, task } = await website();
+        await deleteTask(task.id);
+
+        //TEST
+        const response = await request(app)
+            .put(`/tasks/${task.id}/title`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ title: "Mend the gate" });
+
+        expect(response.status).toBe(404);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/tasks/1/title")
+            .send({ title: "Mend the gate" });
+
+        expect(response.status).toBe(401);
+    });
+});
