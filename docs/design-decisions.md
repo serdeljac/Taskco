@@ -438,6 +438,9 @@ active. Four decisions came with it.
 ### Fields
 Due date, notes, and priority are all optional. Plus status and assignee.
 
+**A title can be changed, by the Lead**, decided 2026-11-05 for slice 7b — and so can a project's
+name. A typo should not cost deleting and creating again. Subtasks follow in 7c. See section 16.
+
 **Notes are a `text` column on tasks and on subtasks**, added 2026-09-17 after the slice B review
 found the field described here and missing from the schema. Blank text is refused, so "no notes" has
 exactly one spelling — empty — and nothing has to ask twice.
@@ -1257,3 +1260,22 @@ chose the list — item 1 of [`step-7a-review.md`](./step-7a-review.md),
 
 *Rejected — the guess alone:* wrong here, and nothing could change it afterwards until
 `no-timezone-change`. *Rejected — UTC:* simplest, and "today" would start at 5pm here.
+
+### Slice 7b — three decisions
+
+Decided 2026-11-05, by Stjepan, each as recommended, while [`step-7b.md`](./step-7b.md) was
+specified.
+
+- **`no-renaming` — the Lead may rename a task and a project.** One function and one endpoint each,
+  no migration, refused like every other writer while the project is being deleted. A typo should
+  not mean deleting and creating again. Subtasks wait for 7c, where they first appear on screen.
+  *Rejected — tasks only:* a project's name has typos too. *Rejected — no renaming:* the cost of a
+  typo is the whole task, its notes and its subtasks.
+- **A task is changed on its own page**, `/projects/:projectId/tasks/:taskId`, opened from the list
+  and shown under it. Each field saves on its own, as the API's endpoints do. *Rejected — controls
+  in every row of the list:* quicker to reach, crowded with five fields, and 7c's subtasks would
+  need a home anyway.
+- **The warning before a task's date clears subtask dates waits for 7c**, with the subtask rule's
+  "not before today". Both are about subtasks, which a person first sees in 7c. *Accepted cost:*
+  until then, moving a task's date earlier clears its subtasks' later dates without asking, as the
+  API always has.

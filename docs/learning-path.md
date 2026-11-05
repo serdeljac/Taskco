@@ -6,7 +6,9 @@ thing that shows a person any of the backend. Stjepan typed its six firsts; ever
 looks like" was checked in a browser. Stjepan went over the commits on 2026-11-03, and the review
 followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items, all fixed by 2026-11-05 — see
 the progress log — and **merged into `main`** on 2026-11-05, as a fast-forward of thirty-one commits.
-`main` is not pushed: `origin/main` ends at 7a's specification. **Next:** specifying 7b, tasks.
+`main` is not pushed: `origin/main` ends at 7a's specification. Slice 7b — a project's tasks — is
+**specified** in [`step-7b.md`](./step-7b.md), on branch `step-7b`, 2026-11-05. **Next:** building it,
+on Stjepan's go-ahead.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -392,7 +394,14 @@ eighteen pieces in order — twelve for Claude, and six firsts for Stjepan to ty
 kinds of thing — the codes every error answer will carry, and four traps found by running the pinned
 toolchain together.
 
-**Slice 7a built 2026-10-24 to 2026-11-03**, on branch `step-7a`. See the progress log.
+**Slice 7a built 2026-10-24 to 2026-11-03**, on branch `step-7a`, reviewed, fixed, and merged into
+`main` on 2026-11-05. See the progress log.
+
+**Slice 7b specified 2026-11-05**, in [`step-7b.md`](./step-7b.md): a project's tasks. Thirteen
+pieces — eleven for Claude, starting with renaming on the server, and two firsts for Stjepan: a route
+with a parameter and a link, and a fetcher. Stjepan decided three questions the same day: tasks and
+projects can be renamed, a task is changed on its own page, and the subtask-date warning waits for
+7c. Five traps, found by trying the new React Router pieces together first.
 
 ---
 
