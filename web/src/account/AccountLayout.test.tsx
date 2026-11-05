@@ -75,6 +75,16 @@ describe("who is logged in", () => {
         expect(session.loggedIn).toBe(false);
     });
 
+    it("sends a visit to /logout on to /, still logged in: logging out is the button", async () => {
+        const { session, fetch } = theLeadsApi();
+        const router = show("/logout");
+
+        expect(await screen.findByText("Website relaunch")).toBeDefined();
+        expect(router.state.location.pathname).toBe("/");
+        expect(session.loggedIn).toBe(true);
+        expect(fetch.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+    });
+
     it("goes to /login when Log out is pressed after the session already ended elsewhere", async () => {
         const session = { loggedIn: true };
         standInApi({

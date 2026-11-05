@@ -1,6 +1,6 @@
 import type { RouteObject } from "react-router";
 import { AccountLayout, accountLoader } from "./account/AccountLayout";
-import { logoutAction } from "./account/logout";
+import { logoutAction, logoutLoader } from "./account/logout";
 import { LoginPage, loginAction, loginLoader } from "./login/LoginPage";
 import { createProjectAction } from "./projects/createProject";
 import { ProjectsPage, projectsLoader } from "./projects/ProjectsPage";
@@ -30,7 +30,7 @@ export const routes: RouteObject[] = [
             { path: "/login", element: <LoginPage />, loader: loginLoader, action: loginAction },
             // The same loader as /login's: someone already logged in has no use for either form
             { path: "/register", element: <RegisterPage />, loader: loginLoader, action: registerAction },
-            { path: "/logout", action: logoutAction },
+            { path: "/logout", loader: logoutLoader, action: logoutAction },
         ],
     },
 ];
