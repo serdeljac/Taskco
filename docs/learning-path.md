@@ -4,10 +4,8 @@
 branch `step-7a`, 2026-10-24 to 2026-11-03, as specified in [`step-7a.md`](./step-7a.md): the first
 thing that shows a person any of the backend. Stjepan typed its six firsts; every flow in its "done
 looks like" was checked in a browser. Stjepan went over the commits on 2026-11-03, and the review
-followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items. Three are fixed: the register
-page asks for the timezone when the browser names none, an unknown address says there's no page
-there, and `/logout` typed in goes on to `/`. **Next:** `new-project-loses-focus`, in Stjepan's
-`NewProject`, then merging it and specifying 7b, tasks.
+followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items, all fixed by 2026-11-05 — see
+the progress log. **Next:** merging `step-7a` into `main`, then specifying 7b, tasks.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -845,3 +843,16 @@ name the zone also could not tell the right time, so the clock was wrong before 
 it showed only by comparing the browser's clock with the taskbar's. And that the claim "Vite's proxy
 answers 502 when the server is down" had been tested only with a stand-in, until the proxy was
 pointed at a port where nothing listened.
+
+**After the review — the fixes.** 2026-11-03 to 2026-11-05, on branch `step-7a`, each test seen
+failing first, and each checked in a browser. When the browser names no timezone, the register page
+now asks, with the clock's guess chosen already. Stjepan chose that over the guess alone, which the
+review had found wrong here. An unknown address says "There's no page here." with a link to the
+projects. `/logout` typed in goes on to `/`. And New project keeps the keyboard's focus, typed by
+Stjepan. Four items closed. The review's reasoned half of the last item is
+`hint-status-may-go-unannounced`, still open with `new-project-refusal-outlives-typing`. Fifty tests
+in `web/`. Not yet merged.
+
+*Learned:* that focus is part of what a component shows. Take the pressed button off the page and
+focus has nowhere to go. And `autoFocus` alone would grab it on the first page load too, so
+New project takes it back only once the form has been open.

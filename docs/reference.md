@@ -2036,7 +2036,9 @@ The hint, "You already have a project called Garden.", is not state: it is worke
 draw, from `name` and the names `ProjectsPage` passes in, ignoring case and spaces at either end. It
 does not refuse. Create on a blank name calls `preventDefault()`, so nothing is sent; any other name
 is sent, and the form closes, as Cancel does. React Router reads the form before React takes it off
-the page. A refusal from the API, read with `useActionData`, shows under New project.
+the page. A refusal from the API, read with `useActionData`, shows under New project. Focus follows
+the form: the Name field has `autoFocus`, and New project takes focus back once the form has been
+open — `wasOpen`, set by `close()` — but not on the first page load.
 
 **`projects/createProject.ts`** — `/`'s action. It sends the name as typed; the API trims it. After
 it, the router reloads `/`'s data, so the list shows the new project with nothing more written.

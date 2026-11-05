@@ -155,7 +155,7 @@ becomes a decision; an item here becomes a commit.
 | Name | What | Explained in | Status |
 |---|---|---|---|
 | `new-project-refusal-outlives-typing` | After Create on a blank name, "Give the project a name" stays while a name is typed, until Create is pressed again; a refusal from the API, shown under New project, comes back after Cancel too, until the next answer replaces it. Seen in a browser on 2026-11-03. Clearing the blank-name refusal as the name changes is one line in `NewProject` | [reference, `web/`](./reference.md) | Open |
-| `new-project-loses-focus` | Pressing New project, and Cancel, leave the keyboard's focus on the page's `<body>`. *Reasoned:* the hint's `role="status"` arrives with its words, which some screen readers never announce | [7a §4](./step-7a-review.md) | Open — focus the Name field on opening and New project on closing; keep an empty status on the page |
+| `hint-status-may-go-unannounced` | The duplicate-name hint is a `role="status"` element added to the page with its words already in it. Some screen readers announce a status only when its words change after it is on the page, so the hint may never be read out. *Reasoned, not run with a screen reader* | [7a §4](./step-7a-review.md) | Open — keep an empty status on the page, and give it the words |
 
 ### Across files
 
@@ -225,3 +225,4 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `clock-timezone-follows-a-wrong-clock` | [7a §5](./step-7a-review.md) | When the browser names no zone, the register page asks: every zone the browser knows, with the clock's guess at the top and chosen already — `afdd124`. Run: `register-pick@example.com`, with America/Vancouver picked, stores America/Vancouver. `register-check@example.com`, registered before, keeps `Etc/GMT+8` until `taskco_dev` is reseeded |
 | `unknown-page-says-something-went-wrong` | [7a §3](./step-7a-review.md) | `RootError` tells React Router's own 404 from a failure: "There's no page here.", with a link, "Go to your projects", to `/` — `4b622f1`. Run: `/nonsense` in a browser |
 | `logout-page-is-blank` | [7a §3](./step-7a-review.md) | `/logout` has a loader that sends a visit on to `/`, changing nothing; logging out stays the button — `3580d69`. Run in a browser, logged in: `/logout` shows the projects, and Log out still goes to `/login` |
+| `new-project-loses-focus` | [7a §4](./step-7a-review.md) | The Name field has `autoFocus`, and New project takes focus back once the form has been open — `8076130`, typed by Stjepan. Run in a browser by keyboard alone. The reasoned half, about the hint's status, is now `hint-status-may-go-unannounced` |
