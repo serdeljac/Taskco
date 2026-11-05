@@ -1943,11 +1943,12 @@ The frontend, with its own `package.json`, run from `web\`. Vite serves it on po
 | `/` | `ProjectsPage` | `projectsLoader`: `GET /projects` | `createProjectAction`: `POST /projects` |
 | `/login` | `LoginPage` | `loginLoader`: someone logged in goes on to `/` | `loginAction`: `POST /sessions`, then `/` |
 | `/register` | `RegisterPage` | `loginLoader`, the same | `registerAction`: `POST /users`, then `/` |
-| `/logout` | — | — | `logoutAction`: `DELETE /sessions/current`, then `/login` |
+| `/logout` | — | `logoutLoader`: a visit goes on to `/`, changing nothing | `logoutAction`: `DELETE /sessions/current`, then `/login` |
 
 **Every 401 goes to `/login` from one place, `RootError`.** A loader lets its 401 through; the
 error page turns it into `/login`, so a session ended in another tab sends the next navigation
-there. Anything else is one sentence in the frontend's words. **The login form's own 401 is not
+there. An address that matches no route is React Router's own 404: "There's no page here.", with
+a link, "Go to your projects", to `/`. Anything else is one sentence in the frontend's words. **The login form's own 401 is not
 that rule:** a wrong password is 401 too, and `loginAction` catches it and shows the words.
 `/` has the id `"projects"`, so a test can read what its action returned.
 
