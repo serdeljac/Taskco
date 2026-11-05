@@ -10,6 +10,7 @@ import {
     createTask,
     createSubtask,
     deleteProjectNow,
+    renameProject,
 } from "../queries.js";
 
 
@@ -173,6 +174,44 @@ describe("projects", () => {
         );
 
         expect(rows[0]?.deletion_scheduled_at).not.toBeNull();
+    });
+
+    it("renames a project", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        //TEST
+        await renameProject({ projectId: project.id, name: "Website relaunch" });
+
+        const projects = await listProjectsForUser(lead.id);
+        expect(projects[0]?.name).toBe("Website relaunch");
+    });
+
+    it("refuses a blank name when renaming", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+
+        //TEST
+        await expect(
+            renameProject({ projectId: project.id, name: "   " })
+        ).rejects.toMatchObject({ code: "23514", constraint: "projects_name_not_blank" });
+    });
+
+    it("refuses to rename a project while it is being deleted", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await deleteProject(project.id);
+
+        //TEST
+        await expect(
+            renameProject({ projectId: project.id, name: "Website relaunch" })
+        ).rejects.toMatchObject({ code: "project-being-deleted" });
+
+        const projects = await listProjectsForUser(lead.id);
+        expect(projects[0]?.name).toBe("Website");
     });
 
 });

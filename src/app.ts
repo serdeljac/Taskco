@@ -9,6 +9,7 @@ import {
     listTasks,
     createTask,
     deleteProject,
+    renameProject,
     restoreProject,
     deleteProjectNow,
     listMembers,
@@ -281,6 +282,23 @@ app.post("/projects", async (req, res) => {
 
     const project = await createProject(body.data.name, res.locals.userId);
     res.status(201).json({ project });
+});
+
+//A new name, by the same rule as a new project's: trimmed, and not blank
+const projectName = z.strictObject({
+    name: z.string().trim().min(1),
+});
+
+app.put("/projects/:projectId/name", requireLead, async (req, res) => {
+    const body = projectName.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
+        return;
+    }
+
+    await renameProject({ projectId: req.params.projectId, name: body.data.name });
+    res.status(204).end();
 });
 
 //Delete mode: thirty days in which the Lead can still undo it. The waiting deletion is its own small resource, so undoing it is a DELETE

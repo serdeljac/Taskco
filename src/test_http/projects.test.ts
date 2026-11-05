@@ -290,3 +290,79 @@ describe("DELETE /projects/:projectId", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("PUT /projects/:projectId/name", () => {
+    it("lets the Lead rename the project, trimming the name", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .put(`/projects/${project.id}/name`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ name: "  Website relaunch  " });
+
+        expect(response.status).toBe(204);
+        expect(await listProjectsForUser(ana.id)).toMatchObject([{ name: "Website relaunch" }]);
+    });
+
+    it("answers 403 to an Associate, and changes nothing", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const ben = await createUser("ben@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await addMember({ projectId: project.id, userId: ben.id, role: "associate" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/projects/${project.id}/name`)
+            .set("Cookie", await cookieFor(ben))
+            .send({ name: "Website relaunch" });
+
+        expect(response.status).toBe(403);
+        expect(await listProjectsForUser(ana.id)).toMatchObject([{ name: "Website" }]);
+    });
+
+    it("refuses a blank name", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+
+        //TEST
+        const response = await request(app)
+            .put(`/projects/${project.id}/name`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ name: "   " });
+
+        expect(response.status).toBe(400);
+        expect(response.body.code).toBe("invalid-body");
+    });
+
+    it("answers 409 while the project is being deleted", async () => {
+        //CREATE
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", ana.id);
+        await deleteProject(project.id);
+
+        //TEST
+        const response = await request(app)
+            .put(`/projects/${project.id}/name`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ name: "Website relaunch" });
+
+        expect(response.status).toBe(409);
+        expect(response.body.code).toBe("project-being-deleted");
+        expect(await listProjectsForUser(ana.id)).toMatchObject([{ name: "Website" }]);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/projects/1/name")
+            .send({ name: "Website relaunch" });
+
+        expect(response.status).toBe(401);
+    });
+});

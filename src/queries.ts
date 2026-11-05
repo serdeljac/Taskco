@@ -575,6 +575,38 @@ export async function listProjectsForUser(userId: string): Promise<ProjectForUse
     return rows;
 }
 
+//Refused while the project is being deleted, like every other writer. A blank name is refused by projects_name_not_blank
+export async function renameProject(change: {
+    projectId: string;
+    name: string;
+}): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        await refuseIfProjectIsBeingDeleted(client, change.projectId);
+
+        const updated = await client.query(
+            `update projects
+            set name = $1
+            where id = $2`,
+            [change.name, change.projectId]
+        );
+
+        if (updated.rowCount === 0) {
+            throw new NotFound("renameProject: project not found");
+        }
+
+        await client.query("commit");
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 export async function deleteProject(projectId: string): Promise<{ scheduledFor: Date }> {
     const { rows } = await pool.query<{ deletion_scheduled_at: Date }>(
         `update projects
