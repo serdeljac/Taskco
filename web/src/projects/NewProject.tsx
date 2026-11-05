@@ -13,6 +13,9 @@ export function NewProject({ names }: Props) {
     const [refusal, setRefusal] = useState<string | null>(null);
     // What /'s action last answered. The form has closed by then, so a refusal shows by the button
     const answer = useActionData<typeof createProjectAction>();
+    
+    // Whether the form has been open: New project takes the focus back only when it returns
+    const [wasOpen, setWasOpen] = useState(false);
 
     // Create was pressed: a blank name stops here. Any other name is sent, and the form closes
     function create(event: SubmitEvent<HTMLFormElement>) {
@@ -29,12 +32,13 @@ export function NewProject({ names }: Props) {
         setOpen(false);
         setName("");
         setRefusal(null);
+        setWasOpen(true);
     }
 
     if(!open) {
         return (
             <div className={styles.newProject}>
-                <button type="button" onClick={() => setOpen(true)}>
+                <button type="button" onClick={() => setOpen(true)} autoFocus={wasOpen}>
                     New project
                 </button>
                 {answer?.refusal && <p role="alert">{answer.refusal}</p>}
@@ -49,7 +53,7 @@ export function NewProject({ names }: Props) {
         <Form method="post" onSubmit={create} className={styles.newProject}>
             <label>
                 Name
-                <input name="name" value={name} onChange={(event) => setName(event.target.value)} />
+                <input name="name" autoFocus value={name} onChange={(event) => setName(event.target.value)} />
             </label>
             {taken && <p role="status">You already have a project called {taken}.</p>}
             {refusal && <p role="alert">{refusal}</p>}

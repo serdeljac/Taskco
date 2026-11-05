@@ -88,5 +88,17 @@ describe("NewProject", () => {
         await userEvent.click(screen.getByRole("button", { name: "New project" }));
         expect(screen.getByLabelText("Name")).toHaveProperty("value", "");
     });
+
+    it("keeps the keyboard's focus: on Name once open, and on New project once closed", async () => {
+        await showProjects();
+        const newProject = screen.getByRole("button", { name: "New project" });
+        expect(document.activeElement).not.toBe(newProject);
+
+        await userEvent.click(newProject);
+        expect(document.activeElement).toBe(screen.getByLabelText("Name"));
+
+        await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        expect(document.activeElement).toBe(screen.getByRole("button", { name: "New project" }));
+    });
 });
 
