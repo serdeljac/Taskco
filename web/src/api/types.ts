@@ -25,6 +25,36 @@ export type Project = {
 // midnight UTC, the day before anywhere west of it
 export type DueDate = string;
 
+export type TaskStatus = "not_started" | "in_progress" | "on_hold" | "completed";
+
+// null is "Not set": nobody has decided yet, which is different from Low
+export type Priority = "low" | "med" | "high";
+
+// A task as GET /api/projects/:projectId/tasks lists it, in the order it is sent. Its assignee is a
+// membership, not a user: the members list says whose
+export type Task = {
+    id: string;
+    project_id: string;
+    title: string;
+    status: TaskStatus;
+    priority: Priority | null;
+    due_date: DueDate | null;
+    notes: string | null;
+    assignee_membership_id: string | null;
+    position: number;
+    created_at: string;
+    deleted_at: string | null;
+};
+
+// A current member, as GET /api/projects/:projectId/members lists them, the Lead first
+export type Member = {
+    membership_id: string;
+    user_id: string;
+    email: string;
+    role: Role;
+    joined_at: string;
+};
+
 // Every refusal's body. issues comes only with invalid-body, in Zod's English
 export type ErrorBody = {
     error: string;
