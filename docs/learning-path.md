@@ -17,8 +17,8 @@ specified in [`step-7c.md`](./step-7c.md): a task's subtasks, New subtask, a sub
 before a task's date clears subtask dates, and deleting. Stjepan typed its first, F1. Every flow was
 checked in a browser. Stjepan went over the commits on 2026-11-06, and the review followed the same
 day, in [`step-7c-review.md`](./step-7c-review.md): six items. Five were fixed the same day, three of
-them typed by Stjepan, in F1; the sixth, a timezone only the API can set, waits. **Next:** Stjepan's
-yes or no on the five choices in design section 16, then merging into `main`.
+them typed by Stjepan, in F1; the sixth, a timezone only the API can set, waits. Stjepan
+accepted the five choices in design section 16 the same day. **Next:** merging into `main`.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),

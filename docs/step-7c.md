@@ -3,7 +3,8 @@
 Specified 2026-11-05, from slice 7c's row in [`step-7-prep.md`](./step-7-prep.md), design
 sections 7, 8 and 16, and two decisions Stjepan made the same day. The third slice of step 7, in
 [`learning-path.md`](./learning-path.md). **Built** 2026-11-05 to 2026-11-06 on branch `step-7c`,
-from `main` after 7b's merge; not yet reviewed. Changed on the way, each for Stjepan's review:
+from `main` after 7b's merge; reviewed on 2026-11-06, in [`step-7c-review.md`](./step-7c-review.md). Changed on the way, each
+accepted by Stjepan on 2026-11-06:
 
 - **F1 was split.** The due date's form became `DueDateField` first, as Claude's, so F1 was the
   question alone, as the task page's action came before F2 in 7b.

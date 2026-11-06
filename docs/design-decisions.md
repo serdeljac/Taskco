@@ -1306,7 +1306,7 @@ specified.
 
 **Built in slice 7c**, 2026-11-05 to 2026-11-06, on branch `step-7c`: a task's subtasks on its page,
 New subtask, a subtask's own page, asking before a task's date clears subtask dates, and deleting.
-Choices made while building, for Stjepan's review:
+Choices made while building, each accepted by Stjepan on 2026-11-06:
 
 - **Every date asks, not only an earlier one.** The action does not know the task's old date, and a
   task with no date can clear subtask dates when it is given one, so any date is counted first. A
