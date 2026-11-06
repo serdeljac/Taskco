@@ -9,6 +9,7 @@ import {
 import { api, ApiError } from "../api/client";
 import type { Member, Subtask, Task } from "../api/types";
 import type { projectLoader } from "../projects/ProjectPage";
+import { NewSubtask } from "./NewSubtask";
 import { Rename } from "./Rename";
 import styles from "./TaskPage.module.scss";
 import type { updateTaskAction } from "./updateTask";
@@ -166,6 +167,8 @@ function TaskFields({ task, members, subtasks, projectId, isLead }: Props) {
                 </dd>
             </dl>
             <h3 id="subtasks">Subtasks</h3>
+            {/* Only the Lead creates subtasks: the API refuses anyone else */}
+            {isLead && <NewSubtask maxDate={task.due_date} />}
             {subtasks.length === 0 ? (
                 <p>No subtasks yet</p>
             ) : (
