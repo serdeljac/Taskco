@@ -18,7 +18,9 @@ before a task's date clears subtask dates, and deleting. Stjepan typed its first
 checked in a browser. Stjepan went over the commits on 2026-11-06, and the review followed the same
 day, in [`step-7c-review.md`](./step-7c-review.md): six items. Five were fixed the same day, three of
 them typed by Stjepan, in F1; the sixth, a timezone only the API can set, waits. Stjepan
-accepted the five choices in design section 16 the same day. **Next:** merging into `main`.
+accepted the five choices in design section 16 the same day. **Merged into `main`** on 2026-11-06,
+as a fast-forward of twenty-two commits, and not pushed. **Next:** slice 7d — dragging a task to a
+new place — specified when Stjepan says go.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -424,8 +426,8 @@ task's new date would clear, all on the server, and one first for Stjepan: an ac
 before it acts, the warning before those dates are cleared. Stjepan decided two questions the same
 day: reordering subtasks waits for 7d's dragging, and deleting comes now, after a confirm.
 
-**Slice 7c built 2026-11-05 to 2026-11-06**, on branch `step-7c`, not yet reviewed. See the progress
-log.
+**Slice 7c built 2026-11-05 to 2026-11-06**, on branch `step-7c`, then reviewed, fixed, and merged
+into `main` on 2026-11-06. See the progress log.
 
 ---
 
@@ -1011,7 +1013,8 @@ Stjepan typed the three in F1:
 - the question's words fit one subtask or several, as `clearsWords` in `words.ts`.
 
 Five items closed; `today-throws-for-a-zone-the-browser-lacks` waits. One hundred and twenty-eight
-tests in `web/`, in file order and shuffled, seed 1107. Not yet merged.
+tests in `web/`, in file order and shuffled, seed 1107. Merged into `main` the same day, as a
+fast-forward — both suites and both type checks run again on `main` — and not pushed.
 
 *Learned:* that a ref is how a component reaches the real element on the page, for what state cannot
 say, like where the keyboard's focus goes. That moving the focus as a submit button is clicked does
