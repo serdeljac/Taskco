@@ -36,9 +36,6 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `psql -U taskco_app -d taskco_dev -c "\d memberships"` | Describe one table without a session |
 | `psql -U taskco_app -d taskco_test -c "select * from memberships"` | What the last test left behind |
 | `npm run seed` | Empties **taskco_dev** and fills it with a demo project, tasks and subtasks |
-| `npm run preview` | Writes `preview.html` from **taskco_dev**, as user 1 sees it |
-| `npx tsx src/preview.ts 2` | The same page, as user 2 sees it |
-| `Invoke-Item preview.html` | Opens the page in your browser |
 | `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it, then every account past its date that no longer leads a project |
 | `npm run dev` | Starts the server on `http://127.0.0.1:3000/api` against **taskco_dev**, and restarts it whenever a file changes. `Ctrl+C` stops it |
 | `curl.exe -c cookies.txt --json '{"email":"lead@example.com","password":"taskco-demo"}' http://127.0.0.1:3000/api/sessions` | Logs in to the running server as the seeded Lead, and saves the session cookie in `cookies.txt`. Run it in a second terminal |
@@ -1064,11 +1061,12 @@ subtasks
   shows exactly what the app knows. `preview.html` is git-ignored.
 
 Both exist to look at the data before there is a frontend, and are meant to be deleted in step 7.
+**`preview.ts` was deleted in slice 7b**, with `npm run preview` and its line in `.gitignore`, once the
+frontend showed a project's tasks.
 
 **Open**
 
 - `seed.ts` sets status and priority with raw SQL, because no function does it yet.
-- `preview.ts` fetches subtasks with one query per task — fine for four tasks, not for a real page.
 
 ## `src/purge.ts`
 
