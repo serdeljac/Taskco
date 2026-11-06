@@ -15,6 +15,14 @@ type Props = {
 export function DueDateField({ dueDate, limits }: Props) {
     const fetcher = useFetcher<{ refusal?: string; confirm?: number } | null>();
     const [draft, setDraft] = useState(dueDate ?? "");
+    // The server's date when the box last took it. When the server's date changes — saved here, or
+    // cleared by its task's date moving — the box follows it, set while drawing rather than drawn
+    // afresh, so the focus stays where it is. A refusal changes nothing there, so a typed date stays
+    const [fromServer, setFromServer] = useState(dueDate);
+    if (dueDate !== fromServer) {
+        setFromServer(dueDate);
+        setDraft(dueDate ?? "");
+    }
 
     // Cancel: the box goes back to the date the server has, and the question goes away
     function cancel() {
