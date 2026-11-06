@@ -15,7 +15,10 @@ fast-forward of twenty commits. `main` is not pushed: `origin/main` ends at 7a's
 Slice 7c — a task's subtasks — is **built**, on branch `step-7c`, 2026-11-05 to 2026-11-06, as
 specified in [`step-7c.md`](./step-7c.md): a task's subtasks, New subtask, a subtask's page, asking
 before a task's date clears subtask dates, and deleting. Stjepan typed its first, F1. Every flow was
-checked in a browser. **Next:** Stjepan goes over the commits, then 7c's review.
+checked in a browser. Stjepan went over the commits on 2026-11-06, and the review followed the same
+day, in [`step-7c-review.md`](./step-7c-review.md): six items. Four are worth fixing before merging,
+all in `DueDateField.tsx`, three of them in F1. **Next:** those fixes, and Stjepan's yes or no on the
+five choices in design section 16.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -29,7 +32,8 @@ Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-revi
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
 [`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md),
 [`step-5-review.md`](./step-5-review.md), which covers step 6 as well, and
-[`step-7a-review.md`](./step-7a-review.md) and [`step-7b-review.md`](./step-7b-review.md). Step 5's
+[`step-7a-review.md`](./step-7a-review.md), [`step-7b-review.md`](./step-7b-review.md) and
+[`step-7c-review.md`](./step-7c-review.md). Step 5's
 preparation is in
 [`step-5-prep.md`](./step-5-prep.md), and step 7's in [`step-7-prep.md`](./step-7-prep.md), dated the
 same way.
@@ -974,3 +978,22 @@ wrong reason. That a test passing from the start is shown watching by a break, a
 be put back: the red after `clears >= 0` was the break still in place. And that real data finds what
 the example does not: the examples cleared two dates, and the first browser run cleared one, "1
 subtasks".
+
+**After slice 7c — the review.** Written 2026-11-06, after Stjepan went over the commits, in
+[`step-7c-review.md`](./step-7c-review.md): six items, each run first in a throwaway test or seen in
+the browser.
+- A date typed while the question shows keeps the old count, and Save anyway saves it unasked.
+- After Cancel or Save anyway, the keyboard's focus falls to the page.
+- "1 subtasks".
+- An open subtask's date box keeps a date the server cleared when its task's date moved.
+- A refused delete's words come back after Cancel.
+- A timezone Postgres knows and the browser does not, `Factory`, breaks a subtask's page.
+
+The first four are worth fixing before merging, all in `DueDateField.tsx`. Both suites passed
+shuffled, seed 1106. Not yet fixed or merged.
+
+*Learned:* that state kept for one reason keeps a value for every reason. The date box holds what was
+typed so a refusal does not lose it, and so it also kept a date the server had since cleared. That
+focus needs handing on wherever a pressed button leaves the page: Delete did it, and the question
+written in the same slice did not. And that a lock and a screen can check against different lists:
+Postgres knows 598 zones, the browser one fewer.

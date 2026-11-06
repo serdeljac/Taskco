@@ -2336,8 +2336,10 @@ rather than the save. At the root, 446 tests: renaming a subtask, not before tod
 - **Real data finds what the example does not.** The examples clear two dates; in a browser one was
   cleared, and the question said "1 subtasks". `clears-words-say-1-subtasks`.
 
-**Open:** `confirm-outlives-a-changed-date`; `clears-words-say-1-subtasks`; `no-subtask-moves`,
-for 7d.
+**Open:** `confirm-outlives-a-changed-date`; `clears-words-say-1-subtasks`; and from the 7c review,
+[`step-7c-review.md`](./step-7c-review.md), `due-date-question-drops-focus`,
+`subtask-date-box-keeps-a-cleared-date`, `delete-refusal-comes-back-after-cancel` and
+`today-throws-for-a-zone-the-browser-lacks`; `no-subtask-moves`, for 7d.
 
 ---
 
