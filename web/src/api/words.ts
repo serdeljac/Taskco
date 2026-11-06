@@ -5,6 +5,9 @@ const words = new Map<string, string>([
     ["email-taken", "An account already uses that email. Log in instead?"],
     ["unknown-timezone", "Your browser's timezone isn't one Taskco knows."],
     ["unreachable", "Taskco can't be reached. Is the server running?"],
+    ["subtask-due-after-task", "A subtask can't be due after its task."],
+    ["subtask-due-before-today", "A subtask can't be due before today."],
+    ["subtask-limit", "A task can have at most 50 subtasks."],
 ]);
 
 export function wordsFor(code: string): string {

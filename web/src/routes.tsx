@@ -18,7 +18,8 @@ export const routes: RouteObject[] = [
         hydrateFallbackElement: <p>Loading…</p>,
         children: [
             {
-                // Pages for someone logged in
+                // Pages for someone logged in. The id lets a page read the account, for its timezone
+                id: "account",
                 element: <AccountLayout />,
                 loader: accountLoader,
                 children: [

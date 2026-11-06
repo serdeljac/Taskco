@@ -7,6 +7,12 @@ describe("wordsFor", () => {
         expect(wordsFor("unreachable")).toBe("Taskco can't be reached. Is the server running?");
     });
 
+    it("says a subtask's three refusals in its own words", () => {
+        expect(wordsFor("subtask-due-after-task")).toBe("A subtask can't be due after its task.");
+        expect(wordsFor("subtask-due-before-today")).toBe("A subtask can't be due before today.");
+        expect(wordsFor("subtask-limit")).toBe("A task can have at most 50 subtasks.");
+    });
+
     it("gives one general sentence for a code it does not know", () => {
         expect(wordsFor("server-error")).toBe("Something went wrong. Try again.");
         expect(wordsFor("not-found")).toBe("Something went wrong. Try again.");

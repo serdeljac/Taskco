@@ -46,6 +46,12 @@ export type Task = {
     deleted_at: string | null;
 };
 
+// A subtask as GET /api/tasks/:taskId/subtasks lists it, in the order it is sent: a task's fields, under
+// its task rather than its project
+export type Subtask = Omit<Task, "project_id"> & {
+    task_id: string;
+};
+
 // A current member, as GET /api/projects/:projectId/members lists them, the Lead first
 export type Member = {
     membership_id: string;
