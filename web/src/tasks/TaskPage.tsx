@@ -1,5 +1,6 @@
-import { Link, useParams, useRouteLoaderData } from "react-router";
+import { Link, useFetcher, useParams, useRouteLoaderData } from "react-router";
 import type { projectLoader } from "../projects/ProjectPage";
+import type { updateTaskAction } from "./updateTask";
 import { assigneeWords, dueDateWords, priorityWords, statusWords } from "./words";
 
 // One task, under its project's list. Its data is the project page's, loaded already, so opening a
@@ -8,6 +9,7 @@ export function TaskPage() {
     const { taskId } = useParams();
     const page = useRouteLoaderData<typeof projectLoader>("project");
     const task = page?.tasks.find((task) => task.id === taskId);
+    const fetcher = useFetcher<typeof updateTaskAction>();
 
     if (!page || !task) {
         return <p>There's no task here.</p>;
@@ -18,7 +20,22 @@ export function TaskPage() {
             <h2 id="task-title">{task.title}</h2>
             <dl>
                 <dt>Status</dt>
-                <dd>{statusWords(task.status)}</dd>
+                <dd>
+                    <fetcher.Form method="put" key={task.id}>
+                        <select
+                            name="status"
+                            aria-label="Status"
+                            defaultValue={task.status}
+                            onChange={(event) => fetcher.submit(event.currentTarget.form)}
+                        >
+                            <option value="not_started">{statusWords("not_started")}</option>
+                            <option value="in_progress">{statusWords("in_progress")}</option>
+                            <option value="on_hold">{statusWords("on_hold")}</option>
+                            <option value="completed">{statusWords("completed")}</option>
+                        </select>
+                    </fetcher.Form>
+                    {fetcher.data?.refusal && <p role="alert">{fetcher.data.refusal}</p>}
+                </dd>
                 <dt>Priority</dt>
                 <dd>{priorityWords(task.priority)}</dd>
                 <dt>Due</dt>
