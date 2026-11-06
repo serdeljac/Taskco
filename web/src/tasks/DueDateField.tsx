@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useFetcher } from "react-router";
+import { clearsWords } from "./words";
 
 type Props = {
     // The date the server has, or null for "TBD"
@@ -15,6 +16,7 @@ type Props = {
 export function DueDateField({ dueDate, limits }: Props) {
     const fetcher = useFetcher<{ refusal?: string; confirm?: number } | null>();
     const [draft, setDraft] = useState(dueDate ?? "");
+    const box = useRef<HTMLInputElement>(null);
     // The server's date when the box last took it. When the server's date changes — saved here, or
     // cleared by its task's date moving — the box follows it, set while drawing rather than drawn
     // afresh, so the focus stays where it is. A refusal changes nothing there, so a typed date stays
@@ -28,27 +30,30 @@ export function DueDateField({ dueDate, limits }: Props) {
     function cancel() {
         setDraft(dueDate ?? "");
         fetcher.reset();
+        box.current?.focus();
     }
 
     return (
         <>
             <fetcher.Form method="put" noValidate>
                 <input
+                    ref={box}
                     type="date"
                     name="dueDate"
                     aria-label="Due date"
                     value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
+                    onChange={(event) => {
+                        setDraft(event.target.value);
+                        fetcher.reset();
+                    }}
                     min={limits?.min}
                     max={limits?.max}
                 />
                 <button type="submit">Save date</button>
                 {fetcher.data?.confirm && (
                     <>
-                        <p role="alert">
-                            Moving the date to {draft} clears the due dates of {fetcher.data.confirm} subtasks.
-                        </p>
-                        <button type="submit" name="confirmed" value="yes">
+                        <p role="alert">{clearsWords(draft, fetcher.data.confirm)}</p>
+                        <button type="submit" name="confirmed" value="yes" onClick={() => box.current?.focus()}>
                             Save anyway
                         </button>
                         <button type="button" onClick={cancel}>

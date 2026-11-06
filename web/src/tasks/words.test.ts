@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Member } from "../api/types";
-import { assigneeWords, dueDateWords, priorityWords, roleWords, statusWords } from "./words";
+import { assigneeWords, clearsWords, dueDateWords, priorityWords, roleWords, statusWords } from "./words";
 
 const members: Member[] = [
     { membership_id: "1", user_id: "1", email: "lead@example.com", role: "lead", joined_at: "2026-11-01T09:00:00.000Z" },
@@ -35,5 +35,10 @@ describe("a task's words", () => {
     it("names the assignee by email, and nobody as Nobody", () => {
         expect(assigneeWords("2", members)).toBe("associate@example.com");
         expect(assigneeWords(null, members)).toBe("Nobody");
+    });
+
+    it("says how many subtask dates a new date clears, one or several", () => {
+        expect(clearsWords("2026-11-18", 1)).toBe("Moving the date to 2026-11-18 clears the due date of 1 subtask.");
+        expect(clearsWords("2026-11-18", 2)).toBe("Moving the date to 2026-11-18 clears the due dates of 2 subtasks.");
     });
 });

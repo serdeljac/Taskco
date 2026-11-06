@@ -42,3 +42,9 @@ export function dueDateWords(dueDate: DueDate | null): string {
 export function assigneeWords(membershipId: string | null, members: Member[]): string {
     return members.find((member) => member.membership_id === membershipId)?.email ?? "Nobody";
 }
+
+// The question before a task's date moves: one subtask's date, or several subtasks' dates
+export function clearsWords(dueDate: string, clears: number): string {
+    const what = clears === 1 ? "the due date of 1 subtask" : `the due dates of ${clears} subtasks`;
+    return `Moving the date to ${dueDate} clears ${what}.`;
+}

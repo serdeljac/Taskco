@@ -69,6 +69,7 @@ describe("moving a task's due date earlier", () => {
         await waitFor(() => expect(listRow().getByText("2026-11-18")).toBeDefined());
         expect(datesSaved(fetch)).toEqual(['{"dueDate":"2026-11-18"}']);
         expect(screen.queryByText(/clears the due dates/)).toBeNull();
+        expect(document.activeElement).toBe(screen.getByLabelText("Due date"));
     });
 
     it("puts the date back with Cancel, and saves nothing", async () => {
@@ -78,6 +79,7 @@ describe("moving a task's due date earlier", () => {
         await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
 
         expect(screen.getByLabelText("Due date")).toHaveProperty("value", "2026-11-30");
+        expect(document.activeElement).toBe(screen.getByLabelText("Due date"));
         expect(screen.queryByText(/clears the due dates/)).toBeNull();
         expect(datesSaved(fetch)).toEqual([]);
     });
@@ -90,5 +92,17 @@ describe("moving a task's due date earlier", () => {
         await waitFor(() => expect(listRow().getByText("2026-11-29")).toBeDefined());
         expect(datesSaved(fetch)).toEqual(['{"dueDate":"2026-11-29"}']);
         expect(screen.queryByRole("button", { name: "Save anyway" })).toBeNull();
+    });
+
+    it("takes the question away when another date is typed, and saves nothing", async () => {
+        const fetch = await showTask();
+
+        await saveDate("2026-11-18");
+        await screen.findByRole("button", { name: "Save anyway" });
+        await userEvent.clear(screen.getByLabelText("Due date"));
+        await userEvent.type(screen.getByLabelText("Due date"), "2026-11-10");
+
+        expect(screen.queryByText(/clears the due dates/)).toBeNull();
+        expect(datesSaved(fetch)).toEqual([]);
     });
 });
