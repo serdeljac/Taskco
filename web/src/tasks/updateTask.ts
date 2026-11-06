@@ -1,4 +1,4 @@
-import type { ActionFunctionArgs } from "react-router";
+import { redirect, type ActionFunctionArgs } from "react-router";
 import { api, ApiError } from "../api/client";
 import type { Subtask } from "../api/types";
 import { wordsFor } from "../api/words";
@@ -28,11 +28,17 @@ async function changeField(form: FormData, base: string): Promise<void> {
     }
 }
 
-// The subtask page's action: one field of the subtask, through its own endpoints, as for a task
+// The subtask page's action: one field of the subtask, through its own endpoints, as for a task. A
+// form sent with the method DELETE deletes the subtask, and the page goes up to its task
 export async function updateSubtaskAction({ request, params }: ActionFunctionArgs) {
     const form = await request.formData();
 
     try {
+        if (request.method === "DELETE") {
+            await api<void>("DELETE", `/subtasks/${params.subtaskId}`);
+            return redirect(`/projects/${params.projectId}/tasks/${params.taskId}`);
+        }
+
         await changeField(form, `/subtasks/${params.subtaskId}`);
         return null;
     } catch (error) {
@@ -45,7 +51,8 @@ export async function updateSubtaskAction({ request, params }: ActionFunctionArg
 
 // The task page's action. Each form on the page sends one field, and the field's name says which of
 // the API's endpoints to ask. New subtask sends a title too, so it says what it is with its intent,
-// read first. After it the router reloads the page's data, so the lists and the page show the change.
+// read first. A form sent with the method DELETE deletes the task, and the page goes up to its
+// project. After it the router reloads the page's data, so the lists and the page show the change.
 // A refusal goes back to the page in Taskco's words; a 401 does too, but the reload after it is
 // refused as well, and the root's error page sends that to /login
 export async function updateTaskAction({ request, params }: ActionFunctionArgs) {
@@ -53,6 +60,11 @@ export async function updateTaskAction({ request, params }: ActionFunctionArgs) 
     const task = `/tasks/${params.taskId}`;
 
     try {
+        if (request.method === "DELETE") {
+            await api<void>("DELETE", task);
+            return redirect(`/projects/${params.projectId}`);
+        }
+
         if (form.get("intent") === "new-subtask") {
             // A date input sends "" when empty, so then no date is sent at all
             const dueDate = String(form.get("dueDate") ?? "");

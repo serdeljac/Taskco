@@ -1,6 +1,7 @@
 import { Link, useParams, useRouteLoaderData } from "react-router";
 import type { accountLoader } from "../account/AccountLayout";
 import type { projectLoader } from "../projects/ProjectPage";
+import { Delete } from "./Delete";
 import { Fields } from "./Fields";
 import { Rename } from "./Rename";
 import styles from "./style/TaskPage.module.scss";
@@ -34,6 +35,7 @@ export function SubtaskPage() {
                 isLead={isLead}
                 dueDateLimits={{ min: todayIn(account.user.timezone), max: task.due_date ?? undefined }}
             />
+            {isLead && <Delete label="Delete subtask" question={`Delete ${subtask.title}?`} />}
             <Link to={`/projects/${project.project.id}/tasks/${task.id}`}>Close subtask</Link>
         </section>
     );

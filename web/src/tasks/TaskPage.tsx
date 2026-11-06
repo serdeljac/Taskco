@@ -2,6 +2,7 @@ import { Link, Outlet, useLoaderData, useParams, useRouteLoaderData, type Loader
 import { api, ApiError } from "../api/client";
 import type { Member, Subtask, Task } from "../api/types";
 import type { projectLoader } from "../projects/ProjectPage";
+import { Delete } from "./Delete";
 import { Fields } from "./Fields";
 import { NewSubtask } from "./NewSubtask";
 import { Rename } from "./Rename";
@@ -61,6 +62,14 @@ function TaskSection({ task, members, subtasks, projectId, isLead }: Props) {
             <h2 id="task-title">{task.title}</h2>
             {isLead && <Rename field="title" label="Title" current={task.title} blankWords="Give the task a title" />}
             <Fields item={task} members={members} isLead={isLead} />
+            {/* Only the Lead deletes: the API refuses anyone else. Deleting is soft, so the subtasks
+                are hidden with their task */}
+            {isLead && (
+                <Delete
+                    label="Delete task"
+                    question={`Delete ${task.title}?${subtasks.length > 0 ? " Its subtasks go with it." : ""}`}
+                />
+            )}
 
             <h3 id="subtasks">Subtasks</h3>
             {/* Only the Lead creates subtasks: the API refuses anyone else */}
