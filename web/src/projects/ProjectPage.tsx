@@ -1,4 +1,4 @@
-import { data, Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { data, Link, Outlet, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { api } from "../api/client";
 import type { Member, Project, Task } from "../api/types";
 import { NewTask } from "../tasks/NewTask";
@@ -48,7 +48,9 @@ export function ProjectPage() {
                     <tbody>
                         {tasks.map((task) => (
                             <tr key={task.id}>
-                                <td>{task.title}</td>
+                                <td>
+                                    <Link to={`tasks/${task.id}`}>{task.title}</Link>
+                                </td>
                                 <td>{statusWords(task.status)}</td>
                                 <td>{priorityWords(task.priority)}</td>
                                 <td>{dueDateWords(task.due_date)}</td>
@@ -58,6 +60,9 @@ export function ProjectPage() {
                     </tbody>
                 </table>
             )}
+
+            {/* The task opened from the list, if one is: /projects/7/tasks/3 */}
+            <Outlet />
 
             <h2 id="members">Members</h2>
             <ul aria-labelledby="members">

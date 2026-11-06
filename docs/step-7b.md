@@ -40,8 +40,10 @@ Two backend changes first, for renaming. No migration.
 - **As the Associate**, a task's status and notes can be changed; its priority, due date and
   assignee are shown as text. There is no "New task", and no renaming.
 - **As the Lead, a task and the project can be renamed.** A blank name is refused in the browser.
-- **An address naming no project or task** — or a project the person is not a member of — says
-  "There's no page here."
+- **An address naming no project** — or a project the person is not a member of — says
+  "There's no page here." **One naming no task** in a project that exists shows the project, with
+  "There's no task here." under its list. *Changed 2026-11-05, building C6:* the task page has no
+  loader of its own to throw a 404 from, since it reads the project's data.
 - `src/preview.ts`, slice B's throwaway page, is gone.
 - Both test suites pass, and both type checks are clean.
 
@@ -134,7 +136,8 @@ Associate does not see it. Tests.
 
 **C6 — the task page.** `/projects/:projectId/tasks/:taskId`, nested in the project's route and
 shown through an `Outlet` under the list. It reads the project route's data with
-`useRouteLoaderData`, so opening a task asks the server nothing. A task not in the list is a 404.
+`useRouteLoaderData`, so opening a task asks the server nothing. A task not in the list says
+"There's no task here." under it.
 Each title in the list links to it. Tests.
 
 **F2 — first fetcher.** The task's status is a select. Choosing one saves it at once, through
