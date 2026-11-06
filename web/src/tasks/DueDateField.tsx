@@ -13,8 +13,14 @@ type Props = {
 // kept after a refusal, ready to send again. Saved with a button: a date box reports every digit of
 // the year as it is typed. noValidate: the browser's own check of the limits would refuse in its words
 export function DueDateField({ dueDate, limits }: Props) {
-    const fetcher = useFetcher<{ refusal?: string } | null>();
+    const fetcher = useFetcher<{ refusal?: string; confirm?: number } | null>();
     const [draft, setDraft] = useState(dueDate ?? "");
+
+    // Cancel: the box goes back to the date the server has, and the question goes away
+    function cancel() {
+        setDraft(dueDate ?? "");
+        fetcher.reset();
+    }
 
     return (
         <>
@@ -29,6 +35,19 @@ export function DueDateField({ dueDate, limits }: Props) {
                     max={limits?.max}
                 />
                 <button type="submit">Save date</button>
+                {fetcher.data?.confirm && (
+                    <>
+                        <p role="alert">
+                            Moving the date to {draft} clears the due dates of {fetcher.data.confirm} subtasks.
+                        </p>
+                        <button type="submit" name="confirmed" value="yes">
+                            Save anyway
+                        </button>
+                        <button type="button" onClick={cancel}>
+                            Cancel
+                        </button>
+                    </>
+                )}
             </fetcher.Form>
             {fetcher.data?.refusal && <p role="alert">{fetcher.data.refusal}</p>}
         </>

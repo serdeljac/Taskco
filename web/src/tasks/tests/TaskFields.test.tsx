@@ -43,6 +43,8 @@ async function showTask(role: "lead" | "associate", answers: Record<string, Answ
         "GET /projects/7/tasks": () => [200, { tasks: [task] }],
         "GET /projects/7/members": [200, { members }],
         "GET /tasks/3/subtasks": [200, { subtasks: [] }],
+        // Asked before a due date is saved. Task 3 has no subtasks, so it clears none
+        "GET /tasks/3/due-date-clears?dueDate=2026-12-01": [200, { clears: 0 }],
         "PUT /tasks/3/status": store("status", "status"),
         "PUT /tasks/3/priority": answers["PUT /tasks/3/priority"] ?? store("priority", "priority"),
         "PUT /tasks/3/due-date": answers["PUT /tasks/3/due-date"] ?? store("due_date", "dueDate"),

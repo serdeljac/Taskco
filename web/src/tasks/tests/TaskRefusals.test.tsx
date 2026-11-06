@@ -25,6 +25,8 @@ async function showRefusingTask() {
         "GET /projects/7/members": [200, { members }],
         "GET /tasks/3/subtasks": [200, { subtasks: [] }],
         "GET /tasks/1/subtasks": [200, { subtasks: [] }],
+        // Answered, so that it is the saving of a due date that is refused, not the question before it
+        "GET /tasks/3/due-date-clears?dueDate=2026-12-01": [200, { clears: 0 }],
         "PUT /tasks/3/status": refused,
         "PUT /tasks/3/priority": refused,
         "PUT /tasks/3/assignee": refused,

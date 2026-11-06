@@ -63,6 +63,16 @@ export async function updateTaskAction({ request, params }: ActionFunctionArgs) 
             return { subtask };
         }
 
+        // Before a task's due date moves, ask how many subtask dates the new one would clear. If any,
+        // answer with the count instead of saving, so the page can ask; Save anyway sends confirmed
+        const dueDate = form.get("dueDate");
+        if (typeof dueDate === "string" && dueDate !== "" && !form.has("confirmed")) {
+            const { clears } = await api<{ clears: number }>("GET", `${task}/due-date-clears?${new URLSearchParams({ dueDate })}`);
+            if (clears > 0) {
+                return { confirm: clears };
+            }
+        }
+
         await changeField(form, task);
         return null;
     } catch (error) {
