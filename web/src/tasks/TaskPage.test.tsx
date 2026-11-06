@@ -14,11 +14,11 @@ const tasks = [
     { id: "1", title: "Buy seeds", status: "not_started", priority: null, due_date: null, notes: null, assignee_membership_id: null },
 ];
 
-// Garden, for its Lead, opened at the address given
-async function showGarden(path: string) {
+// Garden, for its Lead unless said otherwise, opened at the address given
+async function showGarden(path: string, role: "lead" | "associate" = "lead") {
     const fetch = standInApi({
         "GET /account": [200, { user: { id: "1", email: "lead@example.com" } }],
-        "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role: "lead" }] }],
+        "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role }] }],
         "GET /projects/7/tasks": [200, { tasks }],
         "GET /projects/7/members": [200, { members }],
     });
@@ -28,14 +28,20 @@ async function showGarden(path: string) {
     return { router, fetch };
 }
 
-// The task page's fields, as words: { Status: "In progress", … }. A field that can be changed is a
-// select, and reads as the option chosen
+// The task page's fields, as words: { Status: "In progress", … }. A field that can be changed reads
+// as what it shows: a select as the option chosen, a text area as its text or, empty, its placeholder
 function fields() {
     const page = screen.getByRole("region", { name: /./ });
     const terms = within(page).getAllByRole("term").map((term) => term.textContent);
     const definitions = within(page)
         .getAllByRole("definition")
-        .map((definition) => definition.querySelector("select")?.selectedOptions[0]?.textContent ?? definition.textContent);
+        .map((definition) => {
+            const select = definition.querySelector("select");
+            const textArea = definition.querySelector("textarea");
+            if (select) return select.selectedOptions[0]?.textContent;
+            if (textArea) return textArea.value || textArea.placeholder;
+            return definition.textContent;
+        });
     return Object.fromEntries(terms.map((term, i) => [term, definitions[i]]));
 }
 
@@ -52,8 +58,8 @@ describe("a task's page", () => {
         expect(fetch.mock.calls.length).toBe(asked);
     });
 
-    it("shows the task's fields in words, and its notes", async () => {
-        await showGarden("/projects/7/tasks/3");
+    it("shows an Associate the task's fields in words, and its notes", async () => {
+        await showGarden("/projects/7/tasks/3", "associate");
 
         await screen.findByRole("region", { name: "Dig the beds" });
         expect(fields()).toEqual({
@@ -66,7 +72,7 @@ describe("a task's page", () => {
     });
 
     it("says the empty ones in words too", async () => {
-        await showGarden("/projects/7/tasks/1");
+        await showGarden("/projects/7/tasks/1", "associate");
 
         await screen.findByRole("region", { name: "Buy seeds" });
         expect(fields()).toEqual({
