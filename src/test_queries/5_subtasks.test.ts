@@ -18,6 +18,7 @@ import {
     setSubtaskStatus,
     setSubtaskPriority,
     deleteSubtask,
+    renameSubtask,
 } from "../queries.js";
 
 
@@ -616,5 +617,52 @@ describe("subtasks", () => {
         await expect(deleteSubtask(subtask.id)).rejects.toMatchObject({
             message: "deleteSubtask: subtask not found",
         });
+    });
+
+    it("renames a subtask", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Pick photos" });
+
+        //TEST
+        await renameSubtask({ subtaskId: subtask.id, title: "Pick the hero photo" });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+        expect(subtasks[0]?.title).toBe("Pick the hero photo");
+    });
+
+    it("refuses a blank title when renaming a subtask", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Pick photos" });
+
+        //TEST
+        await expect(
+            renameSubtask({ subtaskId: subtask.id, title: "   " })
+        ).rejects.toMatchObject({ code: "23514", constraint: "subtasks_title_not_blank" });
+    });
+
+    it("refuses to rename a deleted subtask, or one under a deleted task", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const deleted = await createSubtask({ taskId: task.id, title: "Pick photos" });
+        const orphaned = await createSubtask({ taskId: task.id, title: "Write captions" });
+        await deleteSubtask(deleted.id);
+
+        //TEST
+        await expect(
+            renameSubtask({ subtaskId: deleted.id, title: "Pick the hero photo" })
+        ).rejects.toMatchObject({ message: "renameSubtask: subtask not found" });
+
+        await deleteTask(task.id);
+        await expect(
+            renameSubtask({ subtaskId: orphaned.id, title: "Write the captions" })
+        ).rejects.toMatchObject({ message: "renameSubtask: subtask not found" });
     });
 });

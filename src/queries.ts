@@ -1174,6 +1174,26 @@ export async function deleteSubtask(subtaskId: string): Promise<void> {
     }
 }
 
+//Like every other change to a subtask: a deleted subtask, or one under a task that is not visible, is not found.
+//A blank title is refused by subtasks_title_not_blank
+export async function renameSubtask(change: {
+    subtaskId: string;
+    title: string;
+}): Promise<void> {
+    const updated = await pool.query(
+        `update subtasks
+        set title = $1
+        where id = $2
+        and deleted_at is null
+        and task_id in (select id from visible_tasks)`,
+        [change.title, change.subtaskId]
+    );
+
+    if (updated.rowCount === 0) {
+        throw new NotFound("renameSubtask: subtask not found");
+    }
+}
+
 export async function setSubtaskNotes(change: {
     subtaskId: string;
     notes: string | null;

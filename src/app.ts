@@ -33,6 +33,7 @@ import {
     setSubtaskStatus,
     setSubtaskPriority,
     setSubtaskNotes,
+    renameSubtask,
     setSubtaskDueDate,
     setSubtaskAssignee,
     deleteSubtask,
@@ -635,6 +636,19 @@ app.put("/subtasks/:subtaskId/notes", requireMember, async (req, res) => {
     }
 
     await setSubtaskNotes({ subtaskId: req.params.subtaskId, notes: body.data.notes });
+    res.status(204).end();
+});
+
+//A new title, by the same rule as a task's
+app.put("/subtasks/:subtaskId/title", requireLead, async (req, res) => {
+    const body = taskTitle.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
+        return;
+    }
+
+    await renameSubtask({ subtaskId: req.params.subtaskId, title: body.data.title });
     res.status(204).end();
 });
 

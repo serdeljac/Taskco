@@ -503,3 +503,58 @@ describe("DELETE /subtasks/:subtaskId", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("PUT /subtasks/:subtaskId/title", () => {
+    it("lets the Lead rename a subtask, trimming the title", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/title`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ title: "  Buy brass hinges  " });
+
+        expect(response.status).toBe(204);
+        expect((await reread(task, ana))[0]?.title).toBe("Buy brass hinges");
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const { ana, ben, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/title`)
+            .set("Cookie", await cookieFor(ben))
+            .send({ title: "Buy brass hinges" });
+
+        expect(response.status).toBe(403);
+        expect((await reread(task, ana))[0]?.title).toBe("Buy hinges");
+    });
+
+    it("refuses a blank title", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/title`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ title: "   " });
+
+        expect(response.status).toBe(400);
+        expect(response.body.code).toBe("invalid-body");
+        expect((await reread(task, ana))[0]?.title).toBe("Buy hinges");
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/subtasks/1/title")
+            .send({ title: "Buy brass hinges" });
+
+        expect(response.status).toBe(401);
+    });
+});
