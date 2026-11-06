@@ -1,0 +1,29 @@
+// New task, and the title and due date it opens: on one line, with any words on their own line
+// under it. A copy of New project's
+$gap: 0.5rem;
+$refusal: #b00020;
+
+.newTask {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $gap;
+    margin-bottom: $gap * 2;
+
+    label {
+        display: flex;
+        align-items: center;
+        gap: $gap;
+    }
+
+    // order puts the words after the buttons, wherever they come in the form
+    p {
+        flex-basis: 100%;
+        order: 1;
+        margin: 0;
+    }
+
+    p[role="alert"] {
+        color: $refusal;
+    }
+}

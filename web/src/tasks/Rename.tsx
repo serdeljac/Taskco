@@ -1,5 +1,6 @@
 import { useState, type SubmitEvent } from "react";
 import { useFetcher } from "react-router";
+import styles from "./Rename.module.scss";
 
 type Props = {
     // The field the page's action reads: "title" for a task, "name" for a project
@@ -29,7 +30,7 @@ export function Rename({ field, label, current, blankWords }: Props) {
     const shown = refusal ?? fetcher.data?.refusal;
 
     return (
-        <fetcher.Form method="put" onSubmit={save}>
+        <fetcher.Form method="put" onSubmit={save} className={styles.rename}>
             <label>
                 {label}
                 <input name={field} defaultValue={current} />

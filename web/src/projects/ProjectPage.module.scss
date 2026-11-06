@@ -1,0 +1,30 @@
+// A project's page: its tasks as a table, a line under each, and its members as a plain list
+$gap: 0.5rem;
+$line: #ddd;
+
+.tasks {
+    width: 100%;
+    border-collapse: collapse;
+    margin: $gap 0;
+
+    th,
+    td {
+        padding: $gap;
+        text-align: left;
+        border-bottom: 1px solid $line;
+    }
+
+    th {
+        font-weight: 600;
+    }
+}
+
+.members {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+        padding: $gap * 0.5 0;
+    }
+}

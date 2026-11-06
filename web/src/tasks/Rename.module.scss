@@ -1,0 +1,23 @@
+// Renaming: the field and Save on one line, any refusal under them
+$gap: 0.5rem;
+$refusal: #b00020;
+
+.rename {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $gap;
+    margin-bottom: $gap * 2;
+
+    label {
+        display: flex;
+        align-items: center;
+        gap: $gap;
+    }
+
+    p[role="alert"] {
+        flex-basis: 100%;
+        margin: 0;
+        color: $refusal;
+    }
+}

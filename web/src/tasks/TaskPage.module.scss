@@ -1,0 +1,46 @@
+// One task, under the list: set apart by a border, each field's name beside what it holds
+$gap: 0.75rem;
+$line: #ddd;
+$refusal: #b00020;
+
+.task {
+    margin: $gap * 2 0;
+    padding: $gap;
+    border: 1px solid $line;
+
+    h2 {
+        margin-top: 0;
+    }
+
+    dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: $gap;
+        align-items: start;
+    }
+
+    dt {
+        font-weight: 600;
+    }
+
+    dd {
+        margin: 0;
+    }
+
+    form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: start;
+        gap: $gap * 0.5;
+    }
+
+    textarea {
+        min-width: 20rem;
+        min-height: 4rem;
+    }
+
+    p[role="alert"] {
+        margin: $gap * 0.5 0 0;
+        color: $refusal;
+    }
+}

@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { Member, Project, Task } from "../api/types";
 import { NewTask } from "../tasks/NewTask";
 import { Rename } from "../tasks/Rename";
+import styles from "./ProjectPage.module.scss";
 import { assigneeWords, dueDateWords, priorityWords, roleWords, statusWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
@@ -39,7 +40,7 @@ export function ProjectPage() {
             {tasks.length === 0 ? (
                 <p>No tasks yet</p>
             ) : (
-                <table>
+                <table className={styles.tasks}>
                     <thead>
                         <tr>
                             <th scope="col">Task</th>
@@ -69,7 +70,7 @@ export function ProjectPage() {
             <Outlet />
 
             <h2 id="members">Members</h2>
-            <ul aria-labelledby="members">
+            <ul aria-labelledby="members" className={styles.members}>
                 {members.map((member) => (
                     <li key={member.membership_id}>
                         {member.email}, {roleWords(member.role)}

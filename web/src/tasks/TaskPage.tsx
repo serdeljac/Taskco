@@ -1,6 +1,7 @@
 import { Link, useFetcher, useParams, useRouteLoaderData } from "react-router";
 import type { projectLoader } from "../projects/ProjectPage";
 import { Rename } from "./Rename";
+import styles from "./TaskPage.module.scss";
 import type { updateTaskAction } from "./updateTask";
 import { assigneeWords, dueDateWords, priorityWords, statusWords } from "./words";
 
@@ -25,7 +26,7 @@ export function TaskPage() {
     const isLead = page.project.role === "lead";
 
     return (
-        <section aria-labelledby="task-title">
+        <section aria-labelledby="task-title" className={styles.task}>
             <h2 id="task-title">{task.title}</h2>
             {isLead && (
                 <Rename key={task.id} field="title" label="Title" current={task.title} blankWords="Give the task a title" />
