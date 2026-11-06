@@ -1291,3 +1291,15 @@ Stjepan's review:
 - **A task id not in the list shows the project, with "There's no task here."** under the list,
   rather than the whole page's "There's no page here.": the task page reads the project's data and
   has no loader of its own to throw a 404 from.
+
+### Slice 7c — two decisions
+
+Decided 2026-11-05, by Stjepan, each as recommended, while [`step-7c.md`](./step-7c.md) was
+specified.
+
+- **Reordering subtasks waits for 7d**, with dragging, which tasks get there too, so subtasks stay in
+  the order they were created until then. *Rejected — up and down buttons now:* a second way to move
+  things, and a backend addition, a slice before the first. `no-subtask-moves` moves to 7d.
+- **The Lead deletes a task or a subtask, after a confirm, from 7c.** Deletion is soft — section 7 —
+  so a trash to restore from can come later. *Rejected — not yet:* until then a mistake could only be
+  renamed, and a task has room for fifty subtasks.

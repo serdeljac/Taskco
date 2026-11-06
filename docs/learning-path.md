@@ -12,7 +12,8 @@ page, rename. Stjepan typed its two firsts. Stjepan went over the commits the sa
 review followed, in [`step-7b-review.md`](./step-7b-review.md): three items. The two on a task's
 page were fixed the same day; the third waits for 7e. **Merged into `main`** on 2026-11-05, as a
 fast-forward of twenty commits. `main` is not pushed: `origin/main` ends at 7a's specification.
-**Next:** specifying 7c, subtasks.
+Slice 7c — a task's subtasks — is **specified** in [`step-7c.md`](./step-7c.md), on branch `step-7c`,
+2026-11-05. **Next:** building it, on Stjepan's go-ahead.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -408,7 +409,14 @@ with a parameter and a link, and a fetcher. Stjepan decided three questions the 
 projects can be renamed, a task is changed on its own page, and the subtask-date warning waits for
 7c. Five traps, found by trying the new React Router pieces together first.
 
-**Slice 7b built 2026-11-05**, on branch `step-7b`. See the progress log.
+**Slice 7b built 2026-11-05**, on branch `step-7b`, reviewed, fixed, and merged into `main` the same
+day. See the progress log.
+
+**Slice 7c specified 2026-11-05**, in [`step-7c.md`](./step-7c.md): a task's subtasks. Eleven pieces —
+ten for Claude, starting with renaming subtasks, "not before today" and the count of subtask dates a
+task's new date would clear, all on the server, and one first for Stjepan: an action that asks
+before it acts, the warning before those dates are cleared. Stjepan decided two questions the same
+day: reordering subtasks waits for 7d's dragging, and deleting comes now, after a confirm.
 
 ---
 
