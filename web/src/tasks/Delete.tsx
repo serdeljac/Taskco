@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useFetcher } from "react-router";
+import styles from "./style/Delete.module.scss";
 
 type Props = {
     // The button: "Delete task" or "Delete subtask"
@@ -24,7 +25,7 @@ export function Delete({ label, question }: Props) {
 
     if (!asking) {
         return (
-            <div>
+            <div className={styles.delete}>
                 <button type="button" onClick={() => setAsking(true)} autoFocus={wasAsking}>
                     {label}
                 </button>
@@ -35,7 +36,7 @@ export function Delete({ label, question }: Props) {
 
     // React Router reads the form before React takes it off the page
     return (
-        <fetcher.Form method="delete" onSubmit={stopAsking}>
+        <fetcher.Form method="delete" onSubmit={stopAsking} className={styles.delete}>
             <p role="alert">{question}</p>
             <button type="submit">Delete</button>
             <button type="button" onClick={stopAsking} autoFocus>

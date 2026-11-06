@@ -1,5 +1,7 @@
-// One task, under the list: set apart by a border, each field's name beside what it holds
+// One task, under the list, and one subtask, under its task: set apart by a border, each field's
+// name beside what it holds
 $gap: 0.75rem;
+$cell: 0.5rem;
 $line: #ddd;
 $refusal: #b00020;
 
@@ -8,7 +10,9 @@ $refusal: #b00020;
     padding: $gap;
     border: 1px solid $line;
 
-    h2 {
+    // The task's title, and a subtask's, at the top of its box
+    h2,
+    h4 {
         margin-top: 0;
     }
 
@@ -34,6 +38,12 @@ $refusal: #b00020;
         gap: $gap * 0.5;
     }
 
+    // Words in a form, such as a question before something is done, on a line of their own, with
+    // the buttons that answer them after
+    form p {
+        flex-basis: 100%;
+    }
+
     textarea {
         min-width: 20rem;
         min-height: 4rem;
@@ -42,5 +52,23 @@ $refusal: #b00020;
     p[role="alert"] {
         margin: $gap * 0.5 0 0;
         color: $refusal;
+    }
+}
+
+// A task's subtasks, as the project page shows its tasks: a copy of its table
+.subtasks {
+    width: 100%;
+    border-collapse: collapse;
+    margin: $cell 0 $gap;
+
+    th,
+    td {
+        padding: $cell;
+        text-align: left;
+        border-bottom: 1px solid $line;
+    }
+
+    th {
+        font-weight: 600;
     }
 }

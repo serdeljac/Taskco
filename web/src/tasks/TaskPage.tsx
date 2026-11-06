@@ -77,7 +77,7 @@ function TaskSection({ task, members, subtasks, projectId, isLead }: Props) {
             {subtasks.length === 0 ? (
                 <p>No subtasks yet</p>
             ) : (
-                <table aria-labelledby="subtasks">
+                <table aria-labelledby="subtasks" className={styles.subtasks}>
                     <thead>
                         <tr>
                             <th scope="col">Subtask</th>
