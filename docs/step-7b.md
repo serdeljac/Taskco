@@ -209,6 +209,7 @@ anywhere west of UTC, and `StrictMode`'s second run of every effect. Five more:
   loader has to throw `data(null, { status: 404 })` for the root's page to say "There's no page here."
   Run: the error page showed.
 - **One change reloads the whole page's data.** Run: after one status change through a fetcher, the
-  project's two `GET`s ran again. Three requests for each change, with the members. Fine at this size.
+  project's two `GET`s ran again. *Corrected by the 7b review:* with the members and the account's
+  loader, four reads for each change, after the change itself. Fine at this size.
 - **A date input gives text, and empty text.** `"2026-11-20"`, or `""` once cleared. `""` is sent as
   `null`, and the text is shown as it is.

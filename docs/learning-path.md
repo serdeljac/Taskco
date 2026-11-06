@@ -9,7 +9,9 @@ the progress log — and **merged into `main`** on 2026-11-05, as a fast-forward
 `main` is not pushed: `origin/main` ends at 7a's specification. Slice 7b — a project's tasks — is
 **built**, on branch `step-7b`, 2026-11-05, as specified in [`step-7b.md`](./step-7b.md): open a
 project, see and create its tasks, change a task on its own page, rename. Stjepan typed its two
-firsts. **Next:** Stjepan goes over the commits, then 7b's review.
+firsts. Stjepan went over the commits the same day, and the review followed, in
+[`step-7b-review.md`](./step-7b-review.md): three items. **Next:** fixing the two on a task's page
+before merging; the third waits for 7e.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -23,7 +25,8 @@ Checkpoint reviews live in their own files: [`slice-a-review.md`](./slice-a-revi
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
 [`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md),
 [`step-5-review.md`](./step-5-review.md), which covers step 6 as well, and
-[`step-7a-review.md`](./step-7a-review.md). Step 5's preparation is in
+[`step-7a-review.md`](./step-7a-review.md) and [`step-7b-review.md`](./step-7b-review.md). Step 5's
+preparation is in
 [`step-5-prep.md`](./step-5-prep.md), and step 7's in [`step-7-prep.md`](./step-7-prep.md), dated the
 same way.
 [`reference.md`](./reference.md) is the lookup sheet — files, schema, commands, error codes.
@@ -895,3 +898,19 @@ is keyed by the task's id. That a fetcher saves in place and still reloads every
 That a date box reports every digit of the year, so it saves with a button. And that a file once
 put in the wrong place — `ProjectsPage` for `ProjectPage`, one letter apart — fails as a type error
 in a file nobody touched.
+
+**After slice 7b — the review.** Written 2026-11-05, after Stjepan went over the commits, in
+[`step-7b-review.md`](./step-7b-review.md): three items, each run first in a throwaway test.
+- A refused change leaves the field showing the value refused, while the list shows the server's.
+- A refusal on one task still shows after another is opened.
+- A project being deleted opens for its Lead as if it were empty, with buttons the API refuses. That
+  one waits for 7e's delete-mode screen.
+
+Both suites passed shuffled, seed 1105. `step-7b.md`'s count of reloads after a change was one short,
+and is corrected. Not yet fixed or merged.
+
+*Learned:* that keying a form by the task draws the form afresh, but not the fetcher the page holds,
+so what a fetcher answered outlives the task it was about. That a field showing what the person chose
+is only right while the server agrees: after a refusal, the truth is the task's, which the page
+already has. And that no test had refused a change and then looked at the field, which is why
+neither showed while building.
