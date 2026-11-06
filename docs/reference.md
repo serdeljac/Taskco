@@ -2336,12 +2336,11 @@ rather than the save. At the root, 446 tests: renaming a subtask, not before tod
 - **Real data finds what the example does not.** The examples clear two dates; in a browser one was
   cleared, and the question said "1 subtasks". `clears-words-say-1-subtasks`.
 
-**Open:** `confirm-outlives-a-changed-date`; `clears-words-say-1-subtasks`; and from the 7c review,
-[`step-7c-review.md`](./step-7c-review.md), `due-date-question-drops-focus` and
-`today-throws-for-a-zone-the-browser-lacks`; `no-subtask-moves`, for 7d. The review's
-`subtask-date-box-keeps-a-cleared-date` and `delete-refusal-comes-back-after-cancel` closed the same
-day: `DueDateField` follows the server's date when it changes, and Delete lets a refusal go when it
-asks again.
+**Open:** `today-throws-for-a-zone-the-browser-lacks`, from the 7c review,
+[`step-7c-review.md`](./step-7c-review.md); `no-subtask-moves`, for 7d. The review's other five items
+closed the same day: a new date takes the question away, the focus goes back to the date box, the
+words fit one subtask or several (`clearsWords`), a date box follows the server's date when it
+changes, and Delete lets a refusal go when it asks again.
 
 ---
 

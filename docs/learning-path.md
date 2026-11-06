@@ -16,9 +16,9 @@ Slice 7c — a task's subtasks — is **built**, on branch `step-7c`, 2026-11-05
 specified in [`step-7c.md`](./step-7c.md): a task's subtasks, New subtask, a subtask's page, asking
 before a task's date clears subtask dates, and deleting. Stjepan typed its first, F1. Every flow was
 checked in a browser. Stjepan went over the commits on 2026-11-06, and the review followed the same
-day, in [`step-7c-review.md`](./step-7c-review.md): six items. Four are worth fixing before merging,
-all in `DueDateField.tsx`, three of them in F1. **Next:** those fixes, and Stjepan's yes or no on the
-five choices in design section 16.
+day, in [`step-7c-review.md`](./step-7c-review.md): six items. Five were fixed the same day, three of
+them typed by Stjepan, in F1; the sixth, a timezone only the API can set, waits. **Next:** Stjepan's
+yes or no on the five choices in design section 16, then merging into `main`.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -997,3 +997,25 @@ typed so a refusal does not lose it, and so it also kept a date the server had s
 focus needs handing on wherever a pressed button leaves the page: Delete did it, and the question
 written in the same slice did not. And that a lock and a screen can check against different lists:
 Postgres knows 598 zones, the browser one fewer.
+
+**After the 7c review — the fixes.** 2026-11-06, on branch `step-7c`, each test seen failing first.
+Claude fixed two:
+- An open subtask's date box follows the server's date when it changes. The review had suggested
+  keying the field instead; tried, that dropped the keyboard's focus after every save, so the box is
+  set while drawing, and the review carries a dated correction.
+- Opening Delete's question again lets an old refusal go.
+
+Stjepan typed the three in F1:
+- typing a new date takes the question away, so Save date asks again;
+- the focus goes back to the date box after Cancel and Save anyway, through the project's first ref;
+- the question's words fit one subtask or several, as `clearsWords` in `words.ts`.
+
+Five items closed; `today-throws-for-a-zone-the-browser-lacks` waits. One hundred and twenty-eight
+tests in `web/`, in file order and shuffled, seed 1107. Not yet merged.
+
+*Learned:* that a ref is how a component reaches the real element on the page, for what state cannot
+say, like where the keyboard's focus goes. That moving the focus as a submit button is clicked does
+not stop the form, so it is already safe when the button leaves. That a cure written in a review is a
+claim like any other: the key it suggested fixed the date and broke the focus, which only trying it
+showed. And that a field's state can follow what the server has without being drawn afresh, by
+remembering the server's last value and taking a new one while drawing.
