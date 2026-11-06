@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "../routes";
-import { standInApi } from "../testing/standInApi";
+import { routes } from "../../routes";
+import { standInApi } from "../../testing/standInApi";
 
 describe("/", () => {
     it("loads the projects from the API, and shows their names", async () => {

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "../routes";
-import { standInApi, type Answer } from "../testing/standInApi";
-import { todayIn } from "./today";
+import { routes } from "../../routes";
+import { standInApi, type Answer } from "../../testing/standInApi";
+import { todayIn } from "../today";
 
 const task = { id: "3", title: "Dig the beds", status: "in_progress", priority: null, due_date: "2099-11-30", notes: null, assignee_membership_id: null };
 

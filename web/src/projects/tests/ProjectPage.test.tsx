@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "../routes";
-import { standInApi, type Answer } from "../testing/standInApi";
+import { routes } from "../../routes";
+import { standInApi, type Answer } from "../../testing/standInApi";
 
 const lead = { id: "1", email: "lead@example.com" };
 const members = [

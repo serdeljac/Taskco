@@ -3,7 +3,7 @@ import { api } from "../api/client";
 import type { Member, Project, Task } from "../api/types";
 import { NewTask } from "../tasks/NewTask";
 import { Rename } from "../tasks/Rename";
-import styles from "./ProjectPage.module.scss";
+import styles from "./style/ProjectPage.module.scss";
 import { assigneeWords, dueDateWords, priorityWords, roleWords, statusWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {

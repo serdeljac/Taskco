@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { ProjectList } from "./ProjectList";
+import { ProjectList } from "../ProjectList";
 
 describe("ProjectList", () => {
     it("shows each project's name, in the order given", () => {

@@ -5,7 +5,7 @@ import type { projectLoader } from "../projects/ProjectPage";
 import { Fields } from "./Fields";
 import { NewSubtask } from "./NewSubtask";
 import { Rename } from "./Rename";
-import styles from "./TaskPage.module.scss";
+import styles from "./style/TaskPage.module.scss";
 import { assigneeWords, dueDateWords, priorityWords, statusWords } from "./words";
 
 // The task's subtasks: the one thing about a task the project page does not hold. A task the server

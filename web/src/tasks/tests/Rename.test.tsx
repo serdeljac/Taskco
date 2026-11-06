@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "../routes";
-import { standInApi, type Answer } from "../testing/standInApi";
+import { routes } from "../../routes";
+import { standInApi, type Answer } from "../../testing/standInApi";
 
 // Garden, with task 3 open, for someone in the given role. A rename is stored as the API would
 // store it, unless answers says otherwise

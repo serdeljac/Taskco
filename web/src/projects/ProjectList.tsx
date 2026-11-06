@@ -1,4 +1,4 @@
-import styles from "./ProjectList.module.scss";
+import styles from "./style/ProjectList.module.scss";
 import { Link } from "react-router";
 
 type Props = {

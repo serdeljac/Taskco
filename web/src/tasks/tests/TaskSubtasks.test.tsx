@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "../routes";
-import { standInApi, type Answer } from "../testing/standInApi";
+import { routes } from "../../routes";
+import { standInApi, type Answer } from "../../testing/standInApi";
 
 const members = [
     { membership_id: "1", user_id: "1", email: "lead@example.com", role: "lead", joined_at: "2026-11-01T09:00:00.000Z" },

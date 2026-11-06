@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "../routes";
-import { standInApi, type Answer } from "../testing/standInApi";
+import { routes } from "../../routes";
+import { standInApi, type Answer } from "../../testing/standInApi";
 
 const notLoggedIn: Answer = [401, { error: "Log in first", code: "not-logged-in" }];
 

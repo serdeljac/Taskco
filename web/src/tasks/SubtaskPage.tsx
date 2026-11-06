@@ -3,7 +3,7 @@ import type { accountLoader } from "../account/AccountLayout";
 import type { projectLoader } from "../projects/ProjectPage";
 import { Fields } from "./Fields";
 import { Rename } from "./Rename";
-import styles from "./TaskPage.module.scss";
+import styles from "./style/TaskPage.module.scss";
 import type { taskLoader } from "./TaskPage";
 import { todayIn } from "./today";
 

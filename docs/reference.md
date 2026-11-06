@@ -2048,12 +2048,16 @@ it, the router reloads `/`'s data, so the list shows the new project with nothin
 
 ### The styles
 
+Since 2026-11-06, `login/`, `register/`, `projects/` and `tasks/` keep their SASS modules in a
+`style/` folder and their `.test.tsx` files in a `tests/` folder, for readability. `account/`, `api/`
+and the `.test.ts` files still sit beside what they test.
+
 | Module | Used by | What it does |
 |---|---|---|
-| `projects/ProjectList.module.scss` | `ProjectList` | no bullets or browser spacing; a gap and a line under each name |
+| `projects/style/ProjectList.module.scss` | `ProjectList` | no bullets or browser spacing; a gap and a line under each name |
 | `AccountForm.module.scss` | `LoginPage`, `RegisterPage` | one field under another, at most 20rem wide, a refusal in red |
 | `account/AccountLayout.module.scss` | `AccountLayout` | the email and Log out on one line, a line under them |
-| `projects/NewProject.module.scss` | `NewProject` | the field and its buttons on one line; the hint and any refusal on their own line, after the buttons |
+| `projects/style/NewProject.module.scss` | `NewProject` | the field and its buttons on one line; the hint and any refusal on their own line, after the buttons |
 
 Each class reaches the page renamed — `.form` becomes `_form_` and a hash — so no other file's
 `.form` can clash with it.

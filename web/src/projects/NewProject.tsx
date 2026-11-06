@@ -1,7 +1,7 @@
 import {useState, type SubmitEvent} from 'react'
 import {Form, useActionData} from 'react-router';
 import type { createProjectAction } from "./createProject";
-import styles from "./NewProject.module.scss";
+import styles from "./style/NewProject.module.scss";
 
 type Props = {
     names: string[];

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "../routes";
-import { standInApi } from "../testing/standInApi";
+import { routes } from "../../routes";
+import { standInApi } from "../../testing/standInApi";
 
 
 // / for someone whose list already has Garden in it

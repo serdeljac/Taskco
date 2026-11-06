@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "../routes";
-import { standInApi, type Answer } from "../testing/standInApi";
+import { routes } from "../../routes";
+import { standInApi, type Answer } from "../../testing/standInApi";
 
 // Garden, with two tasks, opened at the address given. answerToStatus answers a status change
 async function showGarden(path: string, answerToStatus: (task: { status: string }) => Answer = () => [204]) {

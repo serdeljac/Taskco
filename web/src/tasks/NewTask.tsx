@@ -1,7 +1,7 @@
 import { useState, type SubmitEvent } from "react";
 import { Form, useActionData } from "react-router";
 import type { projectAction } from "../projects/projectAction";
-import styles from "./NewTask.module.scss";
+import styles from "./style/NewTask.module.scss";
 
 // "New task", for the Lead: a title, and a due date if wanted. A copy of NewProject: a blank title
 // stops in the browser, any other is sent and the form closes, and focus follows it

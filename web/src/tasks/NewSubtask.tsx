@@ -1,7 +1,7 @@
 import { useState, type SubmitEvent } from "react";
 import { Form, useActionData, useRouteLoaderData } from "react-router";
 import type { accountLoader } from "../account/AccountLayout";
-import styles from "./NewTask.module.scss";
+import styles from "./style/NewTask.module.scss";
 import { todayIn } from "./today";
 import type { updateTaskAction } from "./updateTask";
 
