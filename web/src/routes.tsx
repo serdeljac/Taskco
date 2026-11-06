@@ -9,6 +9,7 @@ import { RegisterPage, registerAction } from "./register/RegisterPage";
 import { RootError } from "./RootError";
 import { createTaskAction } from "./tasks/createTask";
 import { TaskPage } from "./tasks/TaskPage";
+import { updateTaskAction } from "./tasks/updateTask";
 
 export const routes: RouteObject[] = [
     {
@@ -35,7 +36,9 @@ export const routes: RouteObject[] = [
                         loader: projectLoader,
                         action: createTaskAction,
                         // One task, shown under the project's list through its Outlet
-                        children: [{ path: "tasks/:taskId", element: <TaskPage /> }],
+                        children: [
+                            { id: "task", path: "tasks/:taskId", element: <TaskPage />, action: updateTaskAction },
+                        ],
                     },
                 ],
             },
