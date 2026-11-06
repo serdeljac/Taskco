@@ -8,8 +8,9 @@ import { ProjectPage, projectLoader } from "./projects/ProjectPage";
 import { RegisterPage, registerAction } from "./register/RegisterPage";
 import { RootError } from "./RootError";
 import { projectAction } from "./projects/projectAction";
+import { SubtaskPage } from "./tasks/SubtaskPage";
 import { TaskPage, taskLoader } from "./tasks/TaskPage";
-import { updateTaskAction } from "./tasks/updateTask";
+import { updateSubtaskAction, updateTaskAction } from "./tasks/updateTask";
 
 export const routes: RouteObject[] = [
     {
@@ -38,7 +39,17 @@ export const routes: RouteObject[] = [
                         action: projectAction,
                         // One task, shown under the project's list through its Outlet
                         children: [
-                            { id: "task", path: "tasks/:taskId", element: <TaskPage />, loader: taskLoader, action: updateTaskAction },
+                            {
+                                id: "task",
+                                path: "tasks/:taskId",
+                                element: <TaskPage />,
+                                loader: taskLoader,
+                                action: updateTaskAction,
+                                // One subtask, shown under the task's list through its Outlet
+                                children: [
+                                    { path: "subtasks/:subtaskId", element: <SubtaskPage />, action: updateSubtaskAction },
+                                ],
+                            },
                         ],
                     },
                 ],

@@ -28,6 +28,21 @@ async function changeField(form: FormData, base: string): Promise<void> {
     }
 }
 
+// The subtask page's action: one field of the subtask, through its own endpoints, as for a task
+export async function updateSubtaskAction({ request, params }: ActionFunctionArgs) {
+    const form = await request.formData();
+
+    try {
+        await changeField(form, `/subtasks/${params.subtaskId}`);
+        return null;
+    } catch (error) {
+        if (error instanceof ApiError) {
+            return { refusal: wordsFor(error.code) };
+        }
+        throw error;
+    }
+}
+
 // The task page's action. Each form on the page sends one field, and the field's name says which of
 // the API's endpoints to ask. New subtask sends a title too, so it says what it is with its intent,
 // read first. After it the router reloads the page's data, so the lists and the page show the change.
