@@ -1279,3 +1279,15 @@ specified.
   "not before today". Both are about subtasks, which a person first sees in 7c. *Accepted cost:*
   until then, moving a task's date earlier clears its subtasks' later dates without asking, as the
   API always has.
+
+**Built in slice 7b**, 2026-11-05, on branch `step-7b`: a project's page and a task's page, renaming
+for the Lead, and each of a task's fields changed in place. Two choices made while building, for
+Stjepan's review:
+
+- **A choice saves at once; typed text waits for a button.** Status, priority and assignee save the
+  moment one is picked. The due date, the notes and a new name have a Save button: a date box
+  reports every digit of the year as it is typed, so saving on change would send 0002, 0020 and
+  0202 on the way to 2026.
+- **A task id not in the list shows the project, with "There's no task here."** under the list,
+  rather than the whole page's "There's no page here.": the task page reads the project's data and
+  has no loader of its own to throw a 404 from.

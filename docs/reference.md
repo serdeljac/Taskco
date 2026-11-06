@@ -4,7 +4,7 @@ Every file, organised by the step that built it. For each one: **the code**, **w
 **what is still open** in that file.
 
 Code blocks are a snapshot taken 2026-09-18, except steps 5 and 6's, taken 2026-10-22, the review
-fixes after them, taken 2026-10-24, and slice 7a's, taken 2026-11-03. If a block ever disagrees with the file, the file wins.
+fixes after them, taken 2026-10-24, slice 7a's, taken 2026-11-03, and slice 7b's, taken 2026-11-05. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -1121,6 +1121,7 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 |---|---|---|---|---|
 | `GET /projects` | anyone | `listProjectsForUser` | 200 `{ projects }`, each with the asker's `role` | — |
 | `POST /projects` | anyone, who becomes its Lead | `createProject` | 201 `{ project }` | — |
+| `PUT /projects/:projectId/name` | the Lead | `renameProject` | 204 | project being deleted. *Slice 7b* |
 | `POST /projects/:projectId/deletion` | the Lead | `deleteProject` | 201 `{ scheduledFor }` | already being deleted |
 | `DELETE /projects/:projectId/deletion` | the Lead | `restoreProject` | 204 | not being deleted; past its date; the Lead's account is going |
 | `DELETE /projects/:projectId` | the Lead | `deleteProjectNow` | 204 | already in delete mode |
@@ -1136,6 +1137,7 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 | `PUT /tasks/:taskId/status` | any member | `setTaskStatus` | 204 | — |
 | `PUT /tasks/:taskId/priority` | the Lead | `setTaskPriority` | 204 | — |
 | `PUT /tasks/:taskId/notes` | any member | `setTaskNotes` | 204 | — |
+| `PUT /tasks/:taskId/title` | the Lead | `renameTask` | 204 | 404 a deleted task, or one in a project being deleted. *Slice 7b* |
 | `PUT /tasks/:taskId/due-date` | the Lead | `setTaskDueDate` | 200 `{ clearedSubtasks }` | — |
 | `PUT /tasks/:taskId/assignee` | the Lead | `setTaskAssignee` | 204 | not a current member of the project |
 | `PUT /tasks/:taskId/position` | the Lead | `moveTask` | 204 | a neighbour not found, or in another project; the task named as its own neighbour |
@@ -1160,7 +1162,8 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 
 | Endpoints | Body |
 |---|---|
-| `POST /projects` | `{ name }` — text, trimmed, not blank |
+| `POST /projects`, `PUT /projects/:projectId/name` | `{ name }` — text, trimmed, not blank |
+| `PUT /tasks/:taskId/title` | `{ title }` — text, trimmed, not blank |
 | `POST /routines` | `{ name, weekdays }` — weekdays a list of at least one whole number from 1 to 7 |
 | `POST /projects/:projectId/tasks`, `POST /tasks/:taskId/subtasks` | `{ title, dueDate? }` — the date a real calendar day, `"2026-11-20"` |
 | `PUT …/status` | `{ status }` — `not_started`, `in_progress`, `on_hold` or `completed` |
@@ -1942,6 +1945,8 @@ The frontend, with its own `package.json`, run from `web\`. Vite serves it on po
 | `/login` | `LoginPage` | `loginLoader`: someone logged in goes on to `/` | `loginAction`: `POST /sessions`, then `/` |
 | `/register` | `RegisterPage` | `loginLoader`, the same | `registerAction`: `POST /users`, then `/` |
 | `/logout` | — | `logoutLoader`: a visit goes on to `/`, changing nothing | `logoutAction`: `DELETE /sessions/current`, then `/login` |
+| `/projects/:projectId` | `ProjectPage`, inside `AccountLayout` — *slice 7b* | `projectLoader`: `GET /projects`, then its tasks and members at once | `projectAction`: rename the project, or create a task |
+| `/projects/:projectId/tasks/:taskId` | `TaskPage`, through the project page's `Outlet` — *slice 7b* | — it reads the project's data | `updateTaskAction`: one field, by its name |
 
 **Every 401 goes to `/login` from one place, `RootError`.** A loader lets its 401 through; the
 error page turns it into `/login`, so a session ended in another tab sends the next navigation
@@ -2073,6 +2078,105 @@ none.
 
 **Open:** `no-timezone-change`, which the clock's `Etc` zones make more pressing, and
 `new-project-refusal-outlives-typing`.
+
+---
+
+# Step 7b — a project's tasks
+
+Built 2026-11-05 on branch `step-7b`, as specified in [`step-7b.md`](./step-7b.md). Renaming on the
+server first, then the project and task pages. Stjepan typed the two firsts — the first route with
+a parameter and link (F1), and the first fetcher (F2) — and Claude the rest.
+
+## Renaming, on the server
+
+| Function | What it does | Refuses when |
+|---|---|---|
+| `renameTask({ taskId, title })` | through `visible_tasks`, like every other change to a task | deleted, missing, or in a project being deleted (`NotFound`); a blank title, by `tasks_title_not_blank` |
+| `renameProject({ projectId, name })` | in a transaction, after `refuseIfProjectIsBeingDeleted` | `project-being-deleted`; a blank name, by `projects_name_not_blank` |
+
+`PUT /tasks/:taskId/title` and `PUT /projects/:projectId/name` are the Lead's, in the endpoint
+tables above; each trims, refuses a blank with `invalid-body`, and answers 204.
+
+## The pages
+
+**`projects/ProjectList.tsx`** — each name is now a `Link` to `/projects/:id`. Its tests draw it
+inside a `MemoryRouter`: a link needs a router to work out its address.
+
+**`projects/ProjectPage.tsx`** — `/projects/:projectId`. Its loader:
+
+```ts
+export async function projectLoader({ params }: LoaderFunctionArgs) {
+    const { projects } = await api<{ projects: Project[] }>("GET", "/projects");
+    const project = projects.find((project) => project.id === params.projectId);
+    if (!project) {
+        throw data(null, { status: 404 });
+    }
+
+    const [{ tasks }, { members }] = await Promise.all([
+        api<{ tasks: Task[] }>("GET", `/projects/${project.id}/tasks`),
+        api<{ members: Member[] }>("GET", `/projects/${project.id}/members`),
+    ]);
+    return { project, tasks, members };
+}
+```
+
+`params.projectId` is text. There is no `GET /projects/:projectId`; the list says which projects the
+asker is in, with their role, so a project not in it throws a 404 of the loader's own, and the root's
+page says "There's no page here." The page shows the name — a `Rename` field for the Lead — then
+`NewTask` for the Lead, the tasks as a table in the order sent, each title a link to its task, the
+task opened through an `Outlet`, and the members.
+
+**`projects/projectAction.ts`** — the project page's action. A `name` renames the project; anything
+else is a new task, with the due date only if one was chosen: a date input sends `""` when empty.
+
+**`tasks/NewTask.tsx`** — a copy of `NewProject`: a title, refused when blank, an optional due date,
+and focus kept as in `NewProject`.
+
+**`tasks/TaskPage.tsx`** — `/projects/:projectId/tasks/:taskId`, with no loader: it reads the project
+route's data with `useRouteLoaderData("project")`, so opening a task asks the server nothing. A task
+not in the list says "There's no task here." under the list. Each field has its own fetcher, its
+form keyed by the task's id:
+
+| Field | Who | How it saves | Empty |
+|---|---|---|---|
+| Status | anyone | a select, the moment one is chosen (F2) | — |
+| Priority | the Lead | a select, the moment one is chosen | "Not set", sent as `null` |
+| Due | the Lead | a date input and **Save date** | "TBD", sent as `null` |
+| Assigned to | the Lead | a select of the members by email, sent as the membership | "Nobody", sent as `null` |
+| Notes | anyone | a text area and **Save notes** | blank, stored as empty |
+
+An Associate sees the Lead's three as words. **A choice saves at once; typed text waits for a
+button:** a date box reports every digit of the year as it is typed, so saving on change would send
+0002, 0020 and 0202 on the way to 2026.
+
+**`tasks/updateTask.ts`** — the task page's action. Each form sends one field, and its name picks the
+endpoint: `status`, `priority`, `dueDate`, `membershipId`, `notes` or `title`. `""` is `null`.
+
+**`tasks/Rename.tsx`** — one form for renaming a task or the project: a text field and Save, through
+its own fetcher to the action of the page it is on; a blank name stops in the browser.
+
+**`tasks/words.ts`** — the words for each status, priority and role, a due date or "TBD", and the
+assignee's email or "Nobody".
+
+**Styles:** `ProjectPage.module.scss`, `TaskPage.module.scss`, `NewTask.module.scss` and
+`Rename.module.scss`, copies of 7a's.
+
+## The tests
+
+Eighty-nine in eighteen files. New in 7b: `words`, `ProjectPage`, `NewTask`, `TaskPage`,
+`updateTask`, `TaskStatus` (F2's), `TaskFields` and `Rename`, all through the real routes with the
+stand-in API.
+
+## Traps met
+
+- **A form drawn from `defaultValue` keeps the last task's values** when another task is opened,
+  since the page stays and only its parameter changes. Every field's form is keyed by the task's id;
+  `TaskStatus`'s second test fails without it.
+- **The dev server's watcher missed changes here, three times**: it went on serving an old
+  `routes.tsx` or `TaskPage.tsx` while the file on disk was right, and the page broke or lost a class.
+  Restarting `npm run dev` in `web/` served the right files. `vite-watcher-misses-changes`.
+
+**Open:** `vite-watcher-misses-changes`; `no-renaming`, for subtasks.
 
 ---
 

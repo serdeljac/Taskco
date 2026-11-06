@@ -2,8 +2,16 @@
 
 Specified 2026-11-05, from slice 7b's row in [`step-7-prep.md`](./step-7-prep.md), design
 sections 7 and 16, and three decisions Stjepan made the same day. The second slice of step 7, in
-[`learning-path.md`](./learning-path.md). Nothing here is built. It is built on branch `step-7b`,
-from `main` after 7a's merge.
+[`learning-path.md`](./learning-path.md). **Built** 2026-11-05 on branch `step-7b`, from `main`
+after 7a's merge; not yet reviewed. Changed on the way, each for Stjepan's review:
+
+- **F2 was split.** The task page's action came first, as Claude's — an action is a kind already
+  met — so F2 was the fetcher alone, as C9 came before F6 in 7a.
+- **The due date and the notes save with a button**, not on change: a date box reports every digit
+  of the year as it is typed. Design section 16.
+- **A task id not in the list says "There's no task here."** under the project. See C6.
+- **The project page's action is `projectAction`**, renaming the project or creating a task;
+  `createTask.ts` went into it in C8.
 
 **The new React Router pieces were tried together on 2026-11-05**, in a throwaway test through a
 memory router and the stand-in API:

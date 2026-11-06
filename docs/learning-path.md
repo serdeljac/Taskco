@@ -7,8 +7,9 @@ looks like" was checked in a browser. Stjepan went over the commits on 2026-11-0
 followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items, all fixed by 2026-11-05 — see
 the progress log — and **merged into `main`** on 2026-11-05, as a fast-forward of thirty-one commits.
 `main` is not pushed: `origin/main` ends at 7a's specification. Slice 7b — a project's tasks — is
-**specified** in [`step-7b.md`](./step-7b.md), on branch `step-7b`, 2026-11-05. **Next:** building it,
-on Stjepan's go-ahead.
+**built**, on branch `step-7b`, 2026-11-05, as specified in [`step-7b.md`](./step-7b.md): open a
+project, see and create its tasks, change a task on its own page, rename. Stjepan typed its two
+firsts. **Next:** Stjepan goes over the commits, then 7b's review.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -402,6 +403,8 @@ pieces — eleven for Claude, starting with renaming on the server, and two firs
 with a parameter and a link, and a fetcher. Stjepan decided three questions the same day: tasks and
 projects can be renamed, a task is changed on its own page, and the subtask-date warning waits for
 7c. Five traps, found by trying the new React Router pieces together first.
+
+**Slice 7b built 2026-11-05**, on branch `step-7b`. See the progress log.
 
 ---
 
@@ -865,3 +868,30 @@ run again on `main` — and not pushed.
 *Learned:* that focus is part of what a component shows. Take the pressed button off the page and
 focus has nowhere to go. And `autoFocus` alone would grab it on the first page load too, so
 New project takes it back only once the form has been open.
+
+**Step 7, slice 7b — a project's tasks.** Built 2026-11-05 on branch `step-7b`, not yet reviewed.
+Renaming came first on the server: `renameTask` and `renameProject`, each with its Lead's endpoint,
+four hundred and twenty-six tests at the root. Then the frontend. Stjepan typed the two firsts.
+F1 was the first route with a parameter and the first link: a project's name on `/` opens
+`/projects/7`. F2 was the first fetcher: a task's status, saved the moment it is chosen without
+leaving the page. Claude wrote the rest:
+- the project page in full, with its members;
+- New task, for the Lead;
+- the task page, nested under the list and reading the project's data;
+- its action, split out of F2 so F2 was the fetcher alone;
+- priority, due date, assignee and notes;
+- renaming on screen;
+- the styles.
+
+`src/preview.ts` was deleted. Eighty-nine tests in `web/`, and every flow checked in a browser as
+the seed's Lead. One item closed, `preview-queries-per-task`. One opened,
+`vite-watcher-misses-changes`: three times the dev server kept serving a file older than the one on
+disk.
+
+*Learned:* that a route's parameter is text, and that "this project" has to be found in a list the
+API already sends, since there is no `GET /projects/:id`. That a page which only changes its
+parameter keeps its forms, so a form drawn from `defaultValue` shows the last task's values until it
+is keyed by the task's id. That a fetcher saves in place and still reloads everything on the page.
+That a date box reports every digit of the year, so it saves with a button. And that a file once
+put in the wrong place — `ProjectsPage` for `ProjectPage`, one letter apart — fails as a type error
+in a file nobody touched.
