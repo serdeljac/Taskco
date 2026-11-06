@@ -2,6 +2,7 @@ import { data, Link, Outlet, useLoaderData, type LoaderFunctionArgs } from "reac
 import { api } from "../api/client";
 import type { Member, Project, Task } from "../api/types";
 import { NewTask } from "../tasks/NewTask";
+import { Rename } from "../tasks/Rename";
 import { assigneeWords, dueDateWords, priorityWords, roleWords, statusWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
@@ -28,6 +29,9 @@ export function ProjectPage() {
                 <Link to="/">All projects</Link>
             </p>
             <h1>{project.name}</h1>
+            {project.role === "lead" && (
+                <Rename key={project.id} field="name" label="Name" current={project.name} blankWords="Give the project a name" />
+            )}
 
             <h2>Tasks</h2>
             {/* Only the Lead creates tasks: the API refuses anyone else */}

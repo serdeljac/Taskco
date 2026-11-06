@@ -1,6 +1,6 @@
 import { useState, type SubmitEvent } from "react";
 import { Form, useActionData } from "react-router";
-import type { createTaskAction } from "./createTask";
+import type { projectAction } from "../projects/projectAction";
 
 // "New task", for the Lead: a title, and a due date if wanted. A copy of NewProject: a blank title
 // stops in the browser, any other is sent and the form closes, and focus follows it
@@ -10,7 +10,7 @@ export function NewTask() {
     const [refusal, setRefusal] = useState<string | null>(null);
     const [wasOpen, setWasOpen] = useState(false);
     // What the project page's action last answered. The form has closed by then, so a refusal shows by the button
-    const answer = useActionData<typeof createTaskAction>();
+    const answer = useActionData<typeof projectAction>();
 
     function create(event: SubmitEvent<HTMLFormElement>) {
         if (title.trim() === "") {

@@ -24,6 +24,9 @@ export async function updateTaskAction({ request, params }: ActionFunctionArgs) 
             await api<{ clearedSubtasks: number }>("PUT", `${task}/due-date`, { dueDate: emptyIsNull(form.get("dueDate")) });
         } else if (form.has("membershipId")) {
             await api<void>("PUT", `${task}/assignee`, { membershipId: emptyIsNull(form.get("membershipId")) });
+        } else if (form.has("title")) {
+            // The Lead's rename; the API trims it
+            await api<void>("PUT", `${task}/title`, { title: form.get("title") });
         } else if (form.has("notes")) {
             // The API stores blank notes as empty
             await api<void>("PUT", `${task}/notes`, { notes: form.get("notes") });

@@ -7,7 +7,7 @@ import { ProjectsPage, projectsLoader } from "./projects/ProjectsPage";
 import { ProjectPage, projectLoader } from "./projects/ProjectPage";
 import { RegisterPage, registerAction } from "./register/RegisterPage";
 import { RootError } from "./RootError";
-import { createTaskAction } from "./tasks/createTask";
+import { projectAction } from "./projects/projectAction";
 import { TaskPage } from "./tasks/TaskPage";
 import { updateTaskAction } from "./tasks/updateTask";
 
@@ -34,7 +34,7 @@ export const routes: RouteObject[] = [
                         path: "/projects/:projectId",
                         element: <ProjectPage />,
                         loader: projectLoader,
-                        action: createTaskAction,
+                        action: projectAction,
                         // One task, shown under the project's list through its Outlet
                         children: [
                             { id: "task", path: "tasks/:taskId", element: <TaskPage />, action: updateTaskAction },
