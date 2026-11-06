@@ -1,5 +1,6 @@
 import { useFetcher } from "react-router";
 import type { Member, Subtask, Task } from "../api/types";
+import { DueDateField } from "./DueDateField";
 import { assigneeWords, dueDateWords, priorityWords, statusWords } from "./words";
 
 type Props = {
@@ -18,7 +19,6 @@ export function Fields({ item, members, isLead, dueDateLimits }: Props) {
     // One fetcher for each field, so each shows its own refusal
     const statusFetcher = useFetcher<{ refusal?: string } | null>();
     const priorityFetcher = useFetcher<{ refusal?: string } | null>();
-    const dueDateFetcher = useFetcher<{ refusal?: string } | null>();
     const assigneeFetcher = useFetcher<{ refusal?: string } | null>();
     const notesFetcher = useFetcher<{ refusal?: string } | null>();
 
@@ -70,25 +70,11 @@ export function Fields({ item, members, isLead, dueDateLimits }: Props) {
             </dd>
             <dt>Due</dt>
             <dd>
-                {/* Saved with a button: a date box reports every digit of the year as it is typed. A typed
-                    date is kept after a refusal, like the login form's email, so it can be sent again.
-                    noValidate: the browser's own check of the limits would refuse in its words */}
                 {isLead ? (
-                    <dueDateFetcher.Form method="put" noValidate>
-                        <input
-                            type="date"
-                            name="dueDate"
-                            aria-label="Due date"
-                            defaultValue={item.due_date ?? ""}
-                            min={dueDateLimits?.min}
-                            max={dueDateLimits?.max}
-                        />
-                        <button type="submit">Save date</button>
-                    </dueDateFetcher.Form>
+                    <DueDateField dueDate={item.due_date} limits={dueDateLimits} />
                 ) : (
                     dueDateWords(item.due_date)
                 )}
-                {dueDateFetcher.data?.refusal && <p role="alert">{dueDateFetcher.data.refusal}</p>}
             </dd>
             <dt>Assigned to</dt>
             <dd>
