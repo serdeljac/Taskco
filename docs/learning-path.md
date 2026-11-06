@@ -10,8 +10,9 @@ the progress log — and **merged into `main`** on 2026-11-05, as a fast-forward
 **built**, on branch `step-7b`, 2026-11-05, as specified in [`step-7b.md`](./step-7b.md): open a
 project, see and create its tasks, change a task on its own page, rename. Stjepan typed its two
 firsts. Stjepan went over the commits the same day, and the review followed, in
-[`step-7b-review.md`](./step-7b-review.md): three items. **Next:** fixing the two on a task's page
-before merging; the third waits for 7e.
+[`step-7b-review.md`](./step-7b-review.md): three items. The two on a task's page were fixed the
+same day; the third waits for 7e. **Next:** merging `step-7b` into `main`, then specifying 7c,
+subtasks.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -914,3 +915,12 @@ so what a fetcher answered outlives the task it was about. That a field showing 
 is only right while the server agrees: after a refusal, the truth is the task's, which the page
 already has. And that no test had refused a change and then looked at the field, which is why
 neither showed while building.
+
+**After the 7b review — the fixes.** 2026-11-05, on branch `step-7b`, by Claude at Stjepan's request,
+the status field being his F2's.
+- A task's fields became `TaskFields`, keyed by the task's id, so each task has fetchers of its own.
+- Status, priority and assignee show what is being sent while it is on its way, and otherwise the
+  task's own value. So a refusal puts them back to what the server has.
+- A typed date and notes stay as typed after a refusal, so they can be sent again.
+
+Two items closed, five tests added, ninety-four in `web/`. Not yet merged.

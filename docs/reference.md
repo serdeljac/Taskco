@@ -2134,8 +2134,9 @@ and focus kept as in `NewProject`.
 
 **`tasks/TaskPage.tsx`** — `/projects/:projectId/tasks/:taskId`, with no loader: it reads the project
 route's data with `useRouteLoaderData("project")`, so opening a task asks the server nothing. A task
-not in the list says "There's no task here." under the list. Each field has its own fetcher, its
-form keyed by the task's id:
+not in the list says "There's no task here." under the list. The fields are `TaskFields`, keyed by
+the task's id, so each task gets them afresh with fetchers of its own — one per field, so each shows
+its own refusal:
 
 | Field | Who | How it saves | Empty |
 |---|---|---|---|
@@ -2148,6 +2149,16 @@ form keyed by the task's id:
 An Associate sees the Lead's three as words. **A choice saves at once; typed text waits for a
 button:** a date box reports every digit of the year as it is typed, so saving on change would send
 0002, 0020 and 0202 on the way to 2026.
+
+**A choice shows what the server has.** Each select's value is what its fetcher is sending while the
+change is on its way, and otherwise the task's own:
+
+```ts
+const status = String(statusFetcher.formData?.get("status") ?? task.status);
+```
+
+So after a refusal the reloaded data puts it back. A typed date or notes stay as typed after a
+refusal, so they can be sent again. Added after the 7b review, items 1 and 2.
 
 **`tasks/updateTask.ts`** — the task page's action. Each form sends one field, and its name picks the
 endpoint: `status`, `priority`, `dueDate`, `membershipId`, `notes` or `title`. `""` is `null`.
