@@ -800,6 +800,31 @@ export async function setTaskDueDate(change: {
     }
 }
 
+//How many of a task's subtask dates a new due date would clear, writing nothing, so the Lead is told before the date
+//moves. It counts what setTaskDueDate then reports: the visible subtasks due after the new date
+export async function countSubtaskDatesCleared(change: { taskId: string; dueDate: string }): Promise<number> {
+    const task = await pool.query(
+        `select id
+        from visible_tasks
+        where id = $1`,
+        [change.taskId]
+    );
+
+    if (task.rowCount === 0) {
+        throw new NotFound("countSubtaskDatesCleared: task not found");
+    }
+
+    const { rows } = await pool.query<{ clears: number }>(
+        `select count(*)::int as clears
+        from visible_subtasks
+        where task_id = $1
+        and due_date > $2`,
+        [change.taskId, change.dueDate]
+    );
+
+    return rows[0]?.clears ?? 0;
+}
+
 export async function setTaskNotes(change: {
     taskId: string;
     notes: string | null;

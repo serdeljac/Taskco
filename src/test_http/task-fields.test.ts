@@ -495,3 +495,58 @@ describe("PUT /tasks/:taskId/title", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("GET /tasks/:taskId/due-date-clears", () => {
+    it("tells the Lead how many subtask dates a new date would clear, and changes nothing", async () => {
+        //CREATE
+        const { ana, task } = await website();
+        await setTaskDueDate({ taskId: task.id, dueDate: "2099-11-30" });
+        await createSubtask({ taskId: task.id, title: "Buy hinges", dueDate: "2099-11-20" });
+        await createSubtask({ taskId: task.id, title: "Oil the latch", dueDate: "2099-11-25" });
+
+        //TEST
+        const response = await request(app)
+            .get(`/tasks/${task.id}/due-date-clears?dueDate=2099-11-22`)
+            .set("Cookie", await cookieFor(ana));
+
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual({ clears: 1 });
+        const subtasks = await listSubtasks({ taskId: task.id, userId: ana.id });
+        expect(subtasks.map((subtask) => subtask.due_date)).toEqual(["2099-11-20", "2099-11-25"]);
+    });
+
+    it("answers 403 to an Associate", async () => {
+        //CREATE
+        const { ben, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .get(`/tasks/${task.id}/due-date-clears?dueDate=2099-11-22`)
+            .set("Cookie", await cookieFor(ben));
+
+        expect(response.status).toBe(403);
+    });
+
+    it("refuses a missing date, or a day not on the calendar", async () => {
+        //CREATE
+        const { ana, task } = await website();
+
+        //TEST
+        for (const query of ["", "?dueDate=2099-02-30"]) {
+            const response = await request(app)
+                .get(`/tasks/${task.id}/due-date-clears${query}`)
+                .set("Cookie", await cookieFor(ana));
+
+            expect(response.status).toBe(400);
+            expect(response.body.code).toBe("invalid-body");
+        }
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app).get("/tasks/1/due-date-clears?dueDate=2099-11-22");
+
+        expect(response.status).toBe(401);
+    });
+});

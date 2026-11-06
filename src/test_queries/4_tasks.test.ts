@@ -18,6 +18,8 @@ import {
     setTaskStatus,
     setTaskPriority,
     renameTask,
+    countSubtaskDatesCleared,
+    deleteSubtask,
 } from "../queries.js";
 
 
@@ -952,5 +954,55 @@ describe("4_tasks", () => {
         await expect(
             renameTask({ taskId: task.id, title: "Draft the landing page" })
         ).rejects.toMatchObject({ message: "renameTask: task not found" });
+    });
+
+    it("counts the subtask dates a new due date would clear, and changes nothing", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage", dueDate: "2099-11-30" });
+        await createSubtask({ taskId: task.id, title: "Pick photos", dueDate: "2099-11-20" });
+        await createSubtask({ taskId: task.id, title: "Write captions", dueDate: "2099-11-25" });
+        await createSubtask({ taskId: task.id, title: "Ask legal" });
+        const gone = await createSubtask({ taskId: task.id, title: "Old idea", dueDate: "2099-11-28" });
+        await deleteSubtask(gone.id);
+
+        //TEST
+        expect(await countSubtaskDatesCleared({ taskId: task.id, dueDate: "2099-11-22" })).toBe(1);
+        expect(await countSubtaskDatesCleared({ taskId: task.id, dueDate: "2099-11-10" })).toBe(2);
+        expect(await countSubtaskDatesCleared({ taskId: task.id, dueDate: "2099-12-31" })).toBe(0);
+
+        const { rows } = await pool.query<{ due_date: string | null }>(
+            `select due_date from subtasks where task_id = $1 order by id`,
+            [task.id]
+        );
+        expect(rows.map((row) => row.due_date)).toEqual(["2099-11-20", "2099-11-25", null, "2099-11-28"]);
+    });
+
+    it("counts as many as the date change itself then clears", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage", dueDate: "2099-11-30" });
+        await createSubtask({ taskId: task.id, title: "Pick photos", dueDate: "2099-11-20" });
+        await createSubtask({ taskId: task.id, title: "Write captions", dueDate: "2099-11-25" });
+
+        //TEST
+        const counted = await countSubtaskDatesCleared({ taskId: task.id, dueDate: "2099-11-22" });
+        const { clearedSubtasks } = await setTaskDueDate({ taskId: task.id, dueDate: "2099-11-22" });
+        expect(counted).toBe(clearedSubtasks);
+    });
+
+    it("refuses to count for a deleted task", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        await deleteTask(task.id);
+
+        //TEST
+        await expect(
+            countSubtaskDatesCleared({ taskId: task.id, dueDate: "2099-11-22" })
+        ).rejects.toMatchObject({ message: "countSubtaskDatesCleared: task not found" });
     });
 });

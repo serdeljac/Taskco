@@ -23,6 +23,7 @@ import {
     setTaskPriority,
     setTaskNotes,
     renameTask,
+    countSubtaskDatesCleared,
     setTaskDueDate,
     setTaskAssignee,
     moveTask,
@@ -526,6 +527,24 @@ app.put("/tasks/:taskId/due-date", requireLead, async (req, res) => {
 
     const { clearedSubtasks } = await setTaskDueDate({ taskId: req.params.taskId, dueDate: body.data.dueDate });
     res.json({ clearedSubtasks });
+});
+
+//Before a task's date moves: how many subtask dates the new one would clear, so the Lead can be asked first. The date
+//comes in the query, since a GET has no body; a refused one answers invalid-body all the same
+const dueDateClears = z.object({
+    dueDate: z.iso.date(),
+});
+
+app.get("/tasks/:taskId/due-date-clears", requireLead, async (req, res) => {
+    const query = dueDateClears.safeParse(req.query);
+
+    if (!query.success) {
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: query.error.issues });
+        return;
+    }
+
+    const clears = await countSubtaskDatesCleared({ taskId: req.params.taskId, dueDate: query.data.dueDate });
+    res.json({ clears });
 });
 
 //An assignee is a membership, from the members list, or null for nobody
