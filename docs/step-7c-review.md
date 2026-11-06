@@ -137,7 +137,10 @@ limits, renaming, an Associate's page, another subtask's own values, an unknown 
   refusal — and for the same reason it survives the server changing the date. *Reasoned:* Save date
   there would send 2026-11-25, refused as after its task. Keying `DueDateField` by the date the server
   has would draw it afresh whenever that date changes, and leave it alone after a refusal, which
-  changes nothing on the server.
+  changes nothing on the server. *Corrected 2026-11-06, while fixing it:* the key was tried, and it
+  redraws the whole field after every save, so the keyboard's focus falls off Save date each time.
+  The fix sets the box to the server's date while drawing, when that date changes, and keeps the
+  field.
 
 **Assumes** what the page shows is what the server has. Everywhere but the date box.
 
@@ -209,7 +212,8 @@ and names `TaskFields`; it is 7b's snapshot, and its step 7c part says what chan
 
 **Items 1 to 4, together, in `DueDateField.tsx`.** Take the question away as the date changes; give
 the focus back to the date box after Cancel and Save anyway; words for one subtask or several; and
-key the field by the date the server has. Each with a test that does what its item ran. Items 1 to 3
+let the box follow the server's date when it changes, not by a key: see section 6. Each with a test
+that does what its item ran. Items 1 to 3
 are in Stjepan's F1: his to type, or his to hand over. Item 4 is in Claude's split before F1.
 
 **Item 5**, one line in `Delete.tsx`, with a test, can come with them.

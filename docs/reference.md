@@ -2337,9 +2337,11 @@ rather than the save. At the root, 446 tests: renaming a subtask, not before tod
   cleared, and the question said "1 subtasks". `clears-words-say-1-subtasks`.
 
 **Open:** `confirm-outlives-a-changed-date`; `clears-words-say-1-subtasks`; and from the 7c review,
-[`step-7c-review.md`](./step-7c-review.md), `due-date-question-drops-focus`,
-`subtask-date-box-keeps-a-cleared-date`, `delete-refusal-comes-back-after-cancel` and
-`today-throws-for-a-zone-the-browser-lacks`; `no-subtask-moves`, for 7d.
+[`step-7c-review.md`](./step-7c-review.md), `due-date-question-drops-focus` and
+`today-throws-for-a-zone-the-browser-lacks`; `no-subtask-moves`, for 7d. The review's
+`subtask-date-box-keeps-a-cleared-date` and `delete-refusal-comes-back-after-cancel` closed the same
+day: `DueDateField` follows the server's date when it changes, and Delete lets a refusal go when it
+asks again.
 
 ---
 
