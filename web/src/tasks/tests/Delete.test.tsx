@@ -102,6 +102,18 @@ describe("deleting, for the Lead", () => {
         expect(screen.getByRole("button", { name: "Delete task" })).toBeDefined();
         expect(router.state.location.pathname).toBe("/projects/7/tasks/3");
     });
+
+    it("lets a refusal go once the question is asked again, and Cancel does not bring it back", async () => {
+        await showGarden("/projects/7/tasks/3", "lead", { "DELETE /tasks/3": [502] });
+        await userEvent.click(await screen.findByRole("button", { name: "Delete task" }));
+        await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+        await screen.findByText("Taskco can't be reached. Is the server running?");
+
+        await userEvent.click(screen.getByRole("button", { name: "Delete task" }));
+        await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+        expect(screen.queryByText("Taskco can't be reached. Is the server running?")).toBeNull();
+    });
 });
 
 describe("deleting, for an Associate", () => {
