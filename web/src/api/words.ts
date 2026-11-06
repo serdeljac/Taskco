@@ -8,6 +8,8 @@ const words = new Map<string, string>([
     ["subtask-due-after-task", "A subtask can't be due after its task."],
     ["subtask-due-before-today", "A subtask can't be due before today."],
     ["subtask-limit", "A task can have at most 50 subtasks."],
+    // A move names its neighbours, and one was deleted meanwhile; the reload shows the list as it is now
+    ["neighbour-not-found", "The list changed while you were moving it. Try again."],
 ]);
 
 export function wordsFor(code: string): string {
