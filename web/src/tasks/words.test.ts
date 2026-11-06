@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Member } from "../api/types";
-import { assigneeWords, dueDateWords, priorityWords, statusWords } from "./words";
+import { assigneeWords, dueDateWords, priorityWords, roleWords, statusWords } from "./words";
 
 const members: Member[] = [
     { membership_id: "1", user_id: "1", email: "lead@example.com", role: "lead", joined_at: "2026-11-01T09:00:00.000Z" },
@@ -25,6 +25,11 @@ describe("a task's words", () => {
     it("shows a due date as the day it is, and an empty one as TBD", () => {
         expect(dueDateWords("2026-11-20")).toBe("2026-11-20");
         expect(dueDateWords(null)).toBe("TBD");
+    });
+
+    it("says each role in Taskco's words", () => {
+        expect(roleWords("lead")).toBe("Lead");
+        expect(roleWords("associate")).toBe("Associate");
     });
 
     it("names the assignee by email, and nobody as Nobody", () => {

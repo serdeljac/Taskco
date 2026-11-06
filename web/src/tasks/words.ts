@@ -1,4 +1,4 @@
-import type { DueDate, Member, Priority, TaskStatus } from "../api/types";
+import type { DueDate, Member, Priority, Role, TaskStatus } from "../api/types";
 
 // The words a person reads for a task's fields. The API's values are for programs: "on_hold" is
 // shown as "On hold". An empty field has words of its own, never a blank
@@ -15,6 +15,15 @@ const priorities: Record<Priority, string> = {
     med: "Med",
     high: "High",
 };
+
+const roles: Record<Role, string> = {
+    lead: "Lead",
+    associate: "Associate",
+};
+
+export function roleWords(role: Role): string {
+    return roles[role];
+}
 
 export function statusWords(status: TaskStatus): string {
     return statuses[status];
