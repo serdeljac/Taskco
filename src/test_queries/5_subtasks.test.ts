@@ -865,4 +865,20 @@ describe("moving subtasks", () => {
             message: "moveSubtask: subtask not found",
         });
     });
+
+    it("renumbers before adding a subtask when the last position is at the ceiling", async () => {
+        //CREATE
+        const { lead, task, third } = await threeSubtasks();
+
+        //TEST
+        await pool.query("update subtasks set position = 2147483647 where id = $1", [third.id]);
+        await createSubtask({ taskId: task.id, title: "Fourth" });
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+        expect(subtasks.map((subtask) => `${subtask.title} ${subtask.position}`)).toEqual([
+            "First 65536",
+            "Second 131072",
+            "Third 196608",
+            "Fourth 262144",
+        ]);
+    });
 });

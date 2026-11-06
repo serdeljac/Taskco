@@ -1096,24 +1096,58 @@ export async function createSubtask(subtask: {
         throw new Refused("subtask-limit", "createSubtask: a task can have at most 50 subtasks");
     }
 
-    const { rows } = await pool.query<Subtask>(
-        `insert into subtasks (task_id, title, due_date, position, assignee_membership_id)
-        values (
-            $1,
-            $2,
-            $3,
-            (select coalesce(max(position), 0) + 65536 from subtasks where task_id = $1),
-            $4
-        )
-        returning *`,
-        [subtask.taskId, subtask.title, subtask.dueDate ?? null, parentTask.assignee_membership_id]
-    );
+    const client = await pool.connect();
 
-    const created = rows[0];
-    if (!created) {
-        throw new Error("createSubtask: the insert returned no row");
+    try {
+        await client.query("begin");
+
+        //Moving subtasks can lift the last one to the top of the integer range, so, as createTask does, the task's
+        //subtasks are renumbered first when the next position would not fit — in the same transaction as the insert
+        const highest = await client.query<{ highest: number }>(
+            `select coalesce(max(position), 0) as highest
+            from subtasks
+            where task_id = $1`,
+            [subtask.taskId]
+        );
+
+        if ((highest.rows[0]?.highest ?? 0) + 65536 > 2147483647) {
+            const ordered = await client.query<{ id: string }>(
+                `select id
+                from subtasks
+                where task_id = $1
+                order by position, id`,
+                [subtask.taskId]
+            );
+
+            await renumberSubtasks(client, ordered.rows.map((row) => row.id));
+        }
+
+        const { rows } = await client.query<Subtask>(
+            `insert into subtasks (task_id, title, due_date, position, assignee_membership_id)
+            values (
+                $1,
+                $2,
+                $3,
+                (select coalesce(max(position), 0) + 65536 from subtasks where task_id = $1),
+                $4
+            )
+            returning *`,
+            [subtask.taskId, subtask.title, subtask.dueDate ?? null, parentTask.assignee_membership_id]
+        );
+
+        await client.query("commit");
+
+        const created = rows[0];
+        if (!created) {
+            throw new Error("createSubtask: the insert returned no row");
+        }
+        return created;
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
     }
-    return created;
 }
 
 export async function listSubtasks(filter: { taskId: string; userId: string }): Promise<Subtask[]> {
