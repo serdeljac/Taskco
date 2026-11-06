@@ -28,11 +28,14 @@ async function showGarden(path: string) {
     return { router, fetch };
 }
 
-// The task page's fields, as words: { Status: "In progress", … }
+// The task page's fields, as words: { Status: "In progress", … }. A field that can be changed is a
+// select, and reads as the option chosen
 function fields() {
     const page = screen.getByRole("region", { name: /./ });
     const terms = within(page).getAllByRole("term").map((term) => term.textContent);
-    const definitions = within(page).getAllByRole("definition").map((definition) => definition.textContent);
+    const definitions = within(page)
+        .getAllByRole("definition")
+        .map((definition) => definition.querySelector("select")?.selectedOptions[0]?.textContent ?? definition.textContent);
     return Object.fromEntries(terms.map((term, i) => [term, definitions[i]]));
 }
 
