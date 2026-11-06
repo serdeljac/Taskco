@@ -23,6 +23,7 @@ export type RefusalCode =
     | "neighbour-not-found"
     | "no-neighbour"
     | "neighbour-in-another-project"
+    | "neighbour-in-another-task"
     | "subtask-limit"
     | "subtask-due-after-task"
     | "subtask-due-before-today"

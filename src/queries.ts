@@ -1202,6 +1202,106 @@ export async function deleteSubtask(subtaskId: string): Promise<void> {
     }
 }
 
+//moveTask for a task's subtasks, design section 7: the subtask lands between the two neighbours it names, at their
+//midpoint, writing one row; when there is no room, the task's subtasks are renumbered and it is placed, in the same
+//transaction. Its neighbours must be under the same task, and visible, as it must
+export async function moveSubtask(move: {
+    subtaskId: string;
+    afterSubtaskId?: string;
+    beforeSubtaskId?: string;
+}): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("begin");
+
+        const { rows } = await client.query<{ id: string; task_id: string; position: number }>(
+            `select s.id, s.task_id, s.position
+            from visible_subtasks s
+            join visible_tasks t on t.id = s.task_id
+            where s.id = $1 or s.id = $2 or s.id = $3`,
+            [move.subtaskId, move.afterSubtaskId ?? null, move.beforeSubtaskId ?? null]
+        );
+
+        const moved = rows.find((row) => row.id === move.subtaskId);
+        const after = rows.find((row) => row.id === move.afterSubtaskId);
+        const before = rows.find((row) => row.id === move.beforeSubtaskId);
+
+        if (!moved) {
+            throw new NotFound("moveSubtask: subtask not found");
+        }
+
+        if (move.afterSubtaskId === move.subtaskId || move.beforeSubtaskId === move.subtaskId) {
+            throw new Refused("own-neighbour", "moveSubtask: a subtask cannot be its own neighbour");
+        }
+
+        if ((move.afterSubtaskId && !after) || (move.beforeSubtaskId && !before)) {
+            throw new Refused("neighbour-not-found", "moveSubtask: a neighbour was not found");
+        }
+
+        const neighbour = after ?? before;
+
+        if (!neighbour) {
+            throw new Refused("no-neighbour", "moveSubtask: give at least one neighbour");
+        }
+
+        if ((after && after.task_id !== moved.task_id) || (before && before.task_id !== moved.task_id)) {
+            throw new Refused(
+                "neighbour-in-another-task",
+                "moveSubtask: the subtask and its neighbours must be under the same task"
+            );
+        }
+
+        let candidate: number;
+
+        if (after && before) {
+            candidate = Math.floor((after.position + before.position) / 2);
+        } else if (before) {
+            candidate = Math.floor(before.position / 2);
+        } else {
+            candidate = neighbour.position + 65536;
+        }
+
+        const hasRoom =
+            candidate > 0 &&
+            candidate <= 2147483647 &&
+            (!after || candidate > after.position) &&
+            (!before || candidate < before.position);
+
+        if (hasRoom) {
+            await client.query(
+                `update subtasks
+                set position = $1
+                where id = $2`,
+                [candidate, move.subtaskId]
+            );
+        } else {
+            //Deleted subtasks are renumbered too, so a restored one comes back where it was
+            const ordered = await client.query<{ id: string }>(
+                `select id
+                from subtasks
+                where task_id = $1
+                and id <> $2
+                order by position, id`,
+                [moved.task_id, move.subtaskId]
+            );
+
+            const ids = ordered.rows.map((row) => row.id);
+            const afterIndex = move.afterSubtaskId ? ids.indexOf(move.afterSubtaskId) : -1;
+            ids.splice(afterIndex + 1, 0, move.subtaskId);
+
+            await renumberSubtasks(client, ids);
+        }
+
+        await client.query("commit");
+    } catch (error) {
+        await client.query("rollback");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 //Like every other change to a subtask: a deleted subtask, or one under a task that is not visible, is not found.
 //A blank title is refused by subtasks_title_not_blank
 export async function renameSubtask(change: {
@@ -1657,6 +1757,18 @@ async function renumberTasks(client: PoolClient, ids: string[]): Promise<void> {
     for (const [index, id] of ids.entries()) {
         await client.query(
             `update tasks
+            set position = $1
+            where id = $2`,
+            [(index + 1) * 65536, id]
+        );
+    }
+}
+
+//renumberTasks for one task's subtasks: clean spacing again, in the order given
+async function renumberSubtasks(client: PoolClient, ids: string[]): Promise<void> {
+    for (const [index, id] of ids.entries()) {
+        await client.query(
+            `update subtasks
             set position = $1
             where id = $2`,
             [(index + 1) * 65536, id]

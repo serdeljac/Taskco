@@ -35,6 +35,7 @@ import {
     setSubtaskPriority,
     setSubtaskNotes,
     renameSubtask,
+    moveSubtask,
     setSubtaskDueDate,
     setSubtaskAssignee,
     deleteSubtask,
@@ -669,6 +670,30 @@ app.put("/subtasks/:subtaskId/title", requireLead, async (req, res) => {
     }
 
     await renameSubtask({ subtaskId: req.params.subtaskId, title: body.data.title });
+    res.status(204).end();
+});
+
+//A subtask's new place among its task's subtasks, named by its neighbours, as a task's is
+const subtaskPosition = z
+    .strictObject({
+        afterSubtaskId: id.optional(),
+        beforeSubtaskId: id.optional(),
+    })
+    .refine((body) => body.afterSubtaskId || body.beforeSubtaskId, { message: "Name at least one neighbour" });
+
+app.put("/subtasks/:subtaskId/position", requireLead, async (req, res) => {
+    const body = subtaskPosition.safeParse(req.body);
+
+    if (!body.success) {
+        res.status(400).json({ error: "The request body is not valid", code: "invalid-body", issues: body.error.issues });
+        return;
+    }
+
+    await moveSubtask({
+        subtaskId: req.params.subtaskId,
+        afterSubtaskId: body.data.afterSubtaskId,
+        beforeSubtaskId: body.data.beforeSubtaskId,
+    });
     res.status(204).end();
 });
 

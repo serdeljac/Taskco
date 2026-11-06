@@ -19,6 +19,7 @@ import {
     setSubtaskPriority,
     deleteSubtask,
     renameSubtask,
+    moveSubtask,
 } from "../queries.js";
 
 //Today and yesterday for one user, as calendar days in their own timezone, from user_today
@@ -742,5 +743,126 @@ describe("subtasks", () => {
         await expect(
             renameSubtask({ subtaskId: orphaned.id, title: "Write the captions" })
         ).rejects.toMatchObject({ message: "renameSubtask: subtask not found" });
+    });
+});
+
+describe("moving subtasks", () => {
+    //A task with three subtasks, First, Second and Third, at 65536, 131072 and 196608
+    async function threeSubtasks() {
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const first = await createSubtask({ taskId: task.id, title: "First" });
+        const second = await createSubtask({ taskId: task.id, title: "Second" });
+        const third = await createSubtask({ taskId: task.id, title: "Third" });
+        const order = async () =>
+            (await listSubtasks({ taskId: task.id, userId: lead.id })).map((subtask) => `${subtask.title} ${subtask.position}`);
+        return { lead, project, task, first, second, third, order };
+    }
+
+    it("moves a subtask between two others, writing only its own position", async () => {
+        //CREATE
+        const { first, second, third, order } = await threeSubtasks();
+
+        //TEST
+        await moveSubtask({ subtaskId: third.id, afterSubtaskId: first.id, beforeSubtaskId: second.id });
+        expect(await order()).toEqual(["First 65536", "Third 98304", "Second 131072"]);
+    });
+
+    it("moves a subtask to the top, and to the bottom", async () => {
+        //CREATE
+        const { first, second, third, order } = await threeSubtasks();
+
+        //TEST
+        await moveSubtask({ subtaskId: third.id, beforeSubtaskId: first.id });
+        expect(await order()).toEqual(["Third 32768", "First 65536", "Second 131072"]);
+
+        await moveSubtask({ subtaskId: third.id, afterSubtaskId: second.id });
+        expect(await order()).toEqual(["First 65536", "Second 131072", "Third 196608"]);
+    });
+
+    it("makes room when two subtasks are next to each other", async () => {
+        //CREATE
+        const { first, second, third, order } = await threeSubtasks();
+
+        //TEST
+        await pool.query("update subtasks set position = 10 where id = $1", [second.id]);
+        await pool.query("update subtasks set position = 11 where id = $1", [third.id]);
+        await moveSubtask({ subtaskId: first.id, afterSubtaskId: second.id, beforeSubtaskId: third.id });
+        expect(await order()).toEqual(["Second 65536", "First 131072", "Third 196608"]);
+    });
+
+    it("makes room at the bottom when the last subtask sits at the integer ceiling", async () => {
+        //CREATE
+        const { first, third, order } = await threeSubtasks();
+
+        //TEST
+        await pool.query("update subtasks set position = 2147483647 where id = $1", [third.id]);
+        await moveSubtask({ subtaskId: first.id, afterSubtaskId: third.id });
+        expect(await order()).toEqual(["Second 65536", "Third 131072", "First 196608"]);
+    });
+
+    it("refuses a neighbour under another task, and moves nothing", async () => {
+        //CREATE
+        const { project, first, second, order } = await threeSubtasks();
+        const other = await createTask({ projectId: project.id, title: "Pick a font" });
+        const outsider = await createSubtask({ taskId: other.id, title: "From the other task" });
+
+        //TEST
+        await expect(
+            moveSubtask({ subtaskId: outsider.id, afterSubtaskId: first.id, beforeSubtaskId: second.id })
+        ).rejects.toMatchObject({
+            code: "neighbour-in-another-task",
+            message: "moveSubtask: the subtask and its neighbours must be under the same task",
+        });
+        expect(await order()).toEqual(["First 65536", "Second 131072", "Third 196608"]);
+    });
+
+    it("refuses a subtask as its own neighbour, on either side", async () => {
+        //CREATE
+        const { second, order } = await threeSubtasks();
+
+        //TEST
+        const ownNeighbour = { code: "own-neighbour", message: "moveSubtask: a subtask cannot be its own neighbour" };
+        await expect(moveSubtask({ subtaskId: second.id, afterSubtaskId: second.id })).rejects.toMatchObject(ownNeighbour);
+        await expect(moveSubtask({ subtaskId: second.id, beforeSubtaskId: second.id })).rejects.toMatchObject(ownNeighbour);
+        expect(await order()).toEqual(["First 65536", "Second 131072", "Third 196608"]);
+    });
+
+    it("refuses a move that names no neighbour", async () => {
+        //CREATE
+        const { second } = await threeSubtasks();
+
+        //TEST
+        await expect(moveSubtask({ subtaskId: second.id })).rejects.toMatchObject({
+            code: "no-neighbour",
+            message: "moveSubtask: give at least one neighbour",
+        });
+    });
+
+    it("refuses a deleted subtask, or a deleted one as a neighbour", async () => {
+        //CREATE
+        const { first, third } = await threeSubtasks();
+
+        //TEST
+        await deleteSubtask(first.id);
+        await expect(moveSubtask({ subtaskId: first.id, afterSubtaskId: third.id })).rejects.toMatchObject({
+            message: "moveSubtask: subtask not found",
+        });
+        await expect(moveSubtask({ subtaskId: third.id, beforeSubtaskId: first.id })).rejects.toMatchObject({
+            code: "neighbour-not-found",
+            message: "moveSubtask: a neighbour was not found",
+        });
+    });
+
+    it("refuses to move a subtask under a deleted task", async () => {
+        //CREATE
+        const { task, first, third } = await threeSubtasks();
+
+        //TEST
+        await deleteTask(task.id);
+        await expect(moveSubtask({ subtaskId: first.id, afterSubtaskId: third.id })).rejects.toMatchObject({
+            message: "moveSubtask: subtask not found",
+        });
     });
 });

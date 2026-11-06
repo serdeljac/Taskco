@@ -601,3 +601,114 @@ describe("PUT /subtasks/:subtaskId/title", () => {
         expect(response.status).toBe(401);
     });
 });
+
+
+describe("PUT /subtasks/:subtaskId/position", () => {
+    //Website's task with three subtasks: Buy hinges, Oil the latch and Paint the gate
+    async function threeSubtasks() {
+        const picture = await website();
+        const latch = await createSubtask({ taskId: picture.task.id, title: "Oil the latch" });
+        const paint = await createSubtask({ taskId: picture.task.id, title: "Paint the gate" });
+        const titles = async () => (await reread(picture.task, picture.ana)).map((subtask) => subtask.title);
+        return { ...picture, hinges: picture.subtask, latch, paint, titles };
+    }
+
+    it("lets the Lead move a subtask to the top", async () => {
+        //CREATE
+        const { ana, hinges, paint, titles } = await threeSubtasks();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${paint.id}/position`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ beforeSubtaskId: hinges.id });
+
+        expect(response.status).toBe(204);
+        expect(await titles()).toEqual(["Paint the gate", "Buy hinges", "Oil the latch"]);
+    });
+
+    it("lets the Lead move a subtask between two others", async () => {
+        //CREATE
+        const { ana, hinges, latch, paint, titles } = await threeSubtasks();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${hinges.id}/position`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ afterSubtaskId: latch.id, beforeSubtaskId: paint.id });
+
+        expect(response.status).toBe(204);
+        expect(await titles()).toEqual(["Oil the latch", "Buy hinges", "Paint the gate"]);
+    });
+
+    it("refuses a move that names no neighbour", async () => {
+        //CREATE
+        const { ana, latch } = await threeSubtasks();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${latch.id}/position`)
+            .set("Cookie", await cookieFor(ana))
+            .send({});
+
+        expect(response.status).toBe(400);
+        expect(response.body.code).toBe("invalid-body");
+    });
+
+    it("answers 409 for a neighbour under another task", async () => {
+        //CREATE
+        const { ana, project, hinges } = await threeSubtasks();
+        const roof = await createTask({ projectId: project.id, title: "Clean the roof" });
+        const ladder = await createSubtask({ taskId: roof.id, title: "Fetch the ladder" });
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${hinges.id}/position`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ afterSubtaskId: ladder.id });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({
+            error: "the subtask and its neighbours must be under the same task",
+            code: "neighbour-in-another-task",
+        });
+    });
+
+    it("answers 409 for a subtask named as its own neighbour, and moves nothing", async () => {
+        //CREATE
+        const { ana, latch, titles } = await threeSubtasks();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${latch.id}/position`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ afterSubtaskId: latch.id });
+
+        expect(response.status).toBe(409);
+        expect(response.body).toEqual({ error: "a subtask cannot be its own neighbour", code: "own-neighbour" });
+        expect(await titles()).toEqual(["Buy hinges", "Oil the latch", "Paint the gate"]);
+    });
+
+    it("answers 403 to an Associate, and moves nothing", async () => {
+        //CREATE
+        const { ben, hinges, paint, titles } = await threeSubtasks();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${paint.id}/position`)
+            .set("Cookie", await cookieFor(ben))
+            .send({ beforeSubtaskId: hinges.id });
+
+        expect(response.status).toBe(403);
+        expect(await titles()).toEqual(["Buy hinges", "Oil the latch", "Paint the gate"]);
+    });
+
+    it("refuses a request that does not say who is asking", async () => {
+        //TEST
+        const response = await request(app)
+            .put("/subtasks/1/position")
+            .send({ beforeSubtaskId: "2" });
+
+        expect(response.status).toBe(401);
+    });
+});
