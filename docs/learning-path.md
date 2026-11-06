@@ -6,13 +6,13 @@ thing that shows a person any of the backend. Stjepan typed its six firsts; ever
 looks like" was checked in a browser. Stjepan went over the commits on 2026-11-03, and the review
 followed the same day, in [`step-7a-review.md`](./step-7a-review.md): four items, all fixed by 2026-11-05 — see
 the progress log — and **merged into `main`** on 2026-11-05, as a fast-forward of thirty-one commits.
-`main` is not pushed: `origin/main` ends at 7a's specification. Slice 7b — a project's tasks — is
-**built**, on branch `step-7b`, 2026-11-05, as specified in [`step-7b.md`](./step-7b.md): open a
-project, see and create its tasks, change a task on its own page, rename. Stjepan typed its two
-firsts. Stjepan went over the commits the same day, and the review followed, in
-[`step-7b-review.md`](./step-7b-review.md): three items. The two on a task's page were fixed the
-same day; the third waits for 7e. **Next:** merging `step-7b` into `main`, then specifying 7c,
-subtasks.
+Slice 7b — a project's tasks — is **built**, on branch `step-7b`, 2026-11-05, as specified in
+[`step-7b.md`](./step-7b.md): open a project, see and create its tasks, change a task on its own
+page, rename. Stjepan typed its two firsts. Stjepan went over the commits the same day, and the
+review followed, in [`step-7b-review.md`](./step-7b-review.md): three items. The two on a task's
+page were fixed the same day; the third waits for 7e. **Merged into `main`** on 2026-11-05, as a
+fast-forward of twenty commits. `main` is not pushed: `origin/main` ends at 7a's specification.
+**Next:** specifying 7c, subtasks.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -923,4 +923,5 @@ the status field being his F2's.
   task's own value. So a refusal puts them back to what the server has.
 - A typed date and notes stay as typed after a refusal, so they can be sent again.
 
-Two items closed, five tests added, ninety-four in `web/`. Not yet merged.
+Two items closed, five tests added, ninety-four in `web/`. Merged into `main` the same day, as a
+fast-forward — both suites and both type checks run again on `main` — and not pushed.
