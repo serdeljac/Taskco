@@ -2,8 +2,20 @@
 
 Specified 2026-11-05, from slice 7c's row in [`step-7-prep.md`](./step-7-prep.md), design
 sections 7, 8 and 16, and two decisions Stjepan made the same day. The third slice of step 7, in
-[`learning-path.md`](./learning-path.md). Nothing here is built. It is built on branch `step-7c`,
-from `main` after 7b's merge.
+[`learning-path.md`](./learning-path.md). **Built** 2026-11-05 to 2026-11-06 on branch `step-7c`,
+from `main` after 7b's merge; not yet reviewed. Changed on the way, each for Stjepan's review:
+
+- **F1 was split.** The due date's form became `DueDateField` first, as Claude's, so F1 was the
+  question alone, as the task page's action came before F2 in 7b.
+- **The task's fields became `Fields`**, shared by a task and a subtask, in C7.
+- **Deleting is one `Delete` component** on both pages, sent with the method `DELETE`, and its
+  question says "Its subtasks go with it" only when there are some. Design section 16.
+- **Every date asks**, not only an earlier one, and an emptied date asks nothing. Design section 16.
+- **C9 styled the two questions and Delete too**, not only the subtask table and pages.
+- **The pages' tests moved into `tests/` and their styles into `style/`**, Stjepan's, in their own
+  commit before F1's.
+- **Two items opened for the review:** `confirm-outlives-a-changed-date` and
+  `clears-words-say-1-subtasks`.
 
 **The new pieces were tried on 2026-11-05**, in a throwaway test through a memory router:
 

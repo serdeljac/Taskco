@@ -4,7 +4,7 @@ Every file, organised by the step that built it. For each one: **the code**, **w
 **what is still open** in that file.
 
 Code blocks are a snapshot taken 2026-09-18, except steps 5 and 6's, taken 2026-10-22, the review
-fixes after them, taken 2026-10-24, slice 7a's, taken 2026-11-03, and slice 7b's, taken 2026-11-05. If a block ever disagrees with the file, the file wins.
+fixes after them, taken 2026-10-24, slice 7a's, taken 2026-11-03, slice 7b's, taken 2026-11-05, and slice 7c's, taken 2026-11-06. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -1139,15 +1139,17 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 | `PUT /tasks/:taskId/notes` | any member | `setTaskNotes` | 204 | — |
 | `PUT /tasks/:taskId/title` | the Lead | `renameTask` | 204 | 404 a deleted task, or one in a project being deleted. *Slice 7b* |
 | `PUT /tasks/:taskId/due-date` | the Lead | `setTaskDueDate` | 200 `{ clearedSubtasks }` | — |
+| `GET /tasks/:taskId/due-date-clears?dueDate=…` | the Lead | `countSubtaskDatesCleared` | 200 `{ clears }`, writing nothing | 404 a deleted task. *Slice 7c* |
 | `PUT /tasks/:taskId/assignee` | the Lead | `setTaskAssignee` | 204 | not a current member of the project |
 | `PUT /tasks/:taskId/position` | the Lead | `moveTask` | 204 | a neighbour not found, or in another project; the task named as its own neighbour |
 | `DELETE /tasks/:taskId` | the Lead | `deleteTask` | 204 | — |
 | `GET /tasks/:taskId/subtasks` | any member | `listSubtasks` | 200 `{ subtasks }` | — |
-| `POST /tasks/:taskId/subtasks` | the Lead | `createSubtask` | 201 `{ subtask }` | due after its task; fifty already |
+| `POST /tasks/:taskId/subtasks` | the Lead | `createSubtask` | 201 `{ subtask }` | due after its task; due before the asker's today, *slice 7c*; fifty already |
 | `PUT /subtasks/:subtaskId/status` | any member | `setSubtaskStatus` | 204 | — |
 | `PUT /subtasks/:subtaskId/priority` | the Lead | `setSubtaskPriority` | 204 | — |
 | `PUT /subtasks/:subtaskId/notes` | any member | `setSubtaskNotes` | 204 | — |
-| `PUT /subtasks/:subtaskId/due-date` | the Lead | `setSubtaskDueDate` | 204 | due after its task |
+| `PUT /subtasks/:subtaskId/due-date` | the Lead | `setSubtaskDueDate` | 204 | due after its task; due before the asker's today, *slice 7c* |
+| `PUT /subtasks/:subtaskId/title` | the Lead | `renameSubtask` | 204 | 404 a deleted subtask, or one under a deleted task. *Slice 7c* |
 | `PUT /subtasks/:subtaskId/assignee` | the Lead | `setSubtaskAssignee` | 204 | not a current member of the project |
 | `DELETE /subtasks/:subtaskId` | the Lead | `deleteSubtask` | 204 | — |
 | `GET /routines` | anyone | `listRoutines` | 200 `{ routines }`, the asker's own | — |
@@ -1163,7 +1165,8 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 | Endpoints | Body |
 |---|---|
 | `POST /projects`, `PUT /projects/:projectId/name` | `{ name }` — text, trimmed, not blank |
-| `PUT /tasks/:taskId/title` | `{ title }` — text, trimmed, not blank |
+| `PUT /tasks/:taskId/title`, `PUT /subtasks/:subtaskId/title` | `{ title }` — text, trimmed, not blank |
+| `GET /tasks/:taskId/due-date-clears` | no body: `?dueDate=` in the query, a calendar day. A missing or impossible one is 400 `invalid-body` |
 | `POST /routines` | `{ name, weekdays }` — weekdays a list of at least one whole number from 1 to 7 |
 | `POST /projects/:projectId/tasks`, `POST /tasks/:taskId/subtasks` | `{ title, dueDate? }` — the date a real calendar day, `"2026-11-20"` |
 | `PUT …/status` | `{ status }` — `not_started`, `in_progress`, `on_hold` or `completed` |
@@ -1909,6 +1912,7 @@ functions and is one code. Codes do not change once a screen uses them.
 | `own-neighbour`, `neighbour-not-found`, `no-neighbour`, `neighbour-in-another-project` | 409 | `moveTask` |
 | `subtask-limit` | 409 | `createSubtask` |
 | `subtask-due-after-task` | 409 | `refuseDueDateAfterParent` |
+| `subtask-due-before-today` | 409 | `createSubtask`, `setSubtaskDueDate`: a date before the asker's today. *Slice 7c* |
 | `assignee-not-a-member` | 409 | `refuseUnlessCurrentMember` |
 | `no-account`, `already-a-member` | 409 | `createInvite`; `already-a-member` from `acceptInvite` too |
 | `invite-expired` | 409 | `acceptInvite` |
@@ -1946,14 +1950,17 @@ The frontend, with its own `package.json`, run from `web\`. Vite serves it on po
 | `/register` | `RegisterPage` | `loginLoader`, the same | `registerAction`: `POST /users`, then `/` |
 | `/logout` | — | `logoutLoader`: a visit goes on to `/`, changing nothing | `logoutAction`: `DELETE /sessions/current`, then `/login` |
 | `/projects/:projectId` | `ProjectPage`, inside `AccountLayout` — *slice 7b* | `projectLoader`: `GET /projects`, then its tasks and members at once | `projectAction`: rename the project, or create a task |
-| `/projects/:projectId/tasks/:taskId` | `TaskPage`, through the project page's `Outlet` — *slice 7b* | — it reads the project's data | `updateTaskAction`: one field, by its name |
+| `/projects/:projectId/tasks/:taskId` | `TaskPage`, through the project page's `Outlet` — *slice 7b* | `taskLoader`: `GET /tasks/:taskId/subtasks`, *since 7c*; the task itself is the project's data | `updateTaskAction`: one field, by its name; a new subtask, by its `intent`; a delete, by the method — *the last two 7c's* |
+| `/projects/:projectId/tasks/:taskId/subtasks/:subtaskId` | `SubtaskPage`, through the task page's `Outlet` — *slice 7c* | — it reads the task's, the project's and the account's data | `updateSubtaskAction`: one field, by its name; a delete, by the method |
 
 **Every 401 goes to `/login` from one place, `RootError`.** A loader lets its 401 through; the
 error page turns it into `/login`, so a session ended in another tab sends the next navigation
 there. An address that matches no route is React Router's own 404: "There's no page here.", with
 a link, "Go to your projects", to `/`. Anything else is one sentence in the frontend's words. **The login form's own 401 is not
 that rule:** a wrong password is 401 too, and `loginAction` catches it and shows the words.
-`/` has the id `"projects"`, so a test can read what its action returned.
+`/` has the id `"projects"`, so a test can read what its action returned. Since 7c, the layout around
+the pages has the id `"account"`, so a page can read the account's timezone, and the project and
+task routes have `"project"` and `"task"`, so a page nested in them can read their data.
 
 ### Asking the API — `src/api/`
 
@@ -2191,7 +2198,146 @@ stand-in API.
   `routes.tsx` or `TaskPage.tsx` while the file on disk was right, and the page broke or lost a class.
   Restarting `npm run dev` in `web/` served the right files. `vite-watcher-misses-changes`.
 
-**Open:** `vite-watcher-misses-changes`; `no-renaming`, for subtasks.
+**Open:** `vite-watcher-misses-changes`. `no-renaming` closed in 7c, for subtasks.
+
+---
+
+# Step 7c — a task's subtasks
+
+Built 2026-11-05 to 2026-11-06 on branch `step-7c`, as specified in [`step-7c.md`](./step-7c.md).
+Three changes on the server first, then the subtask pages. Stjepan typed the first, F1: the first
+action that asks before it acts. Claude wrote the rest.
+
+## On the server
+
+| Function | What it does | Refuses when |
+|---|---|---|
+| `renameSubtask({ subtaskId, title })` | through the views, like every other change to a subtask | deleted, missing, or under a task that is not visible (`NotFound`); a blank title, by `subtasks_title_not_blank` |
+| `countSubtaskDatesCleared({ taskId, dueDate })` | counts the task's visible subtasks due after the date, writing nothing: what `setTaskDueDate` then reports as `clearedSubtasks`, and a test holds the two equal | a deleted or missing task (`NotFound`) |
+
+**Not before today.** `createSubtask` and `setSubtaskDueDate` take the asker's id, and refuse a date
+before the asker's today with `subtask-due-before-today`:
+
+```ts
+async function refuseDueDateBeforeToday(userId: string | undefined, dueDate: string): Promise<void> {
+    if (userId === undefined) {
+        return;
+    }
+
+    const { rows } = await pool.query<{ today: string }>(
+        `select today::text as today
+        from user_today
+        where user_id = $1`,
+        [userId]
+    );
+
+    const today = rows[0]?.today;
+
+    if (today && dueDate < today) {
+        throw new Refused("subtask-due-before-today", "a subtask cannot be due before today");
+    }
+}
+```
+
+Today is a calendar day in the asker's timezone, from `user_today`. It is checked when a date is set,
+never continuously, so a subtask going overdue stays savable, and clearing a date sets none. Every
+route passes the asker; a caller with none, the seed or a test of another rule, has no today to check
+against. The subtask HTTP tests' dates moved to 2099, so this rule never decides a test of another.
+
+`PUT /subtasks/:subtaskId/title` and `GET /tasks/:taskId/due-date-clears?dueDate=…` are the Lead's,
+in the endpoint tables above. The count's date comes in the query, since a GET has no body.
+
+## The pages
+
+**`api/types.ts`** gains `Subtask`: a task's fields, under its task rather than its project.
+**`api/words.ts`** gains Taskco's words for `subtask-due-after-task`, `subtask-due-before-today` and
+`subtask-limit`.
+
+**`tasks/today.ts`** — `todayIn(timeZone)`: today as a calendar day where the account lives, with
+`Intl.DateTimeFormat("en-CA", { timeZone })`, which writes a day year first, as a date input wants
+it. Today is the account's, never the browser's: 23:30 UTC on 24 October is the 24th in Vancouver
+and the 25th in Zagreb.
+
+**`tasks/TaskPage.tsx`** — gains `taskLoader`, `GET /tasks/:taskId/subtasks`: the one thing about a
+task the project page does not hold. The subtasks show under the task's fields, as a table in the
+order sent, each field in words and each title a link; "No subtasks yet" when there are none. A task
+the server cannot find has none, so its 404 leaves the page to say there's no task here.
+
+**`tasks/NewSubtask.tsx`** — a copy of `NewTask`, for the Lead. Its date box has `min`, the
+account's today, and `max`, the task's due date, so the picker offers only the days allowed. The
+form has `noValidate`, so a date outside them still reaches the server and comes back in Taskco's
+words rather than the browser's. It is sent to the task page's action with `intent` set to
+`new-subtask`, read before the field names, since a new subtask sends a title as a rename does.
+
+**`tasks/Fields.tsx`** — the five fields, moved out of the task page so a task and a subtask share
+them; 7b's `TaskFields`. The due date is **`tasks/DueDateField.tsx`**, with a fetcher of its own and
+the box's contents as state, so a typed date is kept after a refusal.
+
+**`tasks/SubtaskPage.tsx`** — `/projects/:projectId/tasks/:taskId/subtasks/:subtaskId`, in the task
+page's `Outlet`, with no loader: the subtask comes from the task route's data, the members and role
+from the project's, and today from the account's. Keyed by the subtask. "There's no subtask here."
+for an id not in the list.
+
+**Asking before a task's date moves (F1).** The task page's action asks first, and answers with the
+count instead of saving when any subtask dates would be cleared:
+
+```ts
+const dueDate = form.get("dueDate");
+if (typeof dueDate === "string" && dueDate !== "" && !form.has("confirmed")) {
+    const { clears } = await api<{ clears: number }>("GET", `${task}/due-date-clears?${new URLSearchParams({ dueDate })}`);
+    if (clears > 0) {
+        return { confirm: clears };
+    }
+}
+```
+
+`{ confirm: n }` reaches the date's fetcher as its data, the same way `{ refusal }` does, and
+`DueDateField` shows the question under the box: "Moving the date to 2026-11-18 clears the due
+dates of 2 subtasks." **Save anyway** is a second submit button, `name="confirmed"`: only the
+pressed button adds its name and value, so the same form arrives again with `confirmed`, and the
+action saves. **Cancel** is `type="button"`, so it sends nothing. It puts the box back with
+`setDraft` and takes the question away with `fetcher.reset()`, since a fetcher's data otherwise
+stays until the next answer. An emptied date is TBD, and asks nothing. Any other date asks, later
+ones too, since the action does not know the old date.
+
+**`tasks/Delete.tsx`** — deleting, for the Lead: **Delete task** on the task page, **Delete
+subtask** on a subtask's. The button opens a question, "Delete Dig the beds? Its subtasks go with
+it.", with the second sentence only when the task has subtasks, and Delete and Cancel. Delete sends
+the form with the method `DELETE` through a fetcher, and each page's action, seeing
+`request.method`, calls the API's `DELETE` and redirects up a page: a task to its project, a
+subtask to its task. A refusal shows by the button. Cancel holds the focus while asking, so Enter
+does not delete, and the button takes it back after. Deleting is soft, design section 7, so a
+task's subtasks are hidden with it.
+
+**`tasks/updateTask.ts`** — both actions. The task page's reads a delete by its method, then a new
+subtask by its intent, then asks before a date, then sends one field by its name through
+`changeField`, which the subtask page's action shares.
+
+**Styles:** `TaskPage.module.scss` gains the subtask table, a copy of the project page's, and puts
+the words in a form, a question before something is done, on a line of their own with its buttons
+after. `Delete.module.scss` sets Delete apart from what follows.
+
+## The tests
+
+One hundred and twenty-three in twenty-five files. New in 7c: `today`, `TaskSubtasks`,
+`NewSubtask`, `SubtaskPage`, `DueDateWarning` (F1's) and `Delete`, through the real routes with the
+stand-in API. Since 2026-11-06 a page folder's `.test.tsx` files sit in its `tests/` folder.
+`TaskFields` and `TaskRefusals` save 2026-12-01, so their stand-in API answers the question asked
+first; without it, `TaskRefusals`' date test passed for the wrong reason, refused at the question
+rather than the save. At the root, 446 tests: renaming a subtask, not before today, and the count.
+
+## Traps met
+
+- **A test that passes from the start was shown watching by a break put back.** The test for a
+  date that clears none passed at once; `clears > 0` changed to `clears >= 0` turned it red, and it
+  stayed red until the break was undone.
+- **A new question breaks the tests that never knew it existed.** Two older tests had no answer for
+  the count, and one stayed green for the wrong reason.
+- **Real data finds what the example does not.** The examples clear two dates; in a browser one was
+  cleared, and the question said "1 subtasks". `clears-words-say-1-subtasks`.
+
+**Open:** `confirm-outlives-a-changed-date`; `clears-words-say-1-subtasks`; `no-subtask-moves`,
+for 7d.
 
 ---
 

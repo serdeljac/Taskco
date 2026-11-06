@@ -1303,3 +1303,24 @@ specified.
 - **The Lead deletes a task or a subtask, after a confirm, from 7c.** Deletion is soft — section 7 —
   so a trash to restore from can come later. *Rejected — not yet:* until then a mistake could only be
   renamed, and a task has room for fifty subtasks.
+
+**Built in slice 7c**, 2026-11-05 to 2026-11-06, on branch `step-7c`: a task's subtasks on its page,
+New subtask, a subtask's own page, asking before a task's date clears subtask dates, and deleting.
+Choices made while building, for Stjepan's review:
+
+- **Every date asks, not only an earlier one.** The action does not know the task's old date, and a
+  task with no date can clear subtask dates when it is given one, so any date is counted first. A
+  date that clears none saves at once, at the cost of one more request. An emptied date, TBD, asks
+  nothing: it sets no limit.
+- **The question stays the server's.** The page holds the task's subtasks and could count them
+  itself, but which dates a new date clears is decided in one place, `setTaskDueDate`, and
+  `countSubtaskDatesCleared` is held equal to it by a test. So the action asks the server, and
+  Save anyway is the same form sent again with `confirmed`.
+- **Deleting asks in the browser.** Nothing is counted, so the question needs no server: the button
+  opens it, and Delete sends the form with the method `DELETE`, which the page's action reads. It
+  then goes up a page, a task to its project and a subtask to its task. "Its subtasks go with it"
+  is said only when the task has some.
+- **Cancel holds the focus while Delete asks**, so Enter does not delete, and the button takes the
+  focus back after, as New project does.
+- **A page folder keeps its tests in `tests/` and its styles in `style/`**, Stjepan's, 2026-11-06,
+  for readability. `account/`, `api/` and the `.test.ts` files stay beside what they test.

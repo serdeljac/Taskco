@@ -12,8 +12,10 @@ page, rename. Stjepan typed its two firsts. Stjepan went over the commits the sa
 review followed, in [`step-7b-review.md`](./step-7b-review.md): three items. The two on a task's
 page were fixed the same day; the third waits for 7e. **Merged into `main`** on 2026-11-05, as a
 fast-forward of twenty commits. `main` is not pushed: `origin/main` ends at 7a's specification.
-Slice 7c — a task's subtasks — is **specified** in [`step-7c.md`](./step-7c.md), on branch `step-7c`,
-2026-11-05. **Next:** building it, on Stjepan's go-ahead.
+Slice 7c — a task's subtasks — is **built**, on branch `step-7c`, 2026-11-05 to 2026-11-06, as
+specified in [`step-7c.md`](./step-7c.md): a task's subtasks, New subtask, a subtask's page, asking
+before a task's date clears subtask dates, and deleting. Stjepan typed its first, F1. Every flow was
+checked in a browser. **Next:** Stjepan goes over the commits, then 7c's review.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -417,6 +419,9 @@ ten for Claude, starting with renaming subtasks, "not before today" and the coun
 task's new date would clear, all on the server, and one first for Stjepan: an action that asks
 before it acts, the warning before those dates are cleared. Stjepan decided two questions the same
 day: reordering subtasks waits for 7d's dragging, and deleting comes now, after a confirm.
+
+**Slice 7c built 2026-11-05 to 2026-11-06**, on branch `step-7c`, not yet reviewed. See the progress
+log.
 
 ---
 
@@ -933,3 +938,39 @@ the status field being his F2's.
 
 Two items closed, five tests added, ninety-four in `web/`. Merged into `main` the same day, as a
 fast-forward — both suites and both type checks run again on `main` — and not pushed.
+
+**Step 7, slice 7c — a task's subtasks.** Built 2026-11-05 to 2026-11-06 on branch `step-7c`, not
+yet reviewed. Three changes on the server came first:
+- `renameSubtask`, with its Lead's endpoint;
+- "not before today" for a subtask's date, read from `user_today`, with a new refusal,
+  `subtask-due-before-today`;
+- `countSubtaskDatesCleared` and `GET /tasks/:taskId/due-date-clears`, the count before a task's
+  date moves, writing nothing.
+
+Four hundred and forty-six tests at the root. Then the frontend. Claude wrote:
+- a subtask's type and words, and `todayIn`, today in the account's timezone;
+- the task page's subtasks, from a loader of its own;
+- New subtask, whose date box offers only today to the task's date;
+- a subtask's page, nested in the task's, sharing the task's fields;
+- deleting a task or a subtask, after a question;
+- the styles.
+
+Stjepan typed the first, F1, in six steps, test first: the first action that asks before it acts.
+Moving a task's date asks how many subtask dates it would clear, and the page asks, with Save anyway
+and Cancel. He also moved the pages' tests into `tests/` and their styles into `style/`. One hundred
+and twenty-three tests in `web/`. Every flow was checked in a browser as the seed's Lead, on a task
+made for it and deleted after. Three items closed — `not-before-today-not-built`,
+`due-date-confirmation-not-built`, `no-renaming` — and two opened, `confirm-outlives-a-changed-date`
+and `clears-words-say-1-subtasks`.
+
+*Learned:* that an action can answer with a question instead of acting, and the answer reaches the
+page the way a refusal does, as the fetcher's data. That only the button pressed adds its name and
+value to a form, which is how Save anyway says the question was answered. That a button inside a
+form sends it unless it says `type="button"`. That Cancel had two things to undo with two owners:
+the box is the component's own state, put back with `setDraft`, and the question is the fetcher's,
+which stays until the next answer, so `fetcher.reset()` takes it away. That a new question breaks
+tests that never knew it existed: two older tests had no answer for it, and one stayed green for the
+wrong reason. That a test passing from the start is shown watching by a break, and the break has to
+be put back: the red after `clears >= 0` was the break still in place. And that real data finds what
+the example does not: the examples cleared two dates, and the first browser run cleared one, "1
+subtasks".
