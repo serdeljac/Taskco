@@ -21,6 +21,15 @@ import {
     renameSubtask,
 } from "../queries.js";
 
+//Today and yesterday for one user, as calendar days in their own timezone, from user_today
+async function todayFor(userId: string) {
+    const { rows } = await pool.query<{ today: string; yesterday: string }>(
+        `select today::text as today, (today - 1)::text as yesterday from user_today where user_id = $1`,
+        [userId]
+    );
+    return rows[0]!;
+}
+
 
 describe("subtasks", () => {
     it("refuses more than 50 subtasks on one task", async () => {
@@ -617,6 +626,75 @@ describe("subtasks", () => {
         await expect(deleteSubtask(subtask.id)).rejects.toMatchObject({
             message: "deleteSubtask: subtask not found",
         });
+    });
+
+    it("refuses a subtask due before the asker's today, and takes today itself", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const { today, yesterday } = await todayFor(lead.id);
+
+        //TEST
+        await expect(
+            createSubtask({ taskId: task.id, title: "Pick photos", dueDate: yesterday, userId: lead.id })
+        ).rejects.toMatchObject({ code: "subtask-due-before-today" });
+
+        const subtask = await createSubtask({ taskId: task.id, title: "Pick photos", dueDate: today, userId: lead.id });
+        expect(subtask.due_date).toBe(today);
+    });
+
+    it("refuses to move a subtask's date before the asker's today", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const subtask = await createSubtask({ taskId: task.id, title: "Pick photos" });
+        const { yesterday } = await todayFor(lead.id);
+
+        //TEST
+        await expect(
+            setSubtaskDueDate({ subtaskId: subtask.id, dueDate: yesterday, userId: lead.id })
+        ).rejects.toMatchObject({ code: "subtask-due-before-today" });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+        expect(subtasks[0]?.due_date).toBeNull();
+    });
+
+    it("judges today by the asker's timezone", async () => {
+        //CREATE
+        //Kiritimati is UTC+14 and Pago Pago UTC−11: twenty-five hours apart, so never the same day
+        const east = await createUser("east@example.com", "Pacific/Kiritimati");
+        const west = await createUser("west@example.com", "Pacific/Pago_Pago");
+        const project = await createProject("Website", east.id);
+        await addMember({ projectId: project.id, userId: west.id, role: "associate" });
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const westToday = (await todayFor(west.id)).today;
+
+        //TEST
+        await expect(
+            createSubtask({ taskId: task.id, title: "Pick photos", dueDate: westToday, userId: east.id })
+        ).rejects.toMatchObject({ code: "subtask-due-before-today" });
+
+        const subtask = await createSubtask({ taskId: task.id, title: "Pick photos", dueDate: westToday, userId: west.id });
+        expect(subtask.due_date).toBe(westToday);
+    });
+
+    it("keeps an overdue subtask savable: the rule is checked when a date is set, and clearing sets none", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        const task = await createTask({ projectId: project.id, title: "Draft the homepage" });
+        const { yesterday } = await todayFor(lead.id);
+        //Due yesterday, as a subtask set while that was still ahead would be now
+        const subtask = await createSubtask({ taskId: task.id, title: "Pick photos", dueDate: yesterday });
+
+        //TEST
+        await setSubtaskNotes({ subtaskId: subtask.id, notes: "Late, still wanted", });
+        await setSubtaskDueDate({ subtaskId: subtask.id, dueDate: null, userId: lead.id });
+
+        const subtasks = await listSubtasks({ taskId: task.id, userId: lead.id });
+        expect(subtasks[0]).toMatchObject({ notes: "Late, still wanted", due_date: null });
     });
 
     it("renames a subtask", async () => {

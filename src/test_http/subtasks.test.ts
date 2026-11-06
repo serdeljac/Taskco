@@ -24,6 +24,49 @@ async function reread(task: { id: string }, ana: { id: string }) {
     return listSubtasks({ taskId: task.id, userId: ana.id });
 }
 
+//Yesterday for one user, as a calendar day in their own timezone. The other dates here are in 2099, so
+//"not before today" never decides a test about another rule
+async function yesterdayFor(user: { id: string }) {
+    const { rows } = await pool.query<{ yesterday: string }>(
+        `select (today - 1)::text as yesterday from user_today where user_id = $1`,
+        [user.id]
+    );
+    return rows[0]!.yesterday;
+}
+
+
+describe("not before today", () => {
+    it("answers 409 for a new subtask due before the asker's today", async () => {
+        //CREATE
+        const { ana, task } = await website();
+
+        //TEST
+        const response = await request(app)
+            .post(`/tasks/${task.id}/subtasks`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ title: "Oil the latch", dueDate: await yesterdayFor(ana) });
+
+        expect(response.status).toBe(409);
+        expect(response.body.code).toBe("subtask-due-before-today");
+        expect(await reread(task, ana)).toHaveLength(1);
+    });
+
+    it("answers 409 for a subtask's date moved before the asker's today", async () => {
+        //CREATE
+        const { ana, task, subtask } = await website();
+
+        //TEST
+        const response = await request(app)
+            .put(`/subtasks/${subtask.id}/due-date`)
+            .set("Cookie", await cookieFor(ana))
+            .send({ dueDate: await yesterdayFor(ana) });
+
+        expect(response.status).toBe(409);
+        expect(response.body.code).toBe("subtask-due-before-today");
+        expect((await reread(task, ana))[0]?.due_date).toBeNull();
+    });
+});
+
 
 describe("GET /tasks/:taskId/subtasks", () => {
     it("lists a task's subtasks to a member", async () => {
@@ -83,23 +126,23 @@ describe("POST /tasks/:taskId/subtasks", () => {
         const response = await request(app)
             .post(`/tasks/${task.id}/subtasks`)
             .set("Cookie", await cookieFor(ana))
-            .send({ title: "Oil the latch", dueDate: "2026-11-20" });
+            .send({ title: "Oil the latch", dueDate: "2099-11-20" });
 
         expect(response.status).toBe(201);
-        expect(response.body.subtask).toMatchObject({ title: "Oil the latch", due_date: "2026-11-20" });
+        expect(response.body.subtask).toMatchObject({ title: "Oil the latch", due_date: "2099-11-20" });
         expect((await reread(task, ana)).map((s) => s.title)).toEqual(["Buy hinges", "Oil the latch"]);
     });
 
     it("answers 409 for a subtask due after its task", async () => {
         //CREATE
         const { ana, task } = await website();
-        await setTaskDueDate({ taskId: task.id, dueDate: "2026-11-10" });
+        await setTaskDueDate({ taskId: task.id, dueDate: "2099-11-10" });
 
         //TEST
         const response = await request(app)
             .post(`/tasks/${task.id}/subtasks`)
             .set("Cookie", await cookieFor(ana))
-            .send({ title: "Oil the latch", dueDate: "2026-11-20" });
+            .send({ title: "Oil the latch", dueDate: "2099-11-20" });
 
         expect(response.status).toBe(409);
         expect(response.body).toEqual({ error: "a subtask cannot be due after its task", code: "subtask-due-after-task" });
@@ -347,22 +390,22 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/due-date`)
             .set("Cookie", await cookieFor(ana))
-            .send({ dueDate: "2026-11-20" });
+            .send({ dueDate: "2099-11-20" });
 
         expect(response.status).toBe(204);
-        expect((await reread(task, ana))[0]?.due_date).toBe("2026-11-20");
+        expect((await reread(task, ana))[0]?.due_date).toBe("2099-11-20");
     });
 
     it("answers 409 for a date after its task's", async () => {
         //CREATE
         const { ana, task, subtask } = await website();
-        await setTaskDueDate({ taskId: task.id, dueDate: "2026-11-10" });
+        await setTaskDueDate({ taskId: task.id, dueDate: "2099-11-10" });
 
         //TEST
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/due-date`)
             .set("Cookie", await cookieFor(ana))
-            .send({ dueDate: "2026-11-20" });
+            .send({ dueDate: "2099-11-20" });
 
         expect(response.status).toBe(409);
         expect(response.body).toEqual({ error: "a subtask cannot be due after its task", code: "subtask-due-after-task" });
@@ -372,7 +415,7 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
     it("clears the date with null", async () => {
         //CREATE
         const { ana, task, subtask } = await website();
-        await setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2026-11-20" });
+        await setSubtaskDueDate({ subtaskId: subtask.id, dueDate: "2099-11-20" });
 
         //TEST
         const response = await request(app)
@@ -392,7 +435,7 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
         const response = await request(app)
             .put(`/subtasks/${subtask.id}/due-date`)
             .set("Cookie", await cookieFor(ben))
-            .send({ dueDate: "2026-11-20" });
+            .send({ dueDate: "2099-11-20" });
 
         expect(response.status).toBe(403);
     });
@@ -401,7 +444,7 @@ describe("PUT /subtasks/:subtaskId/due-date", () => {
         //TEST
         const response = await request(app)
             .put("/subtasks/1/due-date")
-            .send({ dueDate: "2026-11-20" });
+            .send({ dueDate: "2099-11-20" });
 
         expect(response.status).toBe(401);
     });

@@ -1038,6 +1038,8 @@ export async function createSubtask(subtask: {
     taskId: string;
     title: string;
     dueDate?: string;
+    //The asker, whose today the due date may not be before
+    userId?: string;
 }): Promise<Subtask> {
     
     const parent = await pool.query<{ id: string; assignee_membership_id: string | null }>(
@@ -1061,6 +1063,7 @@ export async function createSubtask(subtask: {
     );
 
     if (subtask.dueDate) {
+        await refuseDueDateBeforeToday(subtask.userId, subtask.dueDate);
         await refuseDueDateAfterParent(subtask.taskId, subtask.dueDate);
     }
 
@@ -1217,6 +1220,8 @@ export async function setSubtaskNotes(change: {
 export async function setSubtaskDueDate(change: {
     subtaskId: string;
     dueDate: string | null;
+    //The asker, whose today the new date may not be before
+    userId?: string;
 }): Promise<void> {
     const { rows } = await pool.query<{ task_id: string }>(
         `select s.task_id
@@ -1233,6 +1238,7 @@ export async function setSubtaskDueDate(change: {
     }
 
     if (change.dueDate) {
+        await refuseDueDateBeforeToday(change.userId, change.dueDate);
         await refuseDueDateAfterParent(parentTaskId, change.dueDate);
     }
 
@@ -1583,6 +1589,29 @@ export async function getStreak(ask: {
 /***********************************
     HELPER FUNCTIONS
 ***********************************/
+
+//The other half of the subtask date rule: not before the asker's today, a calendar day in their own timezone, from
+//user_today. Checked when a date is set, never continuously, so a subtask going overdue stays savable. It needs the
+//asker, so it runs where there is one: every route passes it. A caller with none — the seed, or a test of another
+//rule — sets no today to check against
+async function refuseDueDateBeforeToday(userId: string | undefined, dueDate: string): Promise<void> {
+    if (userId === undefined) {
+        return;
+    }
+
+    const { rows } = await pool.query<{ today: string }>(
+        `select today::text as today
+        from user_today
+        where user_id = $1`,
+        [userId]
+    );
+
+    const today = rows[0]?.today;
+
+    if (today && dueDate < today) {
+        throw new Refused("subtask-due-before-today", "a subtask cannot be due before today");
+    }
+}
 
 async function refuseDueDateAfterParent(taskId: string, dueDate: string): Promise<void> {
     const { rows } = await pool.query<{ due_date: string | null }>(

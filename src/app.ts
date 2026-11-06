@@ -598,6 +598,7 @@ app.post("/tasks/:taskId/subtasks", requireLead, async (req, res) => {
         taskId: req.params.taskId,
         title: body.data.title,
         dueDate: body.data.dueDate,
+        userId: res.locals.userId,
     });
     res.status(201).json({ subtask });
 });
@@ -661,7 +662,7 @@ app.put("/subtasks/:subtaskId/due-date", requireLead, async (req, res) => {
         return;
     }
 
-    await setSubtaskDueDate({ subtaskId: req.params.subtaskId, dueDate: body.data.dueDate });
+    await setSubtaskDueDate({ subtaskId: req.params.subtaskId, dueDate: body.data.dueDate, userId: res.locals.userId });
     res.status(204).end();
 });
 

@@ -25,6 +25,7 @@ export type RefusalCode =
     | "neighbour-in-another-project"
     | "subtask-limit"
     | "subtask-due-after-task"
+    | "subtask-due-before-today"
     | "assignee-not-a-member"
     | "no-account"
     | "already-a-member"
