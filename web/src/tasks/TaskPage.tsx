@@ -1,16 +1,38 @@
-import { Link, useFetcher, useParams, useRouteLoaderData } from "react-router";
-import type { Member, Task } from "../api/types";
+import {
+    Link,
+    useFetcher,
+    useLoaderData,
+    useParams,
+    useRouteLoaderData,
+    type LoaderFunctionArgs,
+} from "react-router";
+import { api, ApiError } from "../api/client";
+import type { Member, Subtask, Task } from "../api/types";
 import type { projectLoader } from "../projects/ProjectPage";
 import { Rename } from "./Rename";
 import styles from "./TaskPage.module.scss";
 import type { updateTaskAction } from "./updateTask";
 import { assigneeWords, dueDateWords, priorityWords, statusWords } from "./words";
 
-// One task, under its project's list. Its data is the project page's, loaded already, so opening a
-// task asks the server nothing. An id not in the list is said here, under the project
+// The task's subtasks: the one thing about a task the project page does not hold. A task the server
+// cannot find has none, and the page says there's no task here, as for any id not in the list
+export async function taskLoader({ params }: LoaderFunctionArgs) {
+    try {
+        return await api<{ subtasks: Subtask[] }>("GET", `/tasks/${params.taskId}/subtasks`);
+    } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+            return { subtasks: [] };
+        }
+        throw error;
+    }
+}
+
+// One task, under its project's list. Its own data is the project page's, loaded already; only its
+// subtasks are asked for. An id not in the list is said here, under the project
 export function TaskPage() {
     const { taskId } = useParams();
     const page = useRouteLoaderData<typeof projectLoader>("project");
+    const { subtasks } = useLoaderData<typeof taskLoader>();
     const task = page?.tasks.find((task) => task.id === taskId);
 
     if (!page || !task) {
@@ -24,6 +46,7 @@ export function TaskPage() {
             key={task.id}
             task={task}
             members={page.members}
+            subtasks={subtasks}
             projectId={page.project.id}
             isLead={page.project.role === "lead"}
         />
@@ -33,12 +56,13 @@ export function TaskPage() {
 type Props = {
     task: Task;
     members: Member[];
+    subtasks: Subtask[];
     projectId: string;
     // Priority, due date and assignee are the Lead's. An Associate sees them as words
     isLead: boolean;
 };
 
-function TaskFields({ task, members, projectId, isLead }: Props) {
+function TaskFields({ task, members, subtasks, projectId, isLead }: Props) {
     // One fetcher for each field, so each shows its own refusal
     const statusFetcher = useFetcher<typeof updateTaskAction>();
     const priorityFetcher = useFetcher<typeof updateTaskAction>();
@@ -141,6 +165,36 @@ function TaskFields({ task, members, projectId, isLead }: Props) {
                     {notesFetcher.data?.refusal && <p role="alert">{notesFetcher.data.refusal}</p>}
                 </dd>
             </dl>
+            <h3 id="subtasks">Subtasks</h3>
+            {subtasks.length === 0 ? (
+                <p>No subtasks yet</p>
+            ) : (
+                <table aria-labelledby="subtasks">
+                    <thead>
+                        <tr>
+                            <th scope="col">Subtask</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Priority</th>
+                            <th scope="col">Due</th>
+                            <th scope="col">Assigned to</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {subtasks.map((subtask) => (
+                            <tr key={subtask.id}>
+                                <td>
+                                    <Link to={`subtasks/${subtask.id}`}>{subtask.title}</Link>
+                                </td>
+                                <td>{statusWords(subtask.status)}</td>
+                                <td>{priorityWords(subtask.priority)}</td>
+                                <td>{dueDateWords(subtask.due_date)}</td>
+                                <td>{assigneeWords(subtask.assignee_membership_id, members)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+
             <Link to={`/projects/${projectId}`}>Close</Link>
         </section>
     );

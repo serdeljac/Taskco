@@ -21,6 +21,9 @@ async function showGarden(path: string, role: "lead" | "associate" = "lead") {
         "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role }] }],
         "GET /projects/7/tasks": [200, { tasks }],
         "GET /projects/7/members": [200, { members }],
+        "GET /tasks/3/subtasks": [200, { subtasks: [] }],
+        "GET /tasks/1/subtasks": [200, { subtasks: [] }],
+        "GET /tasks/99/subtasks": [404, { error: "Not found", code: "not-found" }],
     });
     const router = createMemoryRouter(routes, { initialEntries: [path] });
     render(<RouterProvider router={router} />);
@@ -46,7 +49,7 @@ function fields() {
 }
 
 describe("a task's page", () => {
-    it("opens from its title in the list, under the list, asking the server nothing more", async () => {
+    it("opens from its title in the list, under the list, asking the server only for its subtasks", async () => {
         const { router, fetch } = await showGarden("/projects/7");
         const asked = fetch.mock.calls.length;
 
@@ -54,8 +57,8 @@ describe("a task's page", () => {
 
         expect(await screen.findByRole("region", { name: "Dig the beds" })).toBeDefined();
         expect(router.state.location.pathname).toBe("/projects/7/tasks/3");
-        expect(screen.getByRole("table")).toBeDefined();
-        expect(fetch.mock.calls.length).toBe(asked);
+        expect(screen.getAllByRole("table")[0]).toBeDefined();
+        expect(fetch.mock.calls.slice(asked).map(([url]) => url)).toEqual(["/api/tasks/3/subtasks"]);
     });
 
     it("shows an Associate the task's fields in words, and its notes", async () => {

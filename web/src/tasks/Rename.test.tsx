@@ -16,6 +16,7 @@ async function showTask(role: "lead" | "associate", answers: Record<string, Answ
         "GET /projects": () => [200, { projects: [project] }],
         "GET /projects/7/tasks": () => [200, { tasks: [task] }],
         "GET /projects/7/members": [200, { members: [] }],
+        "GET /tasks/3/subtasks": [200, { subtasks: [] }],
         "PUT /tasks/3/title": answers["PUT /tasks/3/title"] ?? (() => ((task.title = lastBody().title), [204])),
         "PUT /projects/7/name": answers["PUT /projects/7/name"] ?? (() => ((project.name = lastBody().name), [204])),
     });

@@ -15,6 +15,7 @@ async function showTask(answerToStatus: (task: { status: string }) => Answer) {
         "GET /projects": () => (session.loggedIn ? [200, { projects: [{ id: "7", name: "Garden", role: "lead" }] }] : notLoggedIn),
         "GET /projects/7/tasks": () => (session.loggedIn ? [200, { tasks: [task] }] : notLoggedIn),
         "GET /projects/7/members": () => (session.loggedIn ? [200, { members: [] }] : notLoggedIn),
+        "GET /tasks/3/subtasks": () => (session.loggedIn ? [200, { subtasks: [] }] : notLoggedIn),
         "PUT /tasks/3/status": () => answerToStatus(task),
     });
     const router = createMemoryRouter(routes, { initialEntries: ["/projects/7/tasks/3"] });

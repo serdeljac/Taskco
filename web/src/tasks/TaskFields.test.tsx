@@ -42,6 +42,7 @@ async function showTask(role: "lead" | "associate", answers: Record<string, Answ
         "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role }] }],
         "GET /projects/7/tasks": () => [200, { tasks: [task] }],
         "GET /projects/7/members": [200, { members }],
+        "GET /tasks/3/subtasks": [200, { subtasks: [] }],
         "PUT /tasks/3/status": store("status", "status"),
         "PUT /tasks/3/priority": answers["PUT /tasks/3/priority"] ?? store("priority", "priority"),
         "PUT /tasks/3/due-date": answers["PUT /tasks/3/due-date"] ?? store("due_date", "dueDate"),

@@ -23,6 +23,8 @@ async function showRefusingTask() {
         "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role: "lead" }] }],
         "GET /projects/7/tasks": [200, { tasks }],
         "GET /projects/7/members": [200, { members }],
+        "GET /tasks/3/subtasks": [200, { subtasks: [] }],
+        "GET /tasks/1/subtasks": [200, { subtasks: [] }],
         "PUT /tasks/3/status": refused,
         "PUT /tasks/3/priority": refused,
         "PUT /tasks/3/assignee": refused,
