@@ -7,6 +7,7 @@ import { ProjectsPage, projectsLoader } from "./projects/ProjectsPage";
 import { ProjectPage, projectLoader } from "./projects/ProjectPage";
 import { RegisterPage, registerAction } from "./register/RegisterPage";
 import { RootError } from "./RootError";
+import { createTaskAction } from "./tasks/createTask";
 
 export const routes: RouteObject[] = [
     {
@@ -26,7 +27,13 @@ export const routes: RouteObject[] = [
                         loader: projectsLoader,
                         action: createProjectAction,
                     },
-                    { path: "/projects/:projectId", element: <ProjectPage />, loader: projectLoader },
+                    {
+                        id: "project",
+                        path: "/projects/:projectId",
+                        element: <ProjectPage />,
+                        loader: projectLoader,
+                        action: createTaskAction,
+                    },
                 ],
             },
             { path: "/login", element: <LoginPage />, loader: loginLoader, action: loginAction },

@@ -1,6 +1,7 @@
 import { data, Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { api } from "../api/client";
 import type { Member, Project, Task } from "../api/types";
+import { NewTask } from "../tasks/NewTask";
 import { assigneeWords, dueDateWords, priorityWords, roleWords, statusWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
@@ -29,6 +30,8 @@ export function ProjectPage() {
             <h1>{project.name}</h1>
 
             <h2>Tasks</h2>
+            {/* Only the Lead creates tasks: the API refuses anyone else */}
+            {project.role === "lead" && <NewTask />}
             {tasks.length === 0 ? (
                 <p>No tasks yet</p>
             ) : (
