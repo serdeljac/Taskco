@@ -4,6 +4,7 @@ import { logoutAction, logoutLoader } from "./account/logout";
 import { LoginPage, loginAction, loginLoader } from "./login/LoginPage";
 import { createProjectAction } from "./projects/createProject";
 import { ProjectsPage, projectsLoader } from "./projects/ProjectsPage";
+import { ProjectPage, projectLoader } from "./projects/ProjectPage";
 import { RegisterPage, registerAction } from "./register/RegisterPage";
 import { RootError } from "./RootError";
 
@@ -25,6 +26,7 @@ export const routes: RouteObject[] = [
                         loader: projectsLoader,
                         action: createProjectAction,
                     },
+                    { path: "/projects/:projectId", element: <ProjectPage />, loader: projectLoader },
                 ],
             },
             { path: "/login", element: <LoginPage />, loader: loginLoader, action: loginAction },
