@@ -1324,3 +1324,19 @@ Choices made while building, each accepted by Stjepan on 2026-11-06:
   focus back after, as New project does.
 - **A page folder keeps its tests in `tests/` and its styles in `style/`**, Stjepan's, 2026-11-06,
   for readability. `account/`, `api/` and the `.test.ts` files stay beside what they test.
+
+### Slice 7d — four decisions
+
+Decided 2026-11-06, by Stjepan, each as recommended, while [`step-7d.md`](./step-7d.md) was
+specified.
+
+- **Classic dnd-kit**: `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0 and `@dnd-kit/utilities`
+  3.2.2, pinned exactly. *Rejected — `@dnd-kit/react` 0.5.3:* still before 1.0, and changing month to
+  month.
+- **A row is dragged by a handle**, not by the whole row, since its title is a link. *Rejected — the
+  whole row:* a press on the title would have to be told apart from a drag.
+- **The new order shows at once** while a move is on its way, and otherwise the server's, as a
+  choice has since 7b. A refusal puts the row back. *Rejected — waiting for the server:* the row
+  would jump back, then forward.
+- **dnd-kit was tried before 7d was specified**, in a throwaway copy of `web/`, downloaded into it
+  only and deleted afterwards. Stjepan installs it in the project as 7d's first piece.

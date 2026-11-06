@@ -19,8 +19,9 @@ checked in a browser. Stjepan went over the commits on 2026-11-06, and the revie
 day, in [`step-7c-review.md`](./step-7c-review.md): six items. Five were fixed the same day, three of
 them typed by Stjepan, in F1; the sixth, a timezone only the API can set, waits. Stjepan
 accepted the five choices in design section 16 the same day. **Merged into `main`** on 2026-11-06,
-as a fast-forward of twenty-two commits, and not pushed. **Next:** slice 7d — dragging a task to a
-new place — specified when Stjepan says go.
+as a fast-forward of twenty-two commits, and not pushed. Slice 7d — dragging a task, and a subtask, to a new place — is **specified** in
+[`step-7d.md`](./step-7d.md), on branch `step-7d`, 2026-11-06. **Next:** building it, on Stjepan's
+go-ahead.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -428,6 +429,13 @@ day: reordering subtasks waits for 7d's dragging, and deleting comes now, after 
 
 **Slice 7c built 2026-11-05 to 2026-11-06**, on branch `step-7c`, then reviewed, fixed, and merged
 into `main` on 2026-11-06. See the progress log.
+
+**Slice 7d specified 2026-11-06**, in [`step-7d.md`](./step-7d.md): dragging a task, and a subtask,
+to a new place. Eleven pieces — nine for Claude, starting with moving subtasks on the server and
+the room a new subtask needs, and two firsts for Stjepan: installing dnd-kit, and the first list
+dragged into a new order. Stjepan decided four questions the same day: classic dnd-kit, a handle on
+each row, the new order shown at once, and trying it first. Five traps, found by trying dnd-kit in
+a throwaway copy of `web/` and the server in a throwaway test.
 
 ---
 
