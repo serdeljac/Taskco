@@ -35,6 +35,7 @@ async function showGarden(answers: Record<string, Answer> = {}) {
         "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role: "lead" }] }],
         "GET /projects/7/tasks": () => [200, { tasks }],
         "GET /projects/7/members": [200, { members: [] }],
+        "PUT /tasks/3/position": answers["PUT /tasks/3/position"] ?? move("3"),
         "PUT /tasks/5/position": answers["PUT /tasks/5/position"] ?? move("5"),
     });
     const router = createMemoryRouter(routes, { initialEntries: ["/projects/7"] });
@@ -53,8 +54,9 @@ function sendMove(router: ReturnType<typeof createMemoryRouter>, fields: Record<
     return router.navigate("/projects/7", { formMethod: "put", formData });
 }
 
-function sent(fetch: ReturnType<typeof standInApi>) {
-    return fetch.mock.calls.find(([url, init]) => init?.method === "PUT" && url === "/api/tasks/5/position")?.[1]?.body;
+// What the API was sent to move a task, Water unless another is named
+function sent(fetch: ReturnType<typeof standInApi>, taskId = "5") {
+    return fetch.mock.calls.find(([url, init]) => init?.method === "PUT" && url === `/api/tasks/${taskId}/position`)?.[1]?.body;
 }
 
 // The task titles in the project's table, in the order shown
@@ -125,7 +127,7 @@ describe("moving a task, in the project page's action", () => {
 
         expect(screen.getByRole("button", { name: "Move Water" }).getAttribute("aria-roledescription")).toBe("sortable");
     });
-    
+
     it("moves a task up one by keyboard, and sends the two tasks it now sits between", async () => {
         giveRowsSizes();
         const { fetch } = await showGarden();
@@ -137,5 +139,33 @@ describe("moving a task, in the project page's action", () => {
 
         await waitFor(() => expect(titles()).toEqual(["Dig the beds", "Water", "Buy seeds"]));
         expect(sent(fetch)).toBe('{"afterTaskId":"3","beforeTaskId":"1"}');
+    });
+
+    it("moves a task to the top, and sends only the task now below it", async () => {
+        giveRowsSizes();
+        const { fetch } = await showGarden();
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard(" ");
+
+        await waitFor(() => expect(titles()).toEqual(["Water", "Dig the beds", "Buy seeds"]));
+        expect(sent(fetch)).toBe('{"beforeTaskId":"3"}');
+    });
+
+    it("moves a task to the bottom, and sends only the task now above it", async () => {
+        giveRowsSizes();
+        const { fetch } = await showGarden();
+
+        screen.getByRole("button", { name: "Move Dig the beds" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowDown}");
+        await userEvent.keyboard("{ArrowDown}");
+        await userEvent.keyboard(" ");
+
+        await waitFor(() => expect(titles()).toEqual(["Buy seeds", "Water", "Dig the beds"]));
+        expect(sent(fetch, "3")).toBe('{"afterTaskId":"5"}');
     });
 });
