@@ -35,6 +35,7 @@ async function showGarden(answers: Record<string, Answer> = {}) {
         "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role: "lead" }] }],
         "GET /projects/7/tasks": () => [200, { tasks }],
         "GET /projects/7/members": [200, { members: [] }],
+        "GET /tasks/5/subtasks": [200, { subtasks: [] }],
         "PUT /tasks/3/position": answers["PUT /tasks/3/position"] ?? move("3"),
         "PUT /tasks/5/position": answers["PUT /tasks/5/position"] ?? move("5"),
     });
@@ -167,5 +168,28 @@ describe("moving a task, in the project page's action", () => {
 
         await waitFor(() => expect(titles()).toEqual(["Buy seeds", "Water", "Dig the beds"]));
         expect(sent(fetch, "3")).toBe('{"afterTaskId":"5"}');
+    });
+
+    it("puts a task back on Escape, and sends nothing", async () => {
+        giveRowsSizes();
+        const { fetch } = await showGarden();
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard("{Escape}");
+
+        expect(titles()).toEqual(["Dig the beds", "Buy seeds", "Water"]);
+        expect(sent(fetch)).toBeUndefined();
+    });
+
+    it("opens a task from its title, and moves nothing", async () => {
+        const { router, fetch } = await showGarden();
+
+        await userEvent.click(screen.getByRole("link", { name: "Water" }));
+
+        expect(await screen.findByRole("heading", { name: "Water" })).toBeDefined();
+        expect(router.state.location.pathname).toBe("/projects/7/tasks/5");
+        expect(sent(fetch)).toBeUndefined();
     });
 });
