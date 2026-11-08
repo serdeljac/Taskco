@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { routes } from "../../routes";
+import { giveRowsSizes } from "../../testing/rowSizes";
 import { standInApi, type Answer } from "../../testing/standInApi";
 
 const subtask = (id: string, title: string) => ({
@@ -99,5 +101,82 @@ describe("moving a subtask, in the task page's action", () => {
             expect(router.state.actionData?.task).toEqual({ refusal: "The list changed while you were moving it. Try again." })
         );
         expect(titles()).toEqual(["Turn the soil", "Edge the beds", "Rake it level"]);
+    });
+});
+
+describe("dragging a subtask in the task's table", () => {
+    it("starts each subtask's row with a handle named for it", async () => {
+        await showTask();
+
+        const rows = within(screen.getByRole("table", { name: "Subtasks" })).getAllByRole("row").slice(1);
+        const handles = rows.map((row) => within(within(row).getAllByRole("cell")[0]!).getByRole("button"));
+        expect(handles.map((handle) => handle.getAttribute("aria-label"))).toEqual([
+            "Move Turn the soil",
+            "Move Edge the beds",
+            "Move Rake it level",
+        ]);
+    });
+
+    it("moves a subtask up one by keyboard, and sends the two subtasks it now sits between", async () => {
+        giveRowsSizes();
+        const { fetch } = await showTask();
+
+        screen.getByRole("button", { name: "Move Rake it level" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard(" ");
+
+        await waitFor(() => expect(titles()).toEqual(["Turn the soil", "Rake it level", "Edge the beds"]));
+        expect(sent(fetch)).toBe('{"afterSubtaskId":"9","beforeSubtaskId":"8"}');
+    });
+
+    it("shows the new order while the move is on its way", async () => {
+        giveRowsSizes();
+        const { fetch } = await showTask();
+        // The move is never answered, so only what is being sent can put Rake it level in its new place
+        fetch.mockImplementationOnce(() => new Promise<Response>(() => {}));
+
+        screen.getByRole("button", { name: "Move Rake it level" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard(" ");
+
+        await waitFor(() => expect(titles()).toEqual(["Turn the soil", "Rake it level", "Edge the beds"]));
+        expect(sent(fetch)).toBe('{"afterSubtaskId":"9","beforeSubtaskId":"8"}');
+    });
+
+    it("puts a refused move back, and says why in Taskco's words", async () => {
+        giveRowsSizes();
+        await showTask({
+            "PUT /subtasks/6/position": [409, { error: "a neighbour was not found", code: "neighbour-not-found" }],
+        });
+
+        screen.getByRole("button", { name: "Move Rake it level" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard(" ");
+
+        expect((await screen.findByRole("alert")).textContent).toBe("The list changed while you were moving it. Try again.");
+        expect(titles()).toEqual(["Turn the soil", "Edge the beds", "Rake it level"]);
+    });
+
+    it("tells a screen reader what was picked up, and where it is, by title", async () => {
+        giveRowsSizes();
+        await showTask();
+
+        screen.getByRole("button", { name: "Move Rake it level" }).focus();
+        await userEvent.keyboard(" ");
+        // The project's task list has a screen reader's status of its own, so the words are found by text
+        expect(await screen.findByText("Picked up Rake it level.")).toBeDefined();
+        await userEvent.keyboard("{ArrowUp}");
+        expect(await screen.findByText("Rake it level is over Edge the beds.")).toBeDefined();
+    });
+
+    it("gives an Associate the subtasks in order, with no handles to move them", async () => {
+        await showTask({ "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role: "associate" }] }] });
+
+        expect(titles()).toEqual(["Turn the soil", "Edge the beds", "Rake it level"]);
+        expect(within(screen.getByRole("table", { name: "Subtasks" })).queryByRole("columnheader", { name: "Move" })).toBeNull();
+        expect(screen.queryAllByRole("button", { name: /^Move / })).toEqual([]);
     });
 });
