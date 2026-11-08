@@ -228,8 +228,11 @@ describe("moving a task, in the project page's action", () => {
         await showGarden();
 
         const handle = screen.getByRole("button", { name: "Move Water" });
-        expect(document.getElementById(handle.getAttribute("aria-describedby")!)?.textContent).toBe(
-            "Press Space or Enter to pick the row up, the arrow keys to move it, Space or Enter to drop it, and Escape to put it back."
+        // dnd-kit draws the instructions a moment after the page, once it has mounted
+        await waitFor(() =>
+            expect(document.getElementById(handle.getAttribute("aria-describedby")!)?.textContent).toBe(
+                "Press Space or Enter to pick the row up, the arrow keys to move it, Space or Enter to drop it, and Escape to put it back."
+            )
         );
     });
 
