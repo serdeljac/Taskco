@@ -5,7 +5,7 @@ import { NewTask } from "../tasks/NewTask";
 import { Rename } from "../tasks/Rename";
 import styles from "./style/ProjectPage.module.scss";
 import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { TaskCells, TaskRow } from "./TaskRow";
 import { inOrderSent, neighboursAfterDrop } from "../tasks/order";
 import { dragInstructions, dragWords, roleWords } from "../tasks/words";
@@ -118,7 +118,7 @@ function TaskTable({ tasks, members, canMove }: { tasks: Task[]; members: Member
             </thead>
             <tbody>
                 {canMove ? (
-                    <SortableContext items={tasks.map((task) => task.id)}>
+                    <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
                         {tasks.map((task) => (
                             <TaskRow key={task.id} task={task} members={members} />
                         ))}

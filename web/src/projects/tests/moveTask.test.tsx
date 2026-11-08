@@ -271,4 +271,17 @@ describe("moving a task, in the project page's action", () => {
         expect(screen.queryByRole("columnheader", { name: "Move" })).toBeNull();
         expect(screen.queryAllByRole("button", { name: /^Move / })).toEqual([]);
     });
+
+    
+    it("slides the picked-up row on screen as the arrows move it", async () => {
+        giveRowsSizes();
+        await showGarden();
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+
+        const row = screen.getByRole("button", { name: "Move Water" }).closest("tr")!;
+        await waitFor(() => expect(row.style.transform).toBe("translate3d(0px, -40px, 0)"));
+    });
 });

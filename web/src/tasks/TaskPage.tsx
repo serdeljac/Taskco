@@ -1,6 +1,6 @@
 import { Link, Outlet, useFetcher, useLoaderData, useParams, useRouteLoaderData, type LoaderFunctionArgs } from "react-router";
 import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { api, ApiError } from "../api/client";
 import type { Member, Subtask, Task } from "../api/types";
 import type { projectLoader } from "../projects/ProjectPage";
@@ -149,7 +149,7 @@ function SubtaskTable({ subtasks, members, canMove }: { subtasks: Subtask[]; mem
             </thead>
             <tbody>
                 {canMove ? (
-                    <SortableContext items={subtasks.map((subtask) => subtask.id)}>
+                    <SortableContext items={subtasks.map((subtask) => subtask.id)} strategy={verticalListSortingStrategy}>
                         {subtasks.map((subtask) => (
                             <SortableRow key={subtask.id} id={subtask.id} title={subtask.title}>
                                 <SubtaskCells subtask={subtask} members={members} />
