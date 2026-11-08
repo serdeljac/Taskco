@@ -1,28 +1,14 @@
-import { useSortable } from "@dnd-kit/sortable";
 import { Link } from "react-router";
 import type { Member, Task } from "../api/types";
+import { SortableRow } from "../tasks/SortableRow";
 import { assigneeWords, dueDateWords, priorityWords, statusWords } from "../tasks/words";
 
-// One task's row in the project's table, for the Lead. Only its handle listens for a drag, so a press
-// on the title still opens the task
+// One task's row in the project's table, for the Lead: a handle to drag it by, then the task
 export function TaskRow({ task, members }: { task: Task; members: Member[] }) {
-    const { attributes, listeners, setNodeRef, setActivatorNodeRef } = useSortable({ id: task.id });
-
     return (
-        <tr ref={setNodeRef}>
-            <td>
-                <button
-                    type="button"
-                    ref={setActivatorNodeRef}
-                    aria-label={`Move ${task.title}`}
-                    {...attributes}
-                    {...listeners}
-                >
-                    ⠿
-                </button>
-            </td>
+        <SortableRow id={task.id} title={task.title}>
             <TaskCells task={task} members={members} />
-        </tr>
+        </SortableRow>
     );
 }
 

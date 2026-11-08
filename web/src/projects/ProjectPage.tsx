@@ -5,8 +5,9 @@ import { NewTask } from "../tasks/NewTask";
 import { Rename } from "../tasks/Rename";
 import styles from "./style/ProjectPage.module.scss";
 import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { TaskCells, TaskRow } from "./TaskRow";
+import { inOrderSent, neighboursAfterDrop } from "../tasks/order";
 import { dragInstructions, dragWords, roleWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
@@ -35,19 +36,20 @@ export function ProjectPage() {
 
     // While a move is on its way, the order being sent; otherwise the server's. So a refused move
     // goes back to its place when the page's data reloads
-    const shown = fetcher.formData ? inOrderSent(tasks, fetcher.formData) : tasks;
+    const sending = fetcher.formData;
+    const shown = sending
+        ? inOrderSent(tasks, sending.get("taskId"), sending.get("afterTaskId"), sending.get("beforeTaskId"))
+        : tasks;
 
-    // A drop sends the task, and the tasks now above and below it. At the top there is none above,
-    // and at the bottom none below: an empty one is not sent
+    // A drop sends the task, and the tasks now above and below it
     function dropTask({ active, over }: DragEndEvent) {
         if (!over || active.id === over.id) {
             return;
         }
         const ids = shown.map((task) => task.id);
-        const order = arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id)));
-        const at = order.indexOf(String(active.id));
+        const { above, below } = neighboursAfterDrop(ids, String(active.id), String(over.id));
         fetcher.submit(
-            { intent: "move-task", taskId: String(active.id), afterTaskId: order[at - 1] ?? "", beforeTaskId: order[at + 1] ?? "" },
+            { intent: "move-task", taskId: String(active.id), afterTaskId: above, beforeTaskId: below },
             { method: "put" }
         );
     }
@@ -131,18 +133,4 @@ function TaskTable({ tasks, members, canMove }: { tasks: Task[]; members: Member
             </tbody>
         </table>
     );
-}
-
-// The tasks in the order a move asks for: the task taken out, and put back after the task above it,
-// or before the task below it at the top. A neighbour no longer in the list leaves the order as it was
-function inOrderSent(tasks: Task[], form: FormData) {
-    const moved = tasks.find((task) => task.id === form.get("taskId"));
-    const rest = tasks.filter((task) => task !== moved);
-    const afterTaskId = form.get("afterTaskId");
-    const neighbour = rest.findIndex((task) => task.id === (afterTaskId || form.get("beforeTaskId")));
-    if (!moved || neighbour === -1) {
-        return tasks;
-    }
-    const at = afterTaskId ? neighbour + 1 : neighbour;
-    return [...rest.slice(0, at), moved, ...rest.slice(at)];
 }
