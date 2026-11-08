@@ -1,0 +1,40 @@
+// A row the Lead can drag: its handle, a grip rather than a button, and the row while it is lifted,
+// drawn above the rows it passes over
+$grip: #767676;
+$grip-hover: #333;
+$focus: #1a5fb4;
+$lifted: #fff;
+$shadow: rgba(0, 0, 0, 0.2);
+
+.handle {
+    padding: 0 0.25rem;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: $grip;
+    cursor: grab;
+
+    &:hover {
+        color: $grip-hover;
+    }
+
+    // The keyboard's way in: Space picks the row up from here
+    &:focus-visible {
+        outline: 2px solid $focus;
+        outline-offset: 2px;
+    }
+}
+
+// position and z-index draw the lifted row over the others as it slides past them
+.lifted {
+    position: relative;
+    z-index: 1;
+    background: $lifted;
+    box-shadow: 0 2px 8px $shadow;
+
+    .handle {
+        cursor: grabbing;
+    }
+}
