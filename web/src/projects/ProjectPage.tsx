@@ -6,7 +6,7 @@ import { Rename } from "../tasks/Rename";
 import styles from "./style/ProjectPage.module.scss";
 import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { TaskRow } from "./TaskRow";
+import { TaskCells, TaskRow } from "./TaskRow";
 import { dragInstructions, dragWords, roleWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
@@ -68,7 +68,7 @@ export function ProjectPage() {
             {fetcher.data?.refusal && <p role="alert">{fetcher.data.refusal}</p>}
             {tasks.length === 0 ? (
                 <p>No tasks yet</p>
-            ) : (
+            ) : project.role === "lead" ? (
                 <DndContext
                     sensors={sensors}
                     onDragEnd={dropTask}
@@ -77,26 +77,11 @@ export function ProjectPage() {
                         screenReaderInstructions: { draggable: dragInstructions },
                     }}
                 >
-                    <table className={styles.tasks}>
-                        <thead>
-                            <tr>
-                                <th scope="col">Move</th>
-                                <th scope="col">Task</th>
-                                <th scope="col">Status</th>
-                                <th scope="col">Priority</th>
-                                <th scope="col">Due</th>
-                                <th scope="col">Assigned to</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <SortableContext items={shown.map((task) => task.id)}>
-                                {shown.map((task) => (
-                                    <TaskRow key={task.id} task={task} members={members} />
-                                ))}
-                            </SortableContext>
-                        </tbody>
-                    </table>
+                    <TaskTable tasks={shown} members={members} canMove />
                 </DndContext>
+            ) : (
+                // The order is the Lead's: the API refuses anyone else's move, so there is nothing to drag
+                <TaskTable tasks={shown} members={members} canMove={false} />
             )}
 
             {/* The task opened from the list, if one is: /projects/7/tasks/3 */}
@@ -111,6 +96,40 @@ export function ProjectPage() {
                 ))}
             </ul>
         </>
+    );
+}
+
+// The project's tasks, in the order given. The Lead's rows start with a handle to move them, inside the
+// page's DndContext; an Associate's rows are the task alone
+function TaskTable({ tasks, members, canMove }: { tasks: Task[]; members: Member[]; canMove: boolean }) {
+    return (
+        <table className={styles.tasks}>
+            <thead>
+                <tr>
+                    {canMove && <th scope="col">Move</th>}
+                    <th scope="col">Task</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Due</th>
+                    <th scope="col">Assigned to</th>
+                </tr>
+            </thead>
+            <tbody>
+                {canMove ? (
+                    <SortableContext items={tasks.map((task) => task.id)}>
+                        {tasks.map((task) => (
+                            <TaskRow key={task.id} task={task} members={members} />
+                        ))}
+                    </SortableContext>
+                ) : (
+                    tasks.map((task) => (
+                        <tr key={task.id}>
+                            <TaskCells task={task} members={members} />
+                        </tr>
+                    ))
+                )}
+            </tbody>
+        </table>
     );
 }
 

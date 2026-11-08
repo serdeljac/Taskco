@@ -18,7 +18,7 @@ const task = (id: string, title: string): Task => ({
 });
 
 // Garden, for its Lead, with Dig the beds, Buy seeds and Water, in that order. A move puts the task
-// between the neighbours it names, as the API does, unless answers says otherwise
+// between the neighbours it names, as the API does. answers adds to what the API says, or replaces it
 async function showGarden(answers: Record<string, Answer> = {}) {
     const tasks = [task("3", "Dig the beds"), task("1", "Buy seeds"), task("5", "Water")];
     const move = (id: string) => (): Answer => {
@@ -36,8 +36,9 @@ async function showGarden(answers: Record<string, Answer> = {}) {
         "GET /projects/7/tasks": () => [200, { tasks }],
         "GET /projects/7/members": [200, { members: [] }],
         "GET /tasks/5/subtasks": [200, { subtasks: [] }],
-        "PUT /tasks/3/position": answers["PUT /tasks/3/position"] ?? move("3"),
-        "PUT /tasks/5/position": answers["PUT /tasks/5/position"] ?? move("5"),
+        "PUT /tasks/3/position": move("3"),
+        "PUT /tasks/5/position": move("5"),
+        ...answers,
     });
     const router = createMemoryRouter(routes, { initialEntries: ["/projects/7"] });
     render(<RouterProvider router={router} />);
@@ -268,5 +269,13 @@ describe("moving a task, in the project page's action", () => {
 
         await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Water was dropped where it was."));
         expect(sent(fetch)).toBeUndefined();
+    });
+
+    it("gives an Associate the tasks in order, with no handles to move them", async () => {
+        await showGarden({ "GET /projects": [200, { projects: [{ id: "7", name: "Garden", role: "associate" }] }] });
+
+        expect(titles()).toEqual(["Dig the beds", "Buy seeds", "Water"]);
+        expect(screen.queryByRole("columnheader", { name: "Move" })).toBeNull();
+        expect(screen.queryAllByRole("button", { name: /^Move / })).toEqual([]);
     });
 });
