@@ -222,4 +222,51 @@ describe("moving a task, in the project page's action", () => {
         expect((await screen.findByRole("alert")).textContent).toBe("The list changed while you were moving it. Try again.");
         expect(titles()).toEqual(["Dig the beds", "Buy seeds", "Water"]);
     });
+
+    it("tells a screen reader how to move a row, in Taskco's words", async () => {
+        await showGarden();
+
+        const handle = screen.getByRole("button", { name: "Move Water" });
+        expect(document.getElementById(handle.getAttribute("aria-describedby")!)?.textContent).toBe(
+            "Press Space or Enter to pick the row up, the arrow keys to move it, Space or Enter to drop it, and Escape to put it back."
+        );
+    });
+
+    it("tells a screen reader what was picked up, where it is, and where it was dropped, by title", async () => {
+        giveRowsSizes();
+        await showGarden();
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        // Picked up, Water is over itself, and nothing new is said
+        await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Picked up Water."));
+        await userEvent.keyboard("{ArrowUp}");
+        await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Water is over Buy seeds."));
+        await userEvent.keyboard(" ");
+        await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Water was dropped over Buy seeds."));
+    });
+
+    it("tells a screen reader a row was put back, on Escape", async () => {
+        giveRowsSizes();
+        await showGarden();
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard("{Escape}");
+
+        await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Water was put back."));
+    });
+
+    it("tells a screen reader a row was dropped where it was, and sends nothing", async () => {
+        giveRowsSizes();
+        const { fetch } = await showGarden();
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard(" ");
+
+        await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Water was dropped where it was."));
+        expect(sent(fetch)).toBeUndefined();
+    });
 });

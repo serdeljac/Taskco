@@ -7,7 +7,7 @@ import styles from "./style/ProjectPage.module.scss";
 import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { TaskRow } from "./TaskRow";
-import { roleWords } from "../tasks/words";
+import { dragInstructions, dragWords, roleWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
     const { projects } = await api<{ projects: Project[] }>("GET", "/projects");
@@ -69,7 +69,14 @@ export function ProjectPage() {
             {tasks.length === 0 ? (
                 <p>No tasks yet</p>
             ) : (
-                <DndContext sensors={sensors} onDragEnd={dropTask}>
+                <DndContext
+                    sensors={sensors}
+                    onDragEnd={dropTask}
+                    accessibility={{
+                        announcements: dragWords(shown),
+                        screenReaderInstructions: { draggable: dragInstructions },
+                    }}
+                >
                     <table className={styles.tasks}>
                         <thead>
                             <tr>
