@@ -4,6 +4,10 @@ import type { User } from "../api/types";
 import { wordsFor } from "../api/words";
 import styles from "../AccountForm.module.scss";
 
+//Delete this later
+//Temp Username: lead@example.com or associate@example.com
+//Temp Password: taskco-demo
+
 // Someone already logged in has no use for the form, so on to /. Here a 401 is the answer, not a
 // reason to come to /login: the form shows
 export async function loginLoader() {
