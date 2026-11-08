@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { routes } from "../../routes";
 import { standInApi, type Answer } from "../../testing/standInApi";
@@ -62,6 +63,17 @@ function titles() {
     return rows.map((row) => within(row).getByRole("link").textContent);
 }
 
+// jsdom draws nothing, so every row measures 0 by 0 and a keyboard drag lands in the wrong place.
+// For one test, each element in a row measures as the row: 40px high, stacked in the order shown
+function giveRowsSizes() {
+    const sizes = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+        const row = this.closest("tr");
+        const top = row ? [...row.parentElement!.children].indexOf(row) * 40 : 0;
+        return { x: 0, y: top, top, left: 0, right: 600, bottom: top + 40, width: 600, height: 40, toJSON: () => ({}) };
+    });
+    onTestFinished(() => sizes.mockRestore());
+}
+
 describe("moving a task, in the project page's action", () => {
     it("sends the task's two neighbours, and the list then shows the new order", async () => {
         const { router, fetch } = await showGarden();
@@ -106,5 +118,24 @@ describe("moving a task, in the project page's action", () => {
                 "Move Water",
             ]);
         });
+    });
+
+    it("hands each row's handle to dnd-kit, to pick the row up", async () => {
+        await showGarden();
+
+        expect(screen.getByRole("button", { name: "Move Water" }).getAttribute("aria-roledescription")).toBe("sortable");
+    });
+    
+    it("moves a task up one by keyboard, and sends the two tasks it now sits between", async () => {
+        giveRowsSizes();
+        const { fetch } = await showGarden();
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard(" ");
+
+        await waitFor(() => expect(titles()).toEqual(["Dig the beds", "Water", "Buy seeds"]));
+        expect(sent(fetch)).toBe('{"afterTaskId":"3","beforeTaskId":"1"}');
     });
 });

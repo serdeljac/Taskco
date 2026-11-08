@@ -1,10 +1,13 @@
-import { data, Link, Outlet, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { data, Link, Outlet, useFetcher, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { api } from "../api/client";
 import type { Member, Project, Task } from "../api/types";
 import { NewTask } from "../tasks/NewTask";
 import { Rename } from "../tasks/Rename";
 import styles from "./style/ProjectPage.module.scss";
-import { assigneeWords, dueDateWords, priorityWords, roleWords, statusWords } from "../tasks/words";
+import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { TaskRow } from "./TaskRow";
+import { roleWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
     const { projects } = await api<{ projects: Project[] }>("GET", "/projects");
@@ -23,6 +26,27 @@ export async function projectLoader({ params }: LoaderFunctionArgs) {
 
 export function ProjectPage() {
     const { project, tasks, members } = useLoaderData<typeof projectLoader>();
+    const fetcher = useFetcher();
+    // The mouse picks a row up by its handle; so does the keyboard, and its arrows move it one row
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    // A drop sends the task, and the tasks now above and below it. At the top there is none above,
+    // and at the bottom none below: an empty one is not sent
+    function dropTask({ active, over }: DragEndEvent) {
+        if (!over || active.id === over.id) {
+            return;
+        }
+        const ids = tasks.map((task) => task.id);
+        const order = arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id)));
+        const at = order.indexOf(String(active.id));
+        fetcher.submit(
+            { intent: "move-task", taskId: String(active.id), afterTaskId: order[at - 1] ?? "", beforeTaskId: order[at + 1] ?? "" },
+            { method: "put" }
+        );
+    }
 
     return (
         <>
@@ -40,36 +64,27 @@ export function ProjectPage() {
             {tasks.length === 0 ? (
                 <p>No tasks yet</p>
             ) : (
-                <table className={styles.tasks}>
-                    <thead>
-                        <tr>
-                            <th scope="col">Move</th>
-                            <th scope="col">Task</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Priority</th>
-                            <th scope="col">Due</th>
-                            <th scope="col">Assigned to</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {tasks.map((task) => (
-                            <tr key={task.id}>
-                                <td>
-                                    <button type="button" aria-label={`Move ${task.title}`}>
-                                        ⠿
-                                    </button>
-                                </td>
-                                <td>
-                                    <Link to={`tasks/${task.id}`}>{task.title}</Link>
-                                </td>
-                                <td>{statusWords(task.status)}</td>
-                                <td>{priorityWords(task.priority)}</td>
-                                <td>{dueDateWords(task.due_date)}</td>
-                                <td>{assigneeWords(task.assignee_membership_id, members)}</td>
+                <DndContext sensors={sensors} onDragEnd={dropTask}>
+                    <table className={styles.tasks}>
+                        <thead>
+                            <tr>
+                                <th scope="col">Move</th>
+                                <th scope="col">Task</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Priority</th>
+                                <th scope="col">Due</th>
+                                <th scope="col">Assigned to</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <SortableContext items={tasks.map((task) => task.id)}>
+                                {tasks.map((task) => (
+                                    <TaskRow key={task.id} task={task} members={members} />
+                                ))}
+                            </SortableContext>
+                        </tbody>
+                    </table>
+                </DndContext>
             )}
 
             {/* The task opened from the list, if one is: /projects/7/tasks/3 */}
