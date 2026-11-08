@@ -26,12 +26,16 @@ export async function projectLoader({ params }: LoaderFunctionArgs) {
 
 export function ProjectPage() {
     const { project, tasks, members } = useLoaderData<typeof projectLoader>();
-    const fetcher = useFetcher();
+    const fetcher = useFetcher<{ refusal?: string } | null>();
     // The mouse picks a row up by its handle; so does the keyboard, and its arrows move it one row
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
+
+    // While a move is on its way, the order being sent; otherwise the server's. So a refused move
+    // goes back to its place when the page's data reloads
+    const shown = fetcher.formData ? inOrderSent(tasks, fetcher.formData) : tasks;
 
     // A drop sends the task, and the tasks now above and below it. At the top there is none above,
     // and at the bottom none below: an empty one is not sent
@@ -39,7 +43,7 @@ export function ProjectPage() {
         if (!over || active.id === over.id) {
             return;
         }
-        const ids = tasks.map((task) => task.id);
+        const ids = shown.map((task) => task.id);
         const order = arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id)));
         const at = order.indexOf(String(active.id));
         fetcher.submit(
@@ -61,6 +65,7 @@ export function ProjectPage() {
             <h2>Tasks</h2>
             {/* Only the Lead creates tasks: the API refuses anyone else */}
             {project.role === "lead" && <NewTask />}
+            {fetcher.data?.refusal && <p role="alert">{fetcher.data.refusal}</p>}
             {tasks.length === 0 ? (
                 <p>No tasks yet</p>
             ) : (
@@ -77,8 +82,8 @@ export function ProjectPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            <SortableContext items={tasks.map((task) => task.id)}>
-                                {tasks.map((task) => (
+                            <SortableContext items={shown.map((task) => task.id)}>
+                                {shown.map((task) => (
                                     <TaskRow key={task.id} task={task} members={members} />
                                 ))}
                             </SortableContext>
@@ -100,4 +105,18 @@ export function ProjectPage() {
             </ul>
         </>
     );
+}
+
+// The tasks in the order a move asks for: the task taken out, and put back after the task above it,
+// or before the task below it at the top. A neighbour no longer in the list leaves the order as it was
+function inOrderSent(tasks: Task[], form: FormData) {
+    const moved = tasks.find((task) => task.id === form.get("taskId"));
+    const rest = tasks.filter((task) => task !== moved);
+    const afterTaskId = form.get("afterTaskId");
+    const neighbour = rest.findIndex((task) => task.id === (afterTaskId || form.get("beforeTaskId")));
+    if (!moved || neighbour === -1) {
+        return tasks;
+    }
+    const at = afterTaskId ? neighbour + 1 : neighbour;
+    return [...rest.slice(0, at), moved, ...rest.slice(at)];
 }

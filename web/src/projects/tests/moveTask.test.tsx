@@ -192,4 +192,34 @@ describe("moving a task, in the project page's action", () => {
         expect(router.state.location.pathname).toBe("/projects/7/tasks/5");
         expect(sent(fetch)).toBeUndefined();
     });
+
+    it("shows the new order while the move is on its way", async () => {
+        giveRowsSizes();
+        const { fetch } = await showGarden();
+        // The move is never answered, so only what is being sent can put Water in its new place
+        fetch.mockImplementationOnce(() => new Promise<Response>(() => {}));
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard(" ");
+
+        await waitFor(() => expect(titles()).toEqual(["Dig the beds", "Water", "Buy seeds"]));
+        expect(sent(fetch)).toBe('{"afterTaskId":"3","beforeTaskId":"1"}');
+    });
+
+    it("puts a refused move back, and says why in Taskco's words", async () => {
+        giveRowsSizes();
+        await showGarden({
+            "PUT /tasks/5/position": [409, { error: "a neighbour was not found", code: "neighbour-not-found" }],
+        });
+
+        screen.getByRole("button", { name: "Move Water" }).focus();
+        await userEvent.keyboard(" ");
+        await userEvent.keyboard("{ArrowUp}");
+        await userEvent.keyboard(" ");
+
+        expect((await screen.findByRole("alert")).textContent).toBe("The list changed while you were moving it. Try again.");
+        expect(titles()).toEqual(["Dig the beds", "Buy seeds", "Water"]);
+    });
 });
