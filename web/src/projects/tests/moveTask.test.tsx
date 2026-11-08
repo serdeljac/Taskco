@@ -59,7 +59,7 @@ function sent(fetch: ReturnType<typeof standInApi>) {
 // The task titles in the project's table, in the order shown
 function titles() {
     const rows = within(screen.getAllByRole("table")[0]!).getAllByRole("row").slice(1);
-    return rows.map((row) => within(row).getAllByRole("cell")[0]!.textContent);
+    return rows.map((row) => within(row).getByRole("link").textContent);
 }
 
 describe("moving a task, in the project page's action", () => {
@@ -92,5 +92,19 @@ describe("moving a task, in the project page's action", () => {
             expect(router.state.actionData?.project).toEqual({ refusal: "The list changed while you were moving it. Try again." })
         );
         expect(titles()).toEqual(["Dig the beds", "Buy seeds", "Water"]);
+    });
+
+    describe("dragging a task in the project's table", () => {
+        it("starts each task's row with a handle named for it", async () => {
+            await showGarden();
+
+            const rows = within(screen.getAllByRole("table")[0]!).getAllByRole("row").slice(1);
+            const handles = rows.map((row) => within(within(row).getAllByRole("cell")[0]!).getByRole("button"));
+            expect(handles.map((handle) => handle.getAttribute("aria-label"))).toEqual([
+                "Move Dig the beds",
+                "Move Buy seeds",
+                "Move Water",
+            ]);
+        });
     });
 });

@@ -40,12 +40,12 @@ function showGarden(tasks: unknown[]) {
     return router;
 }
 
-// The words in each row of the task table, under its header row
+// The words in each row of the task table, under its header row, after the handle
 function taskRows() {
     return screen
         .getAllByRole("row")
         .slice(1)
-        .map((row) => within(row).getAllByRole("cell").map((cell) => cell.textContent));
+        .map((row) => within(row).getAllByRole("cell").slice(1).map((cell) => cell.textContent));
 }
 
 describe("/projects/:projectId", () => {

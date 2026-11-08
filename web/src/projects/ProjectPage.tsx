@@ -43,6 +43,7 @@ export function ProjectPage() {
                 <table className={styles.tasks}>
                     <thead>
                         <tr>
+                            <th scope="col">Move</th>
                             <th scope="col">Task</th>
                             <th scope="col">Status</th>
                             <th scope="col">Priority</th>
@@ -53,6 +54,11 @@ export function ProjectPage() {
                     <tbody>
                         {tasks.map((task) => (
                             <tr key={task.id}>
+                                <td>
+                                    <button type="button" aria-label={`Move ${task.title}`}>
+                                        ⠿
+                                    </button>
+                                </td>
                                 <td>
                                     <Link to={`tasks/${task.id}`}>{task.title}</Link>
                                 </td>
