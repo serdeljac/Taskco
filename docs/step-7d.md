@@ -2,8 +2,30 @@
 
 Specified 2026-11-06, from slice 7d's row in [`step-7-prep.md`](./step-7-prep.md), design
 sections 7, 11 and 16, and four decisions Stjepan made the same day. The fourth slice of step 7, in
-[`learning-path.md`](./learning-path.md). Nothing here is built. It is built on branch `step-7d`,
-from `main` after 7c's merge.
+[`learning-path.md`](./learning-path.md). **Built** 2026-11-06 to 2026-11-08 on branch `step-7d`,
+from `main` after 7c's merge, and checked in a browser on 2026-11-08; not yet reviewed. Changed on
+the way, each for Stjepan's review:
+
+- **F2 went in five steps, each test first:** the handle alone, in a column of its own, "Move";
+  the rows handed to dnd-kit; the first keyboard drag, with the rows given sizes; dragged to the
+  top or the bottom; and Escape and a title's click.
+- **The working rule changed after C7**, by Stjepan: Claude writes no code into the project, C
+  pieces included, and gives it instead for Stjepan to type. C4 to C7, written by Claude before
+  then, were kept. C8 was typed by Stjepan. The learning path records it.
+- **C7 shared rather than copied.** The handle's row, the order a drop sends and the order shown
+  while it is on its way, and the test helper that gives rows sizes moved into
+  `tasks/SortableRow.tsx`, `tasks/order.ts` and `testing/rowSizes.ts`, for both lists. F2's
+  `TaskRow` became a `SortableRow` around `TaskCells`. Design section 16.
+- **C6 split the task table** into `TaskTable`, with a handle column only for the Lead, and
+  `TaskCells`, the row after the handle; C7 did the same for subtasks.
+- **C5 says a drop in place**: "Water was dropped where it was.", beyond the four words the spec
+  listed.
+- **C8 went in two commits**, the row sliding and then the styles, with `CSS.Translate` rather
+  than `CSS.Transform` and a list that only moves up and down. The trap about a lifted table row's
+  cells did not happen. Design section 16.
+- **A flaky test was fixed** in its own commit: dnd-kit draws its screen-reader text a moment after
+  the page, so C5's instructions test waits for it.
+- **One item opened**, `handle-click-is-a-drag`, seen in the browser.
 
 **The new pieces were tried on 2026-11-06**, in a throwaway copy of `web/` with classic dnd-kit
 unpacked into it, deleted afterwards, and in a throwaway server test:

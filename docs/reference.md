@@ -4,7 +4,7 @@ Every file, organised by the step that built it. For each one: **the code**, **w
 **what is still open** in that file.
 
 Code blocks are a snapshot taken 2026-09-18, except steps 5 and 6's, taken 2026-10-22, the review
-fixes after them, taken 2026-10-24, slice 7a's, taken 2026-11-03, slice 7b's, taken 2026-11-05, and slice 7c's, taken 2026-11-06. If a block ever disagrees with the file, the file wins.
+fixes after them, taken 2026-10-24, slice 7a's, taken 2026-11-03, slice 7b's, taken 2026-11-05, slice 7c's, taken 2026-11-06, and slice 7d's, taken 2026-11-08. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -1151,6 +1151,7 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 | `PUT /subtasks/:subtaskId/due-date` | the Lead | `setSubtaskDueDate` | 204 | due after its task; due before the asker's today, *slice 7c* |
 | `PUT /subtasks/:subtaskId/title` | the Lead | `renameSubtask` | 204 | 404 a deleted subtask, or one under a deleted task. *Slice 7c* |
 | `PUT /subtasks/:subtaskId/assignee` | the Lead | `setSubtaskAssignee` | 204 | not a current member of the project |
+| `PUT /subtasks/:subtaskId/position` | the Lead | `moveSubtask` | 204 | a neighbour not found, or under another task; the subtask named as its own neighbour. *Slice 7d* |
 | `DELETE /subtasks/:subtaskId` | the Lead | `deleteSubtask` | 204 | — |
 | `GET /routines` | anyone | `listRoutines` | 200 `{ routines }`, the asker's own | — |
 | `POST /routines` | anyone | `createRoutine` | 201 `{ routine }` | — |
@@ -1175,6 +1176,7 @@ right lists the refusals from `queries.ts`, which answer 409 with their reason u
 | `PUT …/due-date` | `{ dueDate }` — a calendar day, or `null` for "TBD" |
 | `PUT …/assignee` | `{ membershipId }` — an id from the members list, or `null` for nobody |
 | `PUT /tasks/:taskId/position` | `{ afterTaskId?, beforeTaskId? }` — at least one |
+| `PUT /subtasks/:subtaskId/position` | `{ afterSubtaskId?, beforeSubtaskId? }` — at least one. *Slice 7d* |
 | `POST /projects/:projectId/transfer` | `{ toUserId, outgoing }` — `outgoing` is `stay` or `leave` |
 | `POST /projects/:projectId/invites` | `{ email }` — an address, at most 254 characters |
 
@@ -1909,7 +1911,9 @@ functions and is one code. Codes do not change once a screen uses them.
 | `project-not-restorable` | 409 | `restoreProject` |
 | `new-lead-not-a-member`, `new-lead-being-deleted`, `already-lead` | 409 | `transferLeadership` |
 | `cannot-remove-lead` | 409 | `endMembership` |
-| `own-neighbour`, `neighbour-not-found`, `no-neighbour`, `neighbour-in-another-project` | 409 | `moveTask` |
+| `own-neighbour`, `neighbour-not-found`, `no-neighbour` | 409 | `moveTask`; `moveSubtask` too, *slice 7d* |
+| `neighbour-in-another-project` | 409 | `moveTask` |
+| `neighbour-in-another-task` | 409 | `moveSubtask`. *Slice 7d* |
 | `subtask-limit` | 409 | `createSubtask` |
 | `subtask-due-after-task` | 409 | `refuseDueDateAfterParent` |
 | `subtask-due-before-today` | 409 | `createSubtask`, `setSubtaskDueDate`: a date before the asker's today. *Slice 7c* |
@@ -1931,7 +1935,7 @@ The frontend, with its own `package.json`, run from `web\`. Vite serves it on po
 
 | File | What it holds |
 |---|---|
-| `package.json` | Exact versions: React 19.3.0, React Router 8.4.0, Vite 8.3.2, Vitest 5.0.3, TypeScript 7.0.2, `sass-embedded` 1.105.1, `jsdom` 30.1.1, Testing Library. `engines`: Node 24.7 or later, as in the root's. Scripts: `dev`, `test`, `typecheck`, `build` |
+| `package.json` | Exact versions: React 19.3.0, React Router 8.4.0, Vite 8.3.2, Vitest 5.0.3, TypeScript 7.0.2, `sass-embedded` 1.105.1, `jsdom` 30.1.1, Testing Library; since slice 7d, classic dnd-kit: `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0, `@dnd-kit/utilities` 3.2.2. `engines`: Node 24.7 or later, as in the root's. Scripts: `dev`, `test`, `typecheck`, `build` |
 | `vite.config.ts` | The React plugin; port 5173, strictly; the proxy `/api` → `http://127.0.0.1:3000`; Vitest in `jsdom`, with `src/testing/setup.ts`, and `unstubGlobals`, so a `fetch` a test replaced is the real one again in the next |
 | `tsconfig.json` | DOM types, `react-jsx`, bundler resolution, `vite/client` types so a `.module.scss` import has a type, `strict` and `noUncheckedIndexedAccess` as at the root |
 | `index.html`, `src/main.tsx` | One `<div id="root">`. `main.tsx` builds the router from `routes.tsx` with `createBrowserRouter`, and shows it through `RouterProvider` from `react-router/dom`, in `StrictMode` |
@@ -1949,8 +1953,8 @@ The frontend, with its own `package.json`, run from `web\`. Vite serves it on po
 | `/login` | `LoginPage` | `loginLoader`: someone logged in goes on to `/` | `loginAction`: `POST /sessions`, then `/` |
 | `/register` | `RegisterPage` | `loginLoader`, the same | `registerAction`: `POST /users`, then `/` |
 | `/logout` | — | `logoutLoader`: a visit goes on to `/`, changing nothing | `logoutAction`: `DELETE /sessions/current`, then `/login` |
-| `/projects/:projectId` | `ProjectPage`, inside `AccountLayout` — *slice 7b* | `projectLoader`: `GET /projects`, then its tasks and members at once | `projectAction`: rename the project, or create a task |
-| `/projects/:projectId/tasks/:taskId` | `TaskPage`, through the project page's `Outlet` — *slice 7b* | `taskLoader`: `GET /tasks/:taskId/subtasks`, *since 7c*; the task itself is the project's data | `updateTaskAction`: one field, by its name; a new subtask, by its `intent`; a delete, by the method — *the last two 7c's* |
+| `/projects/:projectId` | `ProjectPage`, inside `AccountLayout` — *slice 7b* | `projectLoader`: `GET /projects`, then its tasks and members at once | `projectAction`: move a task, by its `intent`, *slice 7d*; rename the project; or create a task |
+| `/projects/:projectId/tasks/:taskId` | `TaskPage`, through the project page's `Outlet` — *slice 7b* | `taskLoader`: `GET /tasks/:taskId/subtasks`, *since 7c*; the task itself is the project's data | `updateTaskAction`: one field, by its name; a new subtask, or a subtask's move, by its `intent`; a delete, by the method — *the new subtask and the delete 7c's, the move 7d's* |
 | `/projects/:projectId/tasks/:taskId/subtasks/:subtaskId` | `SubtaskPage`, through the task page's `Outlet` — *slice 7c* | — it reads the task's, the project's and the account's data | `updateSubtaskAction`: one field, by its name; a delete, by the method |
 
 **Every 401 goes to `/login` from one place, `RootError`.** A loader lets its 401 through; the
@@ -2341,6 +2345,155 @@ rather than the save. At the root, 446 tests: renaming a subtask, not before tod
 closed the same day: a new date takes the question away, the focus goes back to the date box, the
 words fit one subtask or several (`clearsWords`), a date box follows the server's date when it
 changes, and Delete lets a refusal go when it asks again.
+
+---
+
+# Step 7d — dragging a task, and a subtask
+
+Built 2026-11-06 to 2026-11-08 on branch `step-7d`, as specified in [`step-7d.md`](./step-7d.md),
+and checked in a browser on 2026-11-08. Two changes on the server first, then the two lists. Stjepan
+typed the firsts, F1 and F2, and C8; Claude wrote C1 to C7.
+
+## On the server
+
+| Function | What it does | Refuses when |
+|---|---|---|
+| `moveSubtask({ subtaskId, afterSubtaskId?, beforeSubtaskId? })` | `moveTask` for a task's subtasks: the midpoint of its neighbours, writing one row; when there is no room, `renumberSubtasks` and then the move, in one transaction | the subtask missing, deleted, or under a deleted task (`NotFound`); a neighbour not found (`neighbour-not-found`) or under another task (`neighbour-in-another-task`); itself as a neighbour (`own-neighbour`); no neighbour (`no-neighbour`) |
+| `createSubtask` | now renumbers the task's subtasks first when the next position would not fit an `integer`, in the same transaction as the insert, as `createTask` does | as before |
+
+`PUT /subtasks/:subtaskId/position` is the Lead's, in the endpoint tables above. Four hundred and
+sixty-three tests at the root.
+
+## The lists
+
+**The handle — `tasks/SortableRow.tsx`.** A row the Lead can drag, on either page: a handle named
+"Move" and the row's title, then the row's own cells. Only the handle listens for a drag, so the
+title stays a link:
+
+```tsx
+export function SortableRow({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+    const style = { transform: CSS.Translate.toString(transform), transition };
+
+    return (
+        <tr ref={setNodeRef} style={style} className={isDragging ? styles.lifted : undefined}>
+            <td>
+                <button
+                    type="button"
+                    ref={setActivatorNodeRef}
+                    className={styles.handle}
+                    aria-label={`Move ${title}`}
+                    {...attributes}
+                    {...listeners}
+                >
+                    ⠿
+                </button>
+            </td>
+            {children}
+        </tr>
+    );
+}
+```
+
+`setNodeRef` marks the row that moves, `setActivatorNodeRef` the handle that starts it, and
+`attributes` give the handle what a screen reader needs, among them `aria-roledescription="sortable"`.
+`transform` is how far dnd-kit has moved the row, and `CSS.Translate` draws it; `isDragging` is true
+for the lifted row only. Styled in **`tasks/style/SortableRow.module.scss`**: the handle a grey grip,
+`#767676`, with a hand for a cursor and a focus ring, and the lifted row white, with a shadow, drawn
+above the others by `position: relative` and a `z-index`.
+
+**The order — `tasks/order.ts`.** What a list's moves have in common:
+
+| Function | What it does |
+|---|---|
+| `neighboursAfterDrop(ids, movedId, overId)` | the ids now above and below a dropped row, by dnd-kit's `arrayMove`; `""` at either end, which the action does not send |
+| `inOrderSent(rows, movedId, aboveId, belowId)` | the rows in the order a move asks for, from the three ids it sends; a neighbour no longer in the list leaves the order as it was |
+
+**A drop — the project page.** `ProjectPage` holds a fetcher, and two sensors: the pointer, and the
+keyboard with `sortableKeyboardCoordinates`, so an arrow moves a row by one place rather than 25
+pixels. While a move is on its way the list shows the order being sent, otherwise the server's:
+
+```tsx
+const sending = fetcher.formData;
+const shown = sending
+    ? inOrderSent(tasks, sending.get("taskId"), sending.get("afterTaskId"), sending.get("beforeTaskId"))
+    : tasks;
+
+function dropTask({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) {
+        return;
+    }
+    const ids = shown.map((task) => task.id);
+    const { above, below } = neighboursAfterDrop(ids, String(active.id), String(over.id));
+    fetcher.submit(
+        { intent: "move-task", taskId: String(active.id), afterTaskId: above, beforeTaskId: below },
+        { method: "put" }
+    );
+}
+```
+
+`projectAction` reads the intent `move-task` first and asks `PUT /tasks/:taskId/position` with the
+neighbours there are. A refusal comes back as the fetcher's data and is said above the list, in
+Taskco's words; the row is already back, since the page's data reloads after any answer.
+`neighbour-not-found` reads "The list changed while you were moving it. Try again."
+
+**The table — `TaskTable`, `TaskRow` and `TaskCells`.** For the Lead, `TaskTable` sits in a
+`DndContext`, with a "Move" column, a `SortableContext` over the tasks' ids with
+`verticalListSortingStrategy`, and each row a `TaskRow`: a `SortableRow` around `TaskCells`, the
+title and the four fields in words. For an Associate the same table has no Move column, no
+`DndContext`, and each row is `TaskCells` alone.
+
+**Subtasks — `tasks/TaskPage.tsx`.** The same, in `TaskSection`: a fetcher, the two sensors,
+`dropSubtask` with the intent `move-subtask`, `SubtaskTable` and `SubtaskCells`.
+`updateTaskAction` reads the intent after `new-subtask` and asks `PUT /subtasks/:subtaskId/position`.
+
+**What a screen reader hears — `tasks/words.ts`.** `dragInstructions`, read out at a handle: "Press
+Space or Enter to pick the row up, the arrow keys to move it, Space or Enter to drop it, and Escape
+to put it back." And `dragWords(rows)`, the announcements, by title:
+
+| When | Said |
+|---|---|
+| picked up | "Picked up Water." |
+| over another row | "Water is over Buy seeds." |
+| over itself | nothing, so the pick-up is heard |
+| dropped | "Water was dropped over Buy seeds.", or "Water was dropped where it was." |
+| Escape | "Water was put back." |
+
+Both are given to each `DndContext` as `accessibility`. dnd-kit draws its status, the live region,
+and the hidden instructions a moment after the page, once an effect has run.
+
+## The tests
+
+One hundred and fifty-six in twenty-eight files. New in 7d: `projects/tests/moveTask.test.tsx`,
+which C3 began, and `tasks/tests/moveSubtask.test.tsx`, through the real routes with the stand-in
+API. A keyboard drag is a focus, Space, an arrow and Space, with **`giveRowsSizes`** from
+`testing/rowSizes.ts` first: jsdom measures every element as 0 by 0, so each row is given 40 pixels,
+stacked in its table's order, until the test finishes. A move held on its way is
+`fetch.mockImplementationOnce(() => new Promise<Response>(() => {}))`: an answer that never comes,
+so only what is being sent can show the new order. With two lists on the task page there are two
+status regions, so the subtask tests find the words by their text. `taskRows` and `subtaskRows`
+skip the Lead's handle cell; `titles` finds each title by its link.
+
+## Traps met
+
+- **jsdom measures nothing.** Without the rows' sizes, one ArrowUp moved Water to the top. With
+  them, the test goes red when they are taken away, which shows it is watching.
+- **dnd-kit draws its screen-reader text after an effect.** The instructions test read it at once
+  and failed in one full run of the suite, while passing alone; it now waits. A test that something
+  never appears cannot wait like that, so the Associate's checks what is seen instead.
+- **A break shows a test watching.** Five tests passed from the start, and each went red against the
+  bug it exists for: dragged to the top and to the bottom, against a missing neighbour sent as
+  `"undefined"`; Escape, against a cancel that sends; a title's click, against the whole row
+  listening for a drag; and an Associate's subtasks, against an Associate given handles. The refused
+  moves' tests, which failed first, were also run against a page that keeps the order it sent, and
+  the screen-reader tests against words for a row over itself.
+- **A lifted table row's cells could change width.** They did not: in a browser, every cell of every
+  row kept the header's width while a row was lifted by `translate`.
+
+**Open:** `handle-click-is-a-drag`, seen in a browser: a click on a handle picks the row up and drops
+it where it was, which a screen reader hears; `demo-logins-in-a-comment`, in `LoginPage.tsx`. Closed:
+`no-subtask-moves` and `subtask-positions-unguarded`.
 
 ---
 
