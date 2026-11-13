@@ -164,6 +164,11 @@ That combination is normal and worth naming, because the temptation is to rush i
   *Accepted cost:* the database is a permanent Windows service rather than a box that can be thrown
   away, so "start clean" means dropping and recreating databases by hand. The container model is
   deferred rather than dropped; it gets a step of its own when there is something to deploy.
+  *Revisited 2026-11-12:* the machine now runs Windows 11 Pro, with WSL 2 and Docker Desktop
+  installed and never used, so the install risk above has gone. Stjepan asked to learn Docker by
+  setting it up himself. Part 1, Postgres in a container, is brought forward, and specified in
+  [`step-docker.md`](./step-docker.md). Part 2, the API and the frontend in containers, still waits
+  for something to deploy.
   *Retreat clause:* if the installer fights, Neon's free hosted tier works — accepting that every
   query becomes a network round trip, which is felt in the test suite from step 2 onward.
 - **Two databases from the start — `taskco_dev` and `taskco_test`** — with the connection string in
