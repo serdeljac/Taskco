@@ -50,9 +50,10 @@ export async function updateSubtaskAction({ request, params }: ActionFunctionArg
 }
 
 // The task page's action. Each form on the page sends one field, and the field's name says which of
-// the API's endpoints to ask. New subtask sends a title too, so it says what it is with its intent,
-// read first. A form sent with the method DELETE deletes the task, and the page goes up to its
-// project. After it the router reloads the page's data, so the lists and the page show the change.
+// the API's endpoints to ask. New subtask sends a title too, and moving a subtask sends ids, so each
+// says what it is with its intent, read first. A form sent with the method DELETE deletes the task,
+// and the page goes up to its project. After it the router reloads the page's data, so the lists and
+// the page show the change.
 // A refusal goes back to the page in Taskco's words; a 401 does too, but the reload after it is
 // refused as well, and the root's error page sends that to /login
 export async function updateTaskAction({ request, params }: ActionFunctionArgs) {
@@ -73,6 +74,20 @@ export async function updateTaskAction({ request, params }: ActionFunctionArgs) 
                 ...(dueDate === "" ? {} : { dueDate }),
             });
             return { subtask };
+        }
+
+        if (form.get("intent") === "move-subtask") {
+            // At the top of the list there is no subtask above, and at the bottom none below: only the
+            // neighbours there are are sent
+            const neighbours: { afterSubtaskId?: string; beforeSubtaskId?: string } = {};
+            for (const name of ["afterSubtaskId", "beforeSubtaskId"] as const) {
+                const id = form.get(name);
+                if (typeof id === "string" && id !== "") {
+                    neighbours[name] = id;
+                }
+            }
+            await api<void>("PUT", `/subtasks/${form.get("subtaskId")}/position`, neighbours);
+            return null;
         }
 
         // Before a task's due date moves, ask how many subtask dates the new one would clear. If any,

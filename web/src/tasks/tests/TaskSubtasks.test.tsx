@@ -26,13 +26,13 @@ async function showTask(path: string, subtasks: Answer) {
     return { router, fetch };
 }
 
-// The words in each row of the subtask table, under its header row
+// The words in each row of the subtask table, under its header row, after the Lead's handle
 function subtaskRows() {
     const table = screen.getByRole("table", { name: "Subtasks" });
     return within(table)
         .getAllByRole("row")
         .slice(1)
-        .map((row) => within(row).getAllByRole("cell").map((cell) => cell.textContent));
+        .map((row) => within(row).getAllByRole("cell").slice(1).map((cell) => cell.textContent));
 }
 
 describe("a task's subtasks", () => {

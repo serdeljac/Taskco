@@ -19,8 +19,15 @@ checked in a browser. Stjepan went over the commits on 2026-11-06, and the revie
 day, in [`step-7c-review.md`](./step-7c-review.md): six items. Five were fixed the same day, three of
 them typed by Stjepan, in F1; the sixth, a timezone only the API can set, waits. Stjepan
 accepted the five choices in design section 16 the same day. **Merged into `main`** on 2026-11-06,
-as a fast-forward of twenty-two commits, and not pushed. **Next:** slice 7d — dragging a task to a
-new place — specified when Stjepan says go.
+as a fast-forward of twenty-two commits, and not pushed. Slice 7d — dragging a task, and a subtask,
+to a new place — is **built**, on branch `step-7d`, 2026-11-06 to 2026-11-08, as specified in
+[`step-7d.md`](./step-7d.md): the Lead drags tasks and subtasks by a handle, with the mouse or the
+keyboard. Stjepan typed its two firsts and C8. Every flow was checked in a browser on 2026-11-08.
+**Merged into `main`** on 2026-11-14, at Stjepan's word, with no review written: a merge commit,
+since Docker part 1 had reached `main` first, and both had changed the docs. **From 2026-11-14, by
+Stjepan:** slices get no review and no going over the commits, and Claude writes the code and
+commits it, one piece each, test first; Stjepan tries each slice in a browser. **Next:** slice 7e —
+invites, members, transfer, and a project being deleted.
 
 **Alongside step 7: Docker, part 1** — Postgres in a container — is **built**, on branch
 `step-docker`, 2026-11-12 to 2026-11-14, as specified in [`step-docker.md`](./step-docker.md).
@@ -56,8 +63,9 @@ same way.
 Build Taskco to professional standards as a way of gaining engineering experience. The app running
 matters less than understanding why it is built the way it is. Real-world use is optional.
 
-Claude's role is mentor: specify each step, explain the concepts, write the code, and say what it
-does. Stjepan reviews what was built, and decides. *Changed 2026-10-22* — see the rules below.
+Claude's role is mentor: specify each step, explain the concepts, give the code, and say what it
+does. Stjepan types it, reviews what was built, and decides. *Changed 2026-10-22, and back on
+2026-11-08* — see the rules below.
 
 ---
 
@@ -65,9 +73,9 @@ does. Stjepan reviews what was built, and decides. *Changed 2026-10-22* — see 
 
 1. **Claude specifies the step** — what it must do, what "done" looks like, which concepts are
    involved, and what usually goes wrong.
-2. **Claude writes it into the files**, test-first: each test is seen failing for the expected
-   reason, then the code makes it pass, then the whole suite and the type check run. One commit per
-   endpoint, or per idea, on the step's branch — never pushed.
+2. **Claude gives the code; Stjepan types it in**, test-first: each test is seen failing for the
+   expected reason, then the code makes it pass, then the whole suite and the type check run. One
+   commit per endpoint, or per idea, on the step's branch — never pushed. *Since 2026-11-08*, below.
 3. **Claude stops at the next new migration.** A migration is forward-only and lands in two
    databases, so it is where Stjepan decides before anything is written.
 4. **Stjepan goes over the commits**, one at a time, and asks about anything he cannot explain.
@@ -84,6 +92,14 @@ slowest part, and three rounds of hand-typing one route kept landing it below th
 its test, then its code — from Claude's specification, with `path:line` for each piece. Claude
 writes every copy, as above. Design section 16.
 
+*Changed 2026-11-08, in slice 7d, by Stjepan:* "do not code for me, only tell me what we're adding to
+the project." Claude writes nothing into the project's code, copies included. Step 2 is now:
+**Claude says what is being added and gives the code**, with exactly where each piece goes — a line
+number, or the whole file when a change touches several places — tried first in a throwaway copy of
+`web/` outside the project; **Stjepan types it**, runs the tests and the type check, and commits.
+C4 to C7 of slice 7d, written by Claude that day before the change, were kept for Stjepan to go
+over. The docs are drafted by Claude only when Stjepan asks, and left uncommitted for him to read.
+
 ### Rules
 
 - **Nothing is built without explicit confirmation first.**
@@ -91,12 +107,13 @@ writes every copy, as above. Design section 16.
   time; looking up a method signature is not.
 - **Stuck for twenty minutes is learning. Stuck for three hours is attrition.** Say so and ask for
   more — up to and including writing it together. There is nothing to prove by struggling.
-- **Claude writes the code, test-first; Stjepan reviews it.** Every commit must be one he can read on
-  its own: small, with a message that says why, and its tests seen failing first. *Changed
-  2026-10-22:* this rule used to read "Claude gives the code; Stjepan types it in," with Claude never
-  editing the source files. *Corrected 2026-09-30, before that:* it read "no code gets written for
-  Stjepan by default," which was never how the work was done. *In step 7, decided 2026-10-24:*
-  except the first of each kind of thing, which Stjepan writes.
+- **Claude gives the code, test-first; Stjepan types it, and commits it.** Every commit must be one
+  he can read on its own: small, with a message that says why, and its tests seen failing first.
+  *Changed 2026-11-08:* from 2026-10-22 this rule read "Claude writes the code, test-first; Stjepan
+  reviews it," with the first of each kind of thing Stjepan's in step 7. *Changed 2026-10-22, before
+  that:* it read "Claude gives the code; Stjepan types it in," with Claude never editing the source
+  files. *Corrected 2026-09-30, before that:* it read "no code gets written for Stjepan by default,"
+  which was never how the work was done.
 
 ### Starting a fresh session
 
@@ -440,6 +457,16 @@ day: reordering subtasks waits for 7d's dragging, and deleting comes now, after 
 
 **Slice 7c built 2026-11-05 to 2026-11-06**, on branch `step-7c`, then reviewed, fixed, and merged
 into `main` on 2026-11-06. See the progress log.
+
+**Slice 7d specified 2026-11-06**, in [`step-7d.md`](./step-7d.md): dragging a task, and a subtask,
+to a new place. Eleven pieces — nine for Claude, starting with moving subtasks on the server and
+the room a new subtask needs, and two firsts for Stjepan: installing dnd-kit, and the first list
+dragged into a new order. Stjepan decided four questions the same day: classic dnd-kit, a handle on
+each row, the new order shown at once, and trying it first. Five traps, found by trying dnd-kit in
+a throwaway copy of `web/` and the server in a throwaway test.
+
+**Slice 7d built 2026-11-06 to 2026-11-08**, on branch `step-7d`, and checked in a browser; not yet
+reviewed. See the progress log.
 
 ---
 
@@ -1034,6 +1061,55 @@ not stop the form, so it is already safe when the button leaves. That a cure wri
 claim like any other: the key it suggested fixed the date and broke the focus, which only trying it
 showed. And that a field's state can follow what the server has without being drawn afresh, by
 remembering the server's last value and taking a new one while drawing.
+
+**Step 7, slice 7d — dragging a task, and a subtask.** Built 2026-11-06 to 2026-11-08 on branch
+`step-7d`, not yet reviewed. On the server first, on the Desktop: `moveSubtask` and
+`PUT /subtasks/:subtaskId/position`, a copy of `moveTask` scoped to the subtask's task, with
+`neighbour-in-another-task`; and `createSubtask` making room before it inserts, as `createTask`
+does. Four hundred and sixty-three tests at the root. Then C3, a task's move in the project page's
+action. Then the laptop, which needed Node 24 for `argon2` and migrations `014` to `023` in both
+databases before the server would run there.
+
+Stjepan typed the firsts. F1 installed classic dnd-kit, pinned exactly. F2, the first list dragged
+into a new order, went in five steps, each test first:
+- a handle on each row, in a column of its own;
+- the rows handed to dnd-kit, `DndContext`, `SortableContext` and `useSortable`;
+- the first drag, by keyboard, sending the two neighbours through a fetcher;
+- dragged to the top or the bottom, sending only the neighbour there is;
+- Escape sending nothing, and a title still opening its task.
+
+Claude wrote C4 to C7 into the files:
+- the new order shown while a move is on its way, and a refusal putting the row back;
+- a screen reader told in Taskco's words, by title;
+- no handles for an Associate;
+- the drag pieces shared, then the same for a task's subtasks, through the task page's action.
+
+Then the rule changed, and Stjepan typed C8 from Claude's code: the row slides under the pointer,
+and the handle and the lifted row are styled. Every flow was checked in a browser as the seed's
+Lead and its Associate. One hundred and fifty-six tests in `web/`, three full runs and one shuffled,
+seed 1110; the build is clean. Two items closed, `no-subtask-moves` and
+`subtask-positions-unguarded`; two opened, `handle-click-is-a-drag` and
+`demo-logins-in-a-comment`.
+
+*Changed decisions:* who writes the code, above, by Stjepan. The choices made while building are in
+design section 16, for his review.
+
+*Learned, in the order the slice met them:* that a machine is part of the setup: the laptop ran
+Node 22, which has no `argon2`, and its databases had stopped at `013`, so the server failed there
+and the root's tests with it, while `web/`'s, which touch neither, passed. That a module declaring a
+name twice fails to load at all, so 22 test files went red at once for one duplicated import, and
+that an instruction to change code is only clear when it says where, by line number, or gives the
+whole file. That jsdom measures nothing, so a keyboard drag in a test lands in the wrong place until
+the rows are given sizes, and the test without them goes red, which shows it was watching. That a
+test which passes from the start is shown watching by a break, and the break that teaches most is
+the bug the code exists to prevent: a missing neighbour sent as the text `"undefined"`, a cancel
+that sends, the whole row listening for a drag, a page that keeps the order it sent. That a fetch
+which never answers holds a move on its way, so a test can see what is shown meanwhile. That a
+library can draw part of itself a moment after the page: dnd-kit's screen-reader text appears after
+an effect, so a test that read it at once failed in one full run of the suite and passed alone, and
+a test that something never appears can pass before it had the chance to. That a row slides by `translate`, and a table
+row's cells keep their widths while it does. And that a pointer drag with no distance to cross
+starts on a click, so clicking a handle is a whole drag, heard as one.
 
 **Docker, part 1 — Postgres in a container.** Built 2026-11-12 to 2026-11-14 on branch
 `step-docker`, as specified in [`step-docker.md`](./step-docker.md), not yet reviewed. Claude tried

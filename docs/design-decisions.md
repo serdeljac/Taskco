@@ -1332,3 +1332,51 @@ Choices made while building, each accepted by Stjepan on 2026-11-06:
   focus back after, as New project does.
 - **A page folder keeps its tests in `tests/` and its styles in `style/`**, Stjepan's, 2026-11-06,
   for readability. `account/`, `api/` and the `.test.ts` files stay beside what they test.
+
+### Slice 7d — four decisions
+
+Decided 2026-11-06, by Stjepan, each as recommended, while [`step-7d.md`](./step-7d.md) was
+specified.
+
+- **Classic dnd-kit**: `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0 and `@dnd-kit/utilities`
+  3.2.2, pinned exactly. *Rejected — `@dnd-kit/react` 0.5.3:* still before 1.0, and changing month to
+  month.
+- **A row is dragged by a handle**, not by the whole row, since its title is a link. *Rejected — the
+  whole row:* a press on the title would have to be told apart from a drag.
+- **The new order shows at once** while a move is on its way, and otherwise the server's, as a
+  choice has since 7b. A refusal puts the row back. *Rejected — waiting for the server:* the row
+  would jump back, then forward.
+- **dnd-kit was tried before 7d was specified**, in a throwaway copy of `web/`, downloaded into it
+  only and deleted afterwards. Stjepan installs it in the project as 7d's first piece.
+
+**Built in slice 7d**, 2026-11-06 to 2026-11-08, on branch `step-7d`: the Lead drags a project's
+tasks, and a task's subtasks, to a new place by a handle, with the mouse or the keyboard. Choices
+made while building, for Stjepan's review:
+
+- **The handle has a column of its own, "Move"**, Stjepan's, in F2, so the title's column holds the
+  title alone. *Rejected — the handle inside the title's cell:* the same table for both roles, but
+  two things to press in one cell.
+- **The drag pieces are shared, not copied.** The row with its handle is `SortableRow`, in
+  `tasks/`; the neighbours a drop sends, `neighboursAfterDrop`, and the order shown while a move is
+  on its way, `inOrderSent`, are in `tasks/order.ts`; the rows' sizes in a test are
+  `testing/rowSizes.ts`. Both lists use them, so the two cannot drift apart, and their styles are
+  written once. The spec said copies; F2's `TaskRow` became a `SortableRow` around `TaskCells`.
+- **A drop works out its neighbours from the order shown**, not the server's, so a second move made
+  while the first is on its way names the rows the Lead can see.
+- **A refused move is said above the list**, in Taskco's words, as a field's refusal is said by the
+  field. The row goes back by itself when the page's data reloads, since the order shown is the
+  server's once nothing is on its way.
+- **A screen reader hears five things, by title:** picked up, over another row, dropped over one or
+  where it was, and put back; nothing for a row over itself, which it is the moment it is picked up.
+  The words are `dragWords` in `tasks/words.ts`, built from any rows with an id and a title.
+- **An Associate's table has no Move column and no `DndContext`**: the API refuses their move, so
+  nothing on the page offers one. Its test checks what an Associate sees, not that dnd-kit is
+  absent: dnd-kit draws its screen-reader text a moment after the page, so a check that it never
+  appears could pass before it had the chance to.
+- **A row slides by `translate`, in a list that only moves up and down.** `CSS.Translate` moves a
+  row; `CSS.Transform` would also stretch it to the height of the row it is over, and rows differ in
+  height when a title wraps. `verticalListSortingStrategy` moves rows up and down only. In a browser,
+  a lifted row's cells kept their widths.
+- **The lifted row is drawn above the others** with a shadow, `position: relative` and a `z-index`;
+  the handle is a grey grip with a hand for a cursor and a focus ring for the keyboard, in
+  `tasks/style/SortableRow.module.scss`.

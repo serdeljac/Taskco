@@ -1,10 +1,14 @@
-import { data, Link, Outlet, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { data, Link, Outlet, useFetcher, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { api } from "../api/client";
 import type { Member, Project, Task } from "../api/types";
 import { NewTask } from "../tasks/NewTask";
 import { Rename } from "../tasks/Rename";
 import styles from "./style/ProjectPage.module.scss";
-import { assigneeWords, dueDateWords, priorityWords, roleWords, statusWords } from "../tasks/words";
+import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { TaskCells, TaskRow } from "./TaskRow";
+import { inOrderSent, neighboursAfterDrop } from "../tasks/order";
+import { dragInstructions, dragWords, roleWords } from "../tasks/words";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
     const { projects } = await api<{ projects: Project[] }>("GET", "/projects");
@@ -23,6 +27,32 @@ export async function projectLoader({ params }: LoaderFunctionArgs) {
 
 export function ProjectPage() {
     const { project, tasks, members } = useLoaderData<typeof projectLoader>();
+    const fetcher = useFetcher<{ refusal?: string } | null>();
+    // The mouse picks a row up by its handle; so does the keyboard, and its arrows move it one row
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    // While a move is on its way, the order being sent; otherwise the server's. So a refused move
+    // goes back to its place when the page's data reloads
+    const sending = fetcher.formData;
+    const shown = sending
+        ? inOrderSent(tasks, sending.get("taskId"), sending.get("afterTaskId"), sending.get("beforeTaskId"))
+        : tasks;
+
+    // A drop sends the task, and the tasks now above and below it
+    function dropTask({ active, over }: DragEndEvent) {
+        if (!over || active.id === over.id) {
+            return;
+        }
+        const ids = shown.map((task) => task.id);
+        const { above, below } = neighboursAfterDrop(ids, String(active.id), String(over.id));
+        fetcher.submit(
+            { intent: "move-task", taskId: String(active.id), afterTaskId: above, beforeTaskId: below },
+            { method: "put" }
+        );
+    }
 
     return (
         <>
@@ -37,33 +67,23 @@ export function ProjectPage() {
             <h2>Tasks</h2>
             {/* Only the Lead creates tasks: the API refuses anyone else */}
             {project.role === "lead" && <NewTask />}
+            {fetcher.data?.refusal && <p role="alert">{fetcher.data.refusal}</p>}
             {tasks.length === 0 ? (
                 <p>No tasks yet</p>
+            ) : project.role === "lead" ? (
+                <DndContext
+                    sensors={sensors}
+                    onDragEnd={dropTask}
+                    accessibility={{
+                        announcements: dragWords(shown),
+                        screenReaderInstructions: { draggable: dragInstructions },
+                    }}
+                >
+                    <TaskTable tasks={shown} members={members} canMove />
+                </DndContext>
             ) : (
-                <table className={styles.tasks}>
-                    <thead>
-                        <tr>
-                            <th scope="col">Task</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Priority</th>
-                            <th scope="col">Due</th>
-                            <th scope="col">Assigned to</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {tasks.map((task) => (
-                            <tr key={task.id}>
-                                <td>
-                                    <Link to={`tasks/${task.id}`}>{task.title}</Link>
-                                </td>
-                                <td>{statusWords(task.status)}</td>
-                                <td>{priorityWords(task.priority)}</td>
-                                <td>{dueDateWords(task.due_date)}</td>
-                                <td>{assigneeWords(task.assignee_membership_id, members)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                // The order is the Lead's: the API refuses anyone else's move, so there is nothing to drag
+                <TaskTable tasks={shown} members={members} canMove={false} />
             )}
 
             {/* The task opened from the list, if one is: /projects/7/tasks/3 */}
@@ -78,5 +98,39 @@ export function ProjectPage() {
                 ))}
             </ul>
         </>
+    );
+}
+
+// The project's tasks, in the order given. The Lead's rows start with a handle to move them, inside the
+// page's DndContext; an Associate's rows are the task alone
+function TaskTable({ tasks, members, canMove }: { tasks: Task[]; members: Member[]; canMove: boolean }) {
+    return (
+        <table className={styles.tasks}>
+            <thead>
+                <tr>
+                    {canMove && <th scope="col">Move</th>}
+                    <th scope="col">Task</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Due</th>
+                    <th scope="col">Assigned to</th>
+                </tr>
+            </thead>
+            <tbody>
+                {canMove ? (
+                    <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
+                        {tasks.map((task) => (
+                            <TaskRow key={task.id} task={task} members={members} />
+                        ))}
+                    </SortableContext>
+                ) : (
+                    tasks.map((task) => (
+                        <tr key={task.id}>
+                            <TaskCells task={task} members={members} />
+                        </tr>
+                    ))
+                )}
+            </tbody>
+        </table>
     );
 }

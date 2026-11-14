@@ -13,6 +13,10 @@ describe("wordsFor", () => {
         expect(wordsFor("subtask-limit")).toBe("A task can have at most 50 subtasks.");
     });
 
+    it("says a move that lost its place in the list in its own words", () => {
+        expect(wordsFor("neighbour-not-found")).toBe("The list changed while you were moving it. Try again.");
+    });
+
     it("gives one general sentence for a code it does not know", () => {
         expect(wordsFor("server-error")).toBe("Something went wrong. Try again.");
         expect(wordsFor("not-found")).toBe("Something went wrong. Try again.");
