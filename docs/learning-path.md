@@ -22,6 +22,12 @@ accepted the five choices in design section 16 the same day. **Merged into `main
 as a fast-forward of twenty-two commits, and not pushed. **Next:** slice 7d — dragging a task to a
 new place — specified when Stjepan says go.
 
+**Alongside step 7: Docker, part 1** — Postgres in a container — is **built**, on branch
+`step-docker`, 2026-11-12 to 2026-11-14, as specified in [`step-docker.md`](./step-docker.md).
+Stjepan typed all four pieces, after six practice lessons outside the repo. The API, the tests, the
+migrations and the seed use the container, on port 5433; the Windows Postgres stays on 5432, unused.
+Not yet reviewed or merged.
+
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
 and merged into `main` the same day, as a fast-forward. Step 5 is 36 endpoints over every function in
@@ -168,7 +174,7 @@ That combination is normal and worth naming, because the temptation is to rush i
   installed and never used, so the install risk above has gone. Stjepan asked to learn Docker by
   setting it up himself. Part 1, Postgres in a container, is brought forward, and specified in
   [`step-docker.md`](./step-docker.md). Part 2, the API and the frontend in containers, still waits
-  for something to deploy.
+  for something to deploy. *Built 2026-11-14:* see the progress log.
   *Retreat clause:* if the installer fights, Neon's free hosted tier works — accepting that every
   query becomes a network round trip, which is felt in the test suite from step 2 onward.
 - **Two databases from the start — `taskco_dev` and `taskco_test`** — with the connection string in
@@ -1027,3 +1033,35 @@ not stop the form, so it is already safe when the button leaves. That a cure wri
 claim like any other: the key it suggested fixed the date and broke the focus, which only trying it
 showed. And that a field's state can follow what the server has without being drawn afresh, by
 remembering the server's last value and taking a new one while drawing.
+
+**Docker, part 1 — Postgres in a container.** Built 2026-11-12 to 2026-11-14 on branch
+`step-docker`, as specified in [`step-docker.md`](./step-docker.md), not yet reviewed. Claude tried
+every piece in a throwaway setup first. Then Stjepan took six lessons, typed and run in a practice
+folder outside the repo: what Docker is, images, containers, ports, volumes, and Compose. Then he
+typed the four pieces:
+- F1, `compose.yaml`: Postgres 18.6 in a container, on `127.0.0.1:5433`, with its data in a volume
+  and the superuser's password read from `.env`;
+- F2, `docker/init-db.sql`: `taskco_app` and its two databases, made on the first start, with the
+  password read through psql's `\getenv`;
+- F3, `.env`, `.env.test` and `.env.example`: the project points at the container;
+- F4, a healthcheck, so `up -d --wait` returns once Postgres takes connections, and starting clean
+  fits on one line.
+
+F1 was described, as firsts are. From F2 on, at Stjepan's request, each piece came as the exact text
+to type, step by step, with what each line does and what to expect. One commit per piece. All 446
+tests pass against the container, in 27 seconds against 165 on the Windows Postgres, and the seeded
+Lead logs in and sees Website relaunch. Four items opened: `browser-offers-zones-postgres-lacks`,
+from the plan, and `app-password-written-three-times`, `server-dies-when-the-database-goes` and
+`windows-postgres-still-running`, from building it.
+
+*Changed decisions:* step 1's native install. Postgres runs in a container now — design section 11.
+
+*Learned:* that an image is fetched once and never changes, and a container is one running copy of
+it, so a container can be thrown away while a volume keeps the data. That a port has one owner: the
+Windows Postgres held 5432, so the container took 5433. That Compose reads only the file in the
+folder it is run from, and names everything after that folder. That a YAML file belongs in an
+editor: pasted into PowerShell, its dashes were read as minus signs. That a setup script runs only
+on an empty volume, so trying it again means `down -v`. That one password written in three places
+can disagree: `.env.test` got the superuser's, and `migrate:test` failed while `migrate` worked.
+And that the container trusts anyone already inside it, so `docker compose exec` needs no password,
+while the app, coming in through the port, is asked for one.

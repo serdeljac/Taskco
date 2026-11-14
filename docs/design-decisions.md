@@ -817,6 +817,11 @@ for *has not left*, because leaving mutates a column no foreign key can see (sec
 
 Schema is hand-written SQL migration files.
 
+*Where it runs, revised 2026-11-14:* in a Docker container on this machine, `postgres:18.6-trixie`,
+on port 5433, with both databases in one container — Docker part 1,
+[`step-docker.md`](./step-docker.md). Until then it was installed natively on Windows, which still
+runs on 5432, unused. The API and the frontend still run on Windows.
+
 ### Testing
 **Vitest** and **Supertest**. Not optional: the backend is being built before any interface, so
 tests are the only thing that will exercise the model. Without them the code would be written and
@@ -843,7 +848,10 @@ with no package. Section 15.
 
 *Resolved 2026-09-04:* the migration runner is written by hand rather than taken from a library, and
 Postgres runs natively on Windows rather than in Docker. Both are recorded with their reasoning in
-[`learning-path.md`](./learning-path.md), step 1.
+[`learning-path.md`](./learning-path.md), step 1. *Revised 2026-11-14:* Postgres moved into a
+container, once the machine could run Docker without the install risk step 1 named, and because
+Stjepan asked to learn it. Putting the API and the frontend in containers too, part 2, waits for
+hosting.
 
 ---
 

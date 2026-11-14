@@ -7,6 +7,18 @@ still waits for deployment: hosting is still open, in design section 11. This wo
 `step-docker`, made from `main`. Slice 7d stays on its own branch, built but not yet reviewed. The
 two touch different files.
 
+**Built** 2026-11-12 to 2026-11-14 on branch `step-docker`, every piece typed by Stjepan, one commit
+each; not yet reviewed. Changed on the way:
+
+- **From F2 on, each piece came as exact text to type,** at Stjepan's request, with what each line
+  does and what to expect, rather than described as firsts are.
+- **The count before F1 is the trial's,** 446 on `main`, rather than a run of Stjepan's own.
+- **`.env.example` holds placeholders,** `<PASSWORD>` and `<SUPERUSER_PASSWORD>`, as it already
+  did, with the same one twice for the two places `taskco_app`'s password must match.
+
+What was met while building is in [`reference.md`](./reference.md), Docker part 1, and four items in
+[`open-items.md`](./open-items.md).
+
 **Why now, when step 1 said later.** Step 1's reasons were all about the install: Windows 11 Home,
 with no Hyper-V, would have needed WSL, a reboot and Docker Desktop before the first line of code.
 On 2026-11-12 the machine runs Windows 11 Pro and WSL 2, with Docker Desktop 29.9.3 and Compose

@@ -4,7 +4,7 @@ Every file, organised by the step that built it. For each one: **the code**, **w
 **what is still open** in that file.
 
 Code blocks are a snapshot taken 2026-09-18, except steps 5 and 6's, taken 2026-10-22, the review
-fixes after them, taken 2026-10-24, slice 7a's, taken 2026-11-03, slice 7b's, taken 2026-11-05, and slice 7c's, taken 2026-11-06. If a block ever disagrees with the file, the file wins.
+fixes after them, taken 2026-10-24, slice 7a's, taken 2026-11-03, slice 7b's, taken 2026-11-05, slice 7c's, taken 2026-11-06, and Docker part 1's, taken 2026-11-14. If a block ever disagrees with the file, the file wins.
 Inline comments are stripped here so the code reads as code.
 
 Longer reasoning for the open items is in [`slice-a-review.md`](./slice-a-review.md). This file is
@@ -19,10 +19,17 @@ no review at all, which is why they are still written out here in full rather th
 
 ## Commands
 
-Run from `H:\Github\Taskco` in PowerShell.
+Run from `H:\Github\Taskco` in PowerShell. Since Docker part 1, the database runs in a container,
+so Docker Desktop must be running, and the container started.
 
 | Command | What it does |
 |---|---|
+| `docker compose up -d --wait` | Starts the database's container, and returns once Postgres takes connections. Needed after the machine or Docker Desktop restarts: the container does not start itself |
+| `docker compose ps` | Is it running? `(healthy)` means Postgres takes connections |
+| `docker compose logs db` | What Postgres printed. `-f` keeps following it, until `Ctrl+C` |
+| `docker compose stop` | Stops the container. The data stays |
+| `docker compose down` | Removes the container. The data stays, in the volume `taskco_pgdata` |
+| `docker compose down -v` | Removes the container **and the volume: both databases are gone** |
 | `npm run typecheck` | `tsc --noEmit` — are the types right? Silence means yes. |
 | `npm run migrate` | Applies pending migrations to **taskco_dev** |
 | `npm run migrate:test` | Applies pending migrations to **taskco_test** |
@@ -32,9 +39,9 @@ Run from `H:\Github\Taskco` in PowerShell.
 | `npx vitest list` | Shows which tests exist, without running them |
 | `npx vitest run --sequence.shuffle` | Random order, to prove the tests are independent |
 | `npx vitest` | Watch mode — re-runs on save |
-| `psql -U taskco_app -d taskco_dev` | Interactive session. `\q` to leave. |
-| `psql -U taskco_app -d taskco_dev -c "\d memberships"` | Describe one table without a session |
-| `psql -U taskco_app -d taskco_test -c "select * from memberships"` | What the last test left behind |
+| `docker compose exec db psql -U taskco_app -d taskco_dev` | Interactive session, inside the container. `\q` to leave. No password: the container trusts connections made from inside it |
+| `docker compose exec db psql -U taskco_app -d taskco_dev -c "\d memberships"` | Describe one table without a session |
+| `docker compose exec db psql -U taskco_app -d taskco_test -c "select * from memberships"` | What the last test left behind |
 | `npm run seed` | Empties **taskco_dev** and fills it with a demo project, tasks and subtasks |
 | `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it, then every account past its date that no longer leads a project |
 | `npm run dev` | Starts the server on `http://127.0.0.1:3000/api` against **taskco_dev**, and restarts it whenever a file changes. `Ctrl+C` stops it |
@@ -50,6 +57,21 @@ Run from `H:\Github\Taskco` in PowerShell.
 **If `curl` cannot connect, the server is not running.** Look in the `npm run dev` terminal: an error
 there stops the server while `tsx watch` stays open, waiting for a change. `EADDRINUSE` means
 something else already holds port 3000.
+
+**If the server, the tests or a migration say `ECONNREFUSED` on port 5433,** the container is not
+running: `docker compose up -d --wait`. If `docker` itself says it cannot connect to the Docker API,
+start Docker Desktop first.
+
+**Starting clean is one line.** It throws both databases away and builds them again, seeded. Stop
+`npm run dev` first, with `Ctrl+C`: its connections break when the database goes.
+
+```
+docker compose down -v && docker compose up -d --wait && npm run migrate && npm run migrate:test && npm run seed
+```
+
+**A plain `psql` reaches the Windows Postgres,** on port 5432, with its old data, and nothing uses it
+now. To reach the container from Windows, name its port: `psql -h 127.0.0.1 -p 5433 -U taskco_app
+-d taskco_dev`, which asks for the password in `.env`.
 
 **Every new migration needs both migrate commands.** Nothing does this for you.
 
@@ -68,15 +90,18 @@ to PATH, and never saw the change. Restart the editor, or call it by its full pa
 # Step 1 — Environment
 
 PostgreSQL installed natively, a Node project on ESM with strict TypeScript, and a migration runner
-written by hand.
+written by hand. *Since Docker part 1, 2026-11-14:* the databases run in a container instead, on
+port 5433 — see that part, near the end. The Windows install stays on 5432, unused.
 
 ## Configuration files
 
 | File | What it does |
 |---|---|
-| `.env` | `DATABASE_URL` for `taskco_dev`. Git-ignored. |
+| `.env` | `DATABASE_URL` for `taskco_dev`, and since Docker part 1 the two passwords Compose reads: `POSTGRES_PASSWORD`, the container's superuser's, and `TASKCO_APP_PASSWORD`, `taskco_app`'s. Git-ignored. |
 | `.env.test` | `DATABASE_URL` for `taskco_test`. Git-ignored. |
 | `.env.example` | The keys a fresh clone needs, with fake values. Committed. |
+| `compose.yaml` | The database's container. Docker part 1 |
+| `docker/init-db.sql` | Makes `taskco_app` and both databases on the container's first start. Docker part 1 |
 | `.gitattributes` | `* text=auto eol=lf` — line endings normalised in the repository |
 | `tsconfig.json` | `strict`, `nodenext`, target ES2022, source in `src`, output to `dist`. `noUncheckedIndexedAccess` added before slice B — see below |
 | `package.json` | `"type": "module"`, dependencies, and the commands above |
@@ -122,6 +147,10 @@ the type so `connectionString` is a `string` on the next line rather than `strin
 
 - The message says `DATABASE URL` but the variable is `DATABASE_URL`. Searching the codebase for the
   string in the error finds nothing.
+- The pool has no `error` listener. When the database goes away under a running server — since
+  Docker part 1, a `docker compose stop` or `down` while `npm run dev` runs — an idle connection's
+  error has nowhere to go, and Node ends the process. *Reasoned, not run.* `tsx watch` starts it
+  again on the next save.
 
 ## `migrations/001_create_users.sql`
 
@@ -2341,6 +2370,127 @@ rather than the save. At the root, 446 tests: renaming a subtask, not before tod
 closed the same day: a new date takes the question away, the focus goes back to the date box, the
 words fit one subtask or several (`clearsWords`), a date box follows the server's date when it
 changes, and Delete lets a refusal go when it asks again.
+
+---
+
+# Docker, part 1 — Postgres in a container
+
+Built 2026-11-12 to 2026-11-14 on branch `step-docker`, as specified in
+[`step-docker.md`](./step-docker.md), every file typed by Stjepan. The two databases moved from the
+Windows install into a container on this machine. The server and Vite still run on Windows, and
+reach the container on `localhost:5433`. Nothing in `src/` or `web/` changed, and there is no
+migration.
+
+## `compose.yaml`
+
+```yaml
+services:
+  db:
+    image: postgres:18.6-trixie
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TASKCO_APP_PASSWORD: ${TASKCO_APP_PASSWORD}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  pgdata:
+```
+
+**What it does.** Describes one container, `db`, for Compose. `docker compose` reads this file from
+the folder it is run in, fills each `${…}` from the `.env` beside it, and names everything after the
+folder: the container `taskco-db-1`, the volume `taskco_pgdata`, and the network `taskco_default`,
+which Compose makes by itself.
+
+- **`image`** is pinned: Postgres 18.6, the Windows install's version, on Debian trixie. A bare
+  `postgres:18` could change on any download.
+- **`environment`** passes in two passwords from `.env`. The image needs the superuser's before its
+  first start. `init-db.sql` reads `taskco_app`'s.
+- **`ports`** opens 5433 on Windows, on `127.0.0.1` only, so nothing else on the network can reach
+  it, and passes it to 5432 inside. 5432 on Windows belongs to the Windows Postgres.
+- **`volumes`**: `pgdata` holds the data at `/var/lib/postgresql`, so removing the container keeps
+  it. Postgres 18 refuses a volume at `/var/lib/postgresql/data`, the path older guides give. The
+  second line shares `docker/init-db.sql` into the image's first-start folder, read-only. `./` makes
+  it a file from the project, not a named volume.
+- **`healthcheck`** runs `pg_isready` every 2 seconds. `-h 127.0.0.1` asks over TCP: over the
+  socket it says ready while the image's setup server is still running. `-U postgres` keeps the log
+  clean: without it, each check logs a `FATAL` for a role called `root`. With the healthcheck,
+  `up -d --wait` returns once Postgres takes connections, about 3 seconds after a clean start.
+
+**Open**
+
+- `taskco_app`'s password is written three times: `TASKCO_APP_PASSWORD` and `DATABASE_URL` in
+  `.env`, and `DATABASE_URL` in `.env.test`. Nothing checks they agree, and a mismatch reads as
+  "password authentication failed for user taskco_app". `TASKCO_APP_PASSWORD` is read only on a
+  first start, so changing it later changes nothing until `down -v`.
+
+## `docker/init-db.sql`
+
+```sql
+\getenv app_password TASKCO_APP_PASSWORD
+
+create role taskco_app login password :'app_password';
+
+create database taskco_dev owner taskco_app;
+create database taskco_test owner taskco_app;
+```
+
+**What it does.** Makes the role and the two databases, once. The image runs every file in
+`/docker-entrypoint-initdb.d` on its first start — a start with an empty volume — and never again.
+
+It runs them with psql, which is how the file reads a password that is not in it. `\getenv` copies
+the container's `TASKCO_APP_PASSWORD` into a psql variable, `app_password`, and `:'app_password'`
+puts its value into the statement, in single quotes. `\getenv` is a psql command, not SQL, so it
+ends at the line's end, with no semicolon.
+
+`taskco_app` gets `login` and nothing more, as on Windows. The role comes first, because a
+database's owner must already exist.
+
+**Open** — nothing in the file. A mistake in it stops the first start, and since it never runs
+again on a volume holding data, trying again means `down -v`.
+
+## Inside the container
+
+- **No password is asked from inside.** The image's `pg_hba.conf` trusts the socket and
+  `127.0.0.1` inside the container, and asks every other address for a password, by
+  `scram-sha-256`. A connection from Windows comes through Docker's port forwarding, from another
+  address, so the app's password is checked, and `docker compose exec` needs none.
+- **The server's time zone is `Etc/UTC`,** and it knows 487 timezone names against Windows's 598.
+  The ones only Windows knows are old names, such as `Asia/Calcutta` for `Asia/Kolkata`. Every
+  query that turns a moment into a day names the user's own zone, so no answer changed.
+- **Text sorts by `en_US.utf8`,** not a Windows locale. Nothing sorts text today.
+
+The reasoning and the runs behind these are in `step-docker.md`'s traps.
+
+## The tests
+
+The same 446 at the root, against the container: 27 seconds, against 165 on the Windows Postgres.
+Nothing in `web/` reaches the database.
+
+## Traps met
+
+- **Compose reads only the file in the folder it runs in.** Run in the project before
+  `compose.yaml` was saved there, it said "no configuration file provided: not found", while the
+  practice container, started from its own folder, still held port 5433.
+- **A YAML file pasted into PowerShell** is read as commands: the dashes became minus signs, and a
+  `ParserError`. It goes in an editor, saved as `compose.yaml`.
+- **A name on the wrong line.** The service's new name, `db`, went on the `image` line, which would
+  have asked Docker for an image called `db`. Read before `up`, the file showed it.
+  `docker compose config` shows the file as Compose will use it, with `.env` filled in.
+- **`.env.test` got the superuser's password.** `npm run migrate` worked and `migrate:test` failed
+  with "password authentication failed for user taskco_app". See the open note on `compose.yaml`.
+
+**Open:** `browser-offers-zones-postgres-lacks`, from the decisions in `step-docker.md`;
+`app-password-written-three-times`, `server-dies-when-the-database-goes` and
+`windows-postgres-still-running`, from building it.
 
 ---
 
