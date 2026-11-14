@@ -73,6 +73,14 @@ export type Invite = {
     expires_at: Date;
 };
 
+
+//An invite as the person it is addressed to lists it. They are not in the project yet, so its name and its
+//sender's address come with it: an id alone would tell them nothing
+export type InviteForUser = Invite & {
+    project_name: string;
+    invited_by_email: string;
+};
+
 export type Routine = {
     id: string;
     user_id: string;
@@ -1599,11 +1607,13 @@ export async function declineInvite(decline: {
     }
 }
 
-export async function listInvitesForUser(userId: string): Promise<Invite[]> {
-    const { rows } = await pool.query<Invite>(
-        `select i.*
+export async function listInvitesForUser(userId: string): Promise<InviteForUser[]> {
+    const { rows } = await pool.query<InviteForUser>(
+        `select i.*, p.name as project_name, sender.email as invited_by_email
         from invites i
         join users u on lower(u.email) = lower(i.email)
+        join projects p on p.id = i.project_id
+        join users sender on sender.id = i.invited_by_user_id
         where u.id = $1
         and i.expires_at > now()
         order by i.created_at, i.id`,

@@ -367,4 +367,22 @@ describe("invites", () => {
 
         expect(memberships.rows.map((m) => m.ended)).toEqual([true, false]);
     });
+
+    it("names each invite's project, and who sent it", async () => {
+        //CREATE
+        const lead = await createUser("lead@example.com", "Europe/Zagreb");
+        const ana = await createUser("ana@example.com", "Europe/Zagreb");
+        const project = await createProject("Website", lead.id);
+        await createInvite({
+            projectId: project.id,
+            email: "ana@example.com",
+            invitedByUserId: lead.id,
+        });
+
+        //TEST
+        const [waiting] = await listInvitesForUser(ana.id);
+        expect(waiting?.project_name).toBe("Website");
+        expect(waiting?.invited_by_email).toBe("lead@example.com");
+    });
+
 });
