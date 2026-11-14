@@ -8,7 +8,8 @@ still waits for deployment: hosting is still open, in design section 11. This wo
 two touch different files.
 
 **Built** 2026-11-12 to 2026-11-14 on branch `step-docker`, every piece typed by Stjepan, one commit
-each; not yet reviewed. Changed on the way:
+each. **Merged into `main`** on 2026-11-14, as a fast-forward, with no review written; not pushed.
+Changed on the way:
 
 - **From F2 on, each piece came as exact text to type,** at Stjepan's request, with what each line
   does and what to expect, rather than described as firsts are.

@@ -26,7 +26,8 @@ new place — specified when Stjepan says go.
 `step-docker`, 2026-11-12 to 2026-11-14, as specified in [`step-docker.md`](./step-docker.md).
 Stjepan typed all four pieces, after six practice lessons outside the repo. The API, the tests, the
 migrations and the seed use the container, on port 5433; the Windows Postgres stays on 5432, unused.
-Not yet reviewed or merged.
+**Merged into `main`** on 2026-11-14, at Stjepan's word, as a fast-forward of seven commits, with no
+review written; not pushed.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -1052,7 +1053,9 @@ to type, step by step, with what each line does and what to expect. One commit p
 tests pass against the container, in 27 seconds against 165 on the Windows Postgres, and the seeded
 Lead logs in and sees Website relaunch. Four items opened: `browser-offers-zones-postgres-lacks`,
 from the plan, and `app-password-written-three-times`, `server-dies-when-the-database-goes` and
-`windows-postgres-still-running`, from building it.
+`windows-postgres-still-running`, from building it. Merged into `main` the same day, as a
+fast-forward — both suites and both type checks run again on `main`, 446 and 128 tests — and not
+pushed.
 
 *Changed decisions:* step 1's native install. Postgres runs in a container now — design section 11.
 
