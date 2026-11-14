@@ -25,8 +25,8 @@ to a new place — is **built**, on branch `step-7d`, 2026-11-06 to 2026-11-08, 
 keyboard. Stjepan typed its two firsts and C8. Every flow was checked in a browser on 2026-11-08.
 **Merged into `main`** on 2026-11-14, at Stjepan's word, with no review written: a merge commit,
 since Docker part 1 had reached `main` first, and both had changed the docs. **From 2026-11-14, by
-Stjepan:** slices get no review and no going over the commits, and Claude writes the code and
-commits it, one piece each, test first; Stjepan tries each slice in a browser. **Next:** slice 7e —
+Stjepan:** slices get no review and no going over the commits. For every step, Claude gives the
+code and the exact place for it, and Stjepan types, runs and commits it. **Next:** slice 7e —
 invites, members, transfer, and a project being deleted.
 
 **Alongside step 7: Docker, part 1** — Postgres in a container — is **built**, on branch
