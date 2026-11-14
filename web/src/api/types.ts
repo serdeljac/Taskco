@@ -61,6 +61,20 @@ export type Member = {
     joined_at: string;
 };
 
+// An invite as GET /api/invites lists it, for the person it is addressed to. They are not in the
+// project yet, so its name and its sender's address come with it
+export type Invite = {
+    id: string;
+    project_id: string;
+    email: string;
+    invited_by_user_id: string;
+    created_at: string;
+    expires_at: string;
+    project_name: string;
+    invited_by_email: string;
+};
+
+
 // Every refusal's body. issues comes only with invalid-body, in Zod's English
 export type ErrorBody = {
     error: string;

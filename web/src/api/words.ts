@@ -10,6 +10,7 @@ const words = new Map<string, string>([
     ["subtask-limit", "A task can have at most 50 subtasks."],
     // A move names its neighbours, and one was deleted meanwhile; the reload shows the list as it is now
     ["neighbour-not-found", "The list changed while you were moving it. Try again."],
+    ["invite-expired", "That invite has expired. Ask for a new one."],
 ]);
 
 export function wordsFor(code: string): string {
