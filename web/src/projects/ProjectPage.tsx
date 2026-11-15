@@ -9,6 +9,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { TaskCells, TaskRow } from "./TaskRow";
 import { inOrderSent, neighboursAfterDrop } from "../tasks/order";
 import { dragInstructions, dragWords, roleWords } from "../tasks/words";
+import { InviteMember } from "./InviteMember";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
     const { projects } = await api<{ projects: Project[] }>("GET", "/projects");
@@ -97,6 +98,8 @@ export function ProjectPage() {
                     </li>
                 ))}
             </ul>
+            {/* Only the Lead invites: the API refuses anyone else */}
+            {project.role === "lead" && <InviteMember />}
         </>
     );
 }

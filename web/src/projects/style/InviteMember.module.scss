@@ -1,0 +1,26 @@
+// Inviting: the address and Invite on one line, what came of it under them. A copy of Rename's
+$gap: 0.5rem;
+$refusal: #b00020;
+
+.invite {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $gap;
+    margin: $gap 0 $gap * 2;
+
+    label {
+        display: flex;
+        align-items: center;
+        gap: $gap;
+    }
+
+    p {
+        flex-basis: 100%;
+        margin: 0;
+    }
+
+    p[role="alert"] {
+        color: $refusal;
+    }
+}

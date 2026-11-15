@@ -11,6 +11,8 @@ const words = new Map<string, string>([
     // A move names its neighbours, and one was deleted meanwhile; the reload shows the list as it is now
     ["neighbour-not-found", "The list changed while you were moving it. Try again."],
     ["invite-expired", "That invite has expired. Ask for a new one."],
+    ["no-account", "No Taskco account uses that email."],
+    ["already-a-member", "They are already a member of this project."],
 ]);
 
 export function wordsFor(code: string): string {
