@@ -1,6 +1,8 @@
-import { data, Link, Outlet, useFetcher, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { data, Link, Outlet, useFetcher, useLoaderData, useRouteLoaderData, type LoaderFunctionArgs } from "react-router";
+import type { accountLoader } from "../account/AccountLayout";
 import { api } from "../api/client";
 import type { Member, Project, Task } from "../api/types";
+import { Delete } from "../tasks/Delete";
 import { NewTask } from "../tasks/NewTask";
 import { Rename } from "../tasks/Rename";
 import styles from "./style/ProjectPage.module.scss";
@@ -29,6 +31,7 @@ export async function projectLoader({ params }: LoaderFunctionArgs) {
 export function ProjectPage() {
     const { project, tasks, members } = useLoaderData<typeof projectLoader>();
     const fetcher = useFetcher<{ refusal?: string } | null>();
+    const account = useRouteLoaderData<typeof accountLoader>("account");
     // The mouse picks a row up by its handle; so does the keyboard, and its arrows move it one row
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -93,8 +96,29 @@ export function ProjectPage() {
             <h2 id="members">Members</h2>
             <ul aria-labelledby="members" className={styles.members}>
                 {members.map((member) => (
-                    <li key={member.membership_id}>
-                        {member.email}, {roleWords(member.role)}
+                        <li key={member.membership_id}>
+                        <span>
+                            {member.email}, {roleWords(member.role)}
+                        </span>
+                        {/* The Lead removes anyone but themselves; anyone else can only leave. Either
+                            way the API hands their tasks back to nobody */}
+                        {project.role === "lead" && member.role !== "lead" && (
+                            <Delete
+                                label="Remove"
+                                spoken={`Remove ${member.email}`}
+                                confirm="Remove"
+                                question={`Remove ${member.email} from ${project.name}? Their tasks go back to nobody.`}
+                                fields={{ intent: "remove-member", userId: member.user_id }}
+                            />
+                        )}
+                        {project.role !== "lead" && member.user_id === account?.user.id && (
+                            <Delete
+                                label="Leave project"
+                                confirm="Leave"
+                                question={`Leave ${project.name}? Your tasks go back to nobody.`}
+                                fields={{ intent: "leave", userId: member.user_id }}
+                            />
+                        )}
                     </li>
                 ))}
             </ul>

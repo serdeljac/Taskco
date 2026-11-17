@@ -1,4 +1,4 @@
-import type { ActionFunctionArgs } from "react-router";
+import { redirect, type ActionFunctionArgs } from "react-router";
 import { api, ApiError } from "../api/client";
 import type { Invite, Task } from "../api/types";
 import { wordsFor } from "../api/words";
@@ -27,6 +27,14 @@ export async function projectAction({ request, params }: ActionFunctionArgs) {
             await api<void>("PUT", `/tasks/${form.get("taskId")}/position`, neighbours);
             return null;
         }
+
+        // Removing and leaving are the same request: the member to end. Whoever left has no page
+        // here any more, so they go to their projects
+        if (form.get("intent") === "remove-member" || form.get("intent") === "leave") {
+            await api<void>("DELETE", `${project}/members/${form.get("userId")}`);
+            return form.get("intent") === "leave" ? redirect("/") : null;
+        }
+
 
         if (form.get("intent") === "invite") {
             // What comes back is the invite as stored, without the project's name: only its id and address are used

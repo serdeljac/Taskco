@@ -24,7 +24,21 @@ $line: #ddd;
     margin: 0;
     padding: 0;
 
-    li {
-        padding: $gap * 0.5 0;
-    }
+    // A member, and the button to remove them or to leave, on one line; its question wraps under
+        li {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: $gap;
+            padding: $gap * 0.5 0;
+    
+            >div,
+            >form {
+                margin-bottom: 0;
+            }
+    
+            p {
+                margin: 0;
+            }
+        }
 }

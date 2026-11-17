@@ -70,7 +70,7 @@ describe("/projects/:projectId", () => {
         showGarden([]);
 
         const list = await screen.findByRole("list", { name: "Members" });
-        expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+        expect(within(list).getAllByRole("listitem").map((item) => item.querySelector("span")?.textContent)).toEqual([
             "lead@example.com, Lead",
             "ana@example.com, Associate",
         ]);
