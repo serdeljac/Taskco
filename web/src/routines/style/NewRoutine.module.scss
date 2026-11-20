@@ -1,0 +1,37 @@
+// A new routine: its heading, the name, the seven days in a row, and Create, with any words under it
+$gap: 0.5rem;
+$refusal: #b00020;
+
+.newRoutine {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $gap;
+    margin: $gap * 4 0 $gap * 2;
+
+    h2 {
+        margin: 0;
+    }
+
+    label {
+        display: flex;
+        align-items: center;
+        gap: $gap * 0.5;
+    }
+
+    fieldset {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $gap * 1.5;
+        margin: 0;
+        padding: $gap;
+    }
+
+    p {
+        margin: 0;
+    }
+
+    p[role="alert"] {
+        color: $refusal;
+    }
+}

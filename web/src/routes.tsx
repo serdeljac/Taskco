@@ -8,6 +8,7 @@ import { ProjectPage, projectLoader } from "./projects/ProjectPage";
 import { RegisterPage, registerAction } from "./register/RegisterPage";
 import { RootError } from "./RootError";
 import { RoutinesPage, routinesLoader } from "./routines/RoutinesPage";
+import { routinesAction } from "./routines/RoutinesAction";
 import { projectAction } from "./projects/projectAction";
 import { SubtaskPage } from "./tasks/SubtaskPage";
 import { TaskPage, taskLoader } from "./tasks/TaskPage";
@@ -36,7 +37,8 @@ export const routes: RouteObject[] = [
                         id: "routines", 
                         path: "/routines", 
                         element: <RoutinesPage />, 
-                        loader: routinesLoader 
+                        loader: routinesLoader,
+                        action: routinesAction,
                     },
                     {
                         id: "project",
