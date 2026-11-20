@@ -1,0 +1,38 @@
+// The projects the asker leads: one to a line, its name, the member to hand it to, and Hand over,
+// with the question or a refusal under them
+$gap: 0.5rem;
+$line: #ddd;
+$refusal: #b00020;
+
+.led {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+        padding: $gap 0;
+        border-bottom: 1px solid $line;
+    }
+
+    form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $gap * 2;
+    }
+
+    label {
+        display: flex;
+        align-items: center;
+        gap: $gap;
+    }
+
+    p {
+        flex-basis: 100%;
+        margin: 0;
+    }
+
+    p[role="alert"]:last-child {
+        color: $refusal;
+    }
+}

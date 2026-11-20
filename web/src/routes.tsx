@@ -1,5 +1,7 @@
 import type { RouteObject } from "react-router";
 import { AccountLayout, accountLoader } from "./account/AccountLayout";
+import { AccountPage, accountPageLoader } from "./account/AccountPage";
+import { accountAction } from "./account/AccountAction";
 import { logoutAction, logoutLoader } from "./account/logout";
 import { LoginPage, loginAction, loginLoader } from "./login/LoginPage";
 import { createProjectAction } from "./projects/CreateProject";
@@ -39,6 +41,12 @@ export const routes: RouteObject[] = [
                         element: <RoutinesPage />, 
                         loader: routinesLoader,
                         action: routinesAction,
+                    },
+                    {
+                        path: "/account",
+                        element: <AccountPage />,
+                        loader: accountPageLoader,
+                        action: accountAction,
                     },
                     {
                         id: "project",

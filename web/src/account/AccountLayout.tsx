@@ -1,7 +1,7 @@
 import { Form, NavLink, Outlet, useLoaderData } from "react-router";
 import { api } from "../api/client";
 import type { User } from "../api/types";
-import styles from "./AccountLayout.module.scss";
+import styles from "./style/AccountLayout.module.scss";
 
 // Asks who is logged in, before any page inside the layout shows. A 401 goes on to the root's
 // error page, which sends every 401 to /login
@@ -24,7 +24,9 @@ export function AccountLayout() {
                     </NavLink>
                     <NavLink to="/routines">Routines</NavLink>
                 </nav>
-                <span className={styles.who}>{user.email}</span>
+                <NavLink to="/account" className={styles.who}>
+                    {user.email}
+                </NavLink>
                 <Form method="post" action="/logout">
                     <button type="submit">Log out</button>
                 </Form>
