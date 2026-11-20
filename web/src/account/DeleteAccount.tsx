@@ -15,7 +15,7 @@ export function DeleteAccount({ leading }: { leading: number }) {
     }
 
     const projects =
-        leading === 0 ? "" : ` The ${leading === 1 ? "project" : `${leading} projects`} you still lead go with it.`;
+        leading === 0 ? "" : leading === 1 ? " The project you still lead goes with it." : ` The ${leading} projects you still lead go with it.`;
 
     return (
         <section className={styles.deleteAccount} aria-labelledby="delete-account">

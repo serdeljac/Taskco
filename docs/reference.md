@@ -1982,6 +1982,7 @@ The frontend, with its own `package.json`, run from `web\`. Vite serves it on po
 | `/login` | `LoginPage` | `loginLoader`: someone logged in goes on to `/` | `loginAction`: `POST /sessions`, then `/` |
 | `/register` | `RegisterPage` | `loginLoader`, the same | `registerAction`: `POST /users`, then `/` |
 | `/logout` | — | `logoutLoader`: a visit goes on to `/`, changing nothing | `logoutAction`: `DELETE /sessions/current`, then `/login` |
+| `/account` | `AccountPage`, inside `AccountLayout` — *slice 7g* | `accountPageLoader`: `GET /projects`, then the members of each project the asker leads, at once | `accountAction`: delete the account, by its `intent`, then `/login`; or hand a project over, staying on |
 | `/routines` | `RoutinesPage`, inside `AccountLayout` — *slice 7f* | `routinesLoader`: `GET /routines`, then every routine's streak at once | `routinesAction`: Done or Undo today, by its `intent`; or create a routine |
 | `/projects/:projectId` | `ProjectPage`, inside `AccountLayout` — *slice 7b* | `projectLoader`: `GET /projects`, then its tasks and members at once; for a project being deleted, neither, *slice 7e* | `projectAction`: move a task, *slice 7d*; invite, remove, leave, hand over, delete or undo, by its `intent`, *slice 7e*; rename the project; or create a task |
 | `/projects/:projectId/tasks/:taskId` | `TaskPage`, through the project page's `Outlet` — *slice 7b* | `taskLoader`: `GET /tasks/:taskId/subtasks`, *since 7c*; the task itself is the project's data | `updateTaskAction`: one field, by its name; a new subtask, or a subtask's move, by its `intent`; a delete, by the method — *the new subtask and the delete 7c's, the move 7d's* |
@@ -2724,6 +2725,37 @@ every day, created and due today, Done, then Done today and 1 day in a row, then
 Due today and No streak yet; Long run, Saturdays only, Not due today with no button.
 
 **Decided:** `streaks-are-one-query-per-routine`, kept as one request per routine.
+
+---
+
+# Step 7g — deleting an account
+
+Built 2026-11-20 on branch `step-7g`, in two pieces, with no spec file. Stjepan typed both, from code
+Claude gave by place. No change on the server: `POST /account/deletion`, `transferLeadership` and
+reopening by logging in were all there since step 4b.
+
+## The pages
+
+| File | What it holds |
+|---|---|
+| `account/AccountLayout.tsx` | The email in the header is now a `NavLink` to `/account` |
+| `account/AccountPage.tsx` | `/account`. `accountPageLoader` asks `GET /projects`, keeps those the asker leads and is not already deleting, then asks each one's members, all at once. "Projects you lead", each a `HandOver`; "You lead no projects." when there are none. `DeleteAccount` at the foot |
+| `account/HandOver.tsx` | One project the asker leads: its name, **New Lead for {project}** listing its other members, and Hand over…, which asks first. A project with nobody else shows the list disabled, reading "No members", and no button — design section 6 |
+| `account/DeleteAccount.tsx` | What deleting does, and Delete account…, which asks first, naming how many projects the asker still leads, then Delete my account or Cancel |
+| `account/AccountAction.ts` | `/account`'s action: `delete-account`, `POST /account/deletion`, then `/login`, since every session has ended; anything else hands a project over, `POST /projects/:projectId/transfer` with `outgoing: "stay"` |
+
+New words in `api/words.ts`: `account-being-deleted`, "This account is already being deleted."
+Two hundred and seven tests in `web/`.
+
+Checked in a browser on 2026-11-20 with a throwaway account, deleteme@example.com: it led Solo,
+alone, and Shared, with the seed's Associate in it. The Account page showed Solo with "No members"
+and Shared with associate@example.com; Shared handed over, and it left the list. Delete my account
+went to `/login`. Logging in again reopened the account and brought Solo back out of delete mode,
+without the membership in Shared, as section 6 says. Then Solo was deleted, the account deleted
+again, and Shared deleted by its new Lead, leaving the seed as it was. The question said "The
+project you still lead go with it" for one project: `one-project-go-with-it`, fixed the same day.
+
+**Closed:** `account-deletion-list-not-built`.
 
 ---
 

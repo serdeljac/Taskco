@@ -33,8 +33,12 @@ invites, members, handing over, and a project being deleted — is **built**, on
 checked in a browser on 2026-11-19, and 7e was merged into `main` the same day, a fast-forward.
 Slice 7f — routines: the page, creating one, Done and Undo, with streaks — is **built**, on branch
 `step-7f`, 2026-11-19 to 2026-11-20, in three pieces; Stjepan typed every one, and every flow was
-checked in a browser on 2026-11-20. **Next:** merge 7f into `main`, then slice 7g, deleting an
-account.
+checked in a browser on 2026-11-20, and merged into `main` the same day. Slice 7g — the Account
+page, handing over what the person leads, and deleting the account — is **built**, on branch
+`step-7g`, 2026-11-20, in two pieces; Stjepan typed both, and every flow was checked in a browser
+the same day. With it, step 7 is done: every flow the design has an endpoint for has a screen.
+**Next:** merge 7g into `main`; then deployment — choosing a host, Docker part 2, the purge on a
+schedule — and pushing `main`.
 
 **Alongside step 7: Docker, part 1** — Postgres in a container — is **built**, on branch
 `step-docker`, 2026-11-12 to 2026-11-14, as specified in [`step-docker.md`](./step-docker.md).

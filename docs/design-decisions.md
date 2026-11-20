@@ -1419,3 +1419,20 @@ routine, and marking one done today or undoing it. Choices made while building:
   do. Undo shows whenever today is done.
 - **A new routine starts ticked for every day**, so the shortest way through is a name and Create.
 - **No editing or deleting** a routine: the API has neither, `routines-cannot-be-edited-or-deleted`.
+
+**Built in slice 7g**, 2026-11-20, on branch `step-7g`: the Account page, handing each project the
+person leads to a member, and deleting the account. With it, every flow in this design that has an
+endpoint has a screen. Choices made while building:
+
+- **The Account page is reached from the email in the header**, which already named the account.
+- **Handing over from the Account page keeps the person on as an Associate.** If they keep the
+  account after all, nothing is lost; if they delete it, `deleteAccount` ends that membership with
+  the rest. *Rejected — leaving at once:* the same end if they go, and a membership lost if they
+  change their mind.
+- **No "delete this project" on the list.** Section 6 offers transfer or delete per project, but a
+  project not handed over goes into delete mode with the account anyway, on the account's date, and
+  comes back with it if the person logs in again. A project the person wants gone at once has its
+  own Delete now, on its page.
+- **After deleting, the person lands on `/login`**, since every session has ended. Nothing there
+  says the account was deleted: the page they just left said what would happen, and logging in
+  within thirty days is the way back.
