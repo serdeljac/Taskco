@@ -2,6 +2,7 @@ import { useLoaderData } from "react-router";
 import { api } from "../api/client";
 import type { Member, Project } from "../api/types";
 import { HandOver } from "./HandOver";
+import { DeleteAccount } from "./DeleteAccount";
 import styles from "./style/AccountPage.module.scss";
 
 // The projects the asker leads and is not already deleting, each with its other members, asked for
@@ -43,6 +44,7 @@ export function AccountPage() {
                     </ul>
                 </>
             )}
+            <DeleteAccount leading={led.length} />
         </>
     );
 }

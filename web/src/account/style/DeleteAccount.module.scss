@@ -1,0 +1,26 @@
+// Deleting the account: set apart at the page's foot, its question and buttons on one line
+$gap: 0.5rem;
+$refusal: #b00020;
+
+.deleteAccount {
+    margin-top: $gap * 6;
+
+    p {
+        margin: 0 0 $gap;
+    }
+
+    form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $gap;
+
+        p {
+            flex-basis: 100%;
+        }
+    }
+}
+
+.refusal {
+    color: $refusal;
+}

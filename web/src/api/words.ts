@@ -19,6 +19,7 @@ const words = new Map<string, string>([
     ["project-being-deleted", "This project is being deleted, so it can't be changed."],
     ["project-not-restorable", "This project can no longer be brought back."],
     ["not-completed-today", "It wasn't marked done today."],
+    ["account-being-deleted", "This account is already being deleted."],
 ]);
 
 export function wordsFor(code: string): string {
