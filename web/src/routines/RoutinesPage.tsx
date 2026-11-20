@@ -4,6 +4,7 @@ import type { Routine } from "../api/types";
 import { daysWords, streakWords, todayWords } from "./words";
 import styles from "./style/RoutinesPage.module.scss";
 import { NewRoutine } from "./NewRoutine";
+import { DoneToday } from "./DoneToday";
 
 // The asker's routines, then each one's streak. The API counts a streak for one routine at a time, so
 // there is one request per routine, all at once: fine for the handful a person keeps
@@ -32,6 +33,7 @@ export function RoutinesPage() {
                             <span>{daysWords(routine.weekdays)}</span>
                             <span>{todayWords(routine)}</span>
                             <span>{streakWords(routine.streak)}</span>
+                            <DoneToday routine={routine} />
                         </li>
                     ))}
                 </ul>

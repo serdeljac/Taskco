@@ -1,0 +1,15 @@
+// Done or Undo, at the end of its routine's line, with a refusal beside it
+$gap: 0.5rem;
+$refusal: #b00020;
+
+.doneToday {
+    display: flex;
+    align-items: center;
+    gap: $gap;
+    margin-left: auto;
+
+    p {
+        margin: 0;
+        color: $refusal;
+    }
+}

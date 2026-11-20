@@ -26,7 +26,7 @@ function show(path: string, routines: unknown[], streaks: Record<string, Answer>
 function routineLines() {
     return within(screen.getByRole("list"))
         .getAllByRole("listitem")
-        .map((item) => Array.from(item.children).map((part) => part.textContent));
+        .map((item) => Array.from(item.querySelectorAll("strong, span")).map((part) => part.textContent));
 }
 
 describe("/routines", () => {
