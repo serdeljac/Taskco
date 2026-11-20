@@ -989,7 +989,7 @@ statement, which is atomic for free.
 | `createInvite({ projectId, email, invitedByUserId })` | replaces any earlier invite to that address, expires three days out | project being deleted; no account with that address ("No email found"); already a member |
 | `acceptInvite({ inviteId, userId })` | makes the recipient an associate and destroys the invite | not theirs, or gone ("invite not found"); expired; project being deleted; already a member |
 | `declineInvite({ inviteId, userId })` | destroys the invite | not theirs, or gone |
-| `listInvitesForUser(userId)` | the unexpired invites addressed to the user, oldest first | — |
+| `listInvitesForUser(userId)` | the unexpired invites addressed to the user, oldest first, each with its project's name and its sender's address, *slice 7e* | — |
 | `deleteProject(projectId)` | delete mode for thirty days; returns `{ scheduledFor }` | not found, or already being deleted |
 | `restoreProject(projectId)` | takes a project out of delete mode | not found, past its date, or its Lead's account is being deleted |
 | `deleteProjectNow(projectId)` | removes the project and everything under it | not found, or already in delete mode |
@@ -1978,11 +1978,11 @@ The frontend, with its own `package.json`, run from `web\`. Vite serves it on po
 |---|---|---|---|
 | (around everything) | `RootError` for any error no page handles; "Loading…" while the first page loads | — | — |
 | (around `/`) | `AccountLayout`: the email and Log out, above the page | `accountLoader`: `GET /account` | — |
-| `/` | `ProjectsPage` | `projectsLoader`: `GET /projects` | `createProjectAction`: `POST /projects` |
+| `/` | `ProjectsPage` | `projectsLoader`: `GET /projects` and `GET /invites` at once, *the invites slice 7e's* | `createProjectAction`: `POST /projects`; accept or decline an invite, by its `intent`, *slice 7e* |
 | `/login` | `LoginPage` | `loginLoader`: someone logged in goes on to `/` | `loginAction`: `POST /sessions`, then `/` |
 | `/register` | `RegisterPage` | `loginLoader`, the same | `registerAction`: `POST /users`, then `/` |
 | `/logout` | — | `logoutLoader`: a visit goes on to `/`, changing nothing | `logoutAction`: `DELETE /sessions/current`, then `/login` |
-| `/projects/:projectId` | `ProjectPage`, inside `AccountLayout` — *slice 7b* | `projectLoader`: `GET /projects`, then its tasks and members at once | `projectAction`: move a task, by its `intent`, *slice 7d*; rename the project; or create a task |
+| `/projects/:projectId` | `ProjectPage`, inside `AccountLayout` — *slice 7b* | `projectLoader`: `GET /projects`, then its tasks and members at once; for a project being deleted, neither, *slice 7e* | `projectAction`: move a task, *slice 7d*; invite, remove, leave, hand over, delete or undo, by its `intent`, *slice 7e*; rename the project; or create a task |
 | `/projects/:projectId/tasks/:taskId` | `TaskPage`, through the project page's `Outlet` — *slice 7b* | `taskLoader`: `GET /tasks/:taskId/subtasks`, *since 7c*; the task itself is the project's data | `updateTaskAction`: one field, by its name; a new subtask, or a subtask's move, by its `intent`; a delete, by the method — *the new subtask and the delete 7c's, the move 7d's* |
 | `/projects/:projectId/tasks/:taskId/subtasks/:subtaskId` | `SubtaskPage`, through the task page's `Outlet` — *slice 7c* | — it reads the task's, the project's and the account's data | `updateSubtaskAction`: one field, by its name; a delete, by the method |
 
@@ -2642,6 +2642,48 @@ Nothing in `web/` reaches the database.
 **Open:** `browser-offers-zones-postgres-lacks`, from the decisions in `step-docker.md`;
 `app-password-written-three-times`, `server-dies-when-the-database-goes` and
 `windows-postgres-still-running`, from building it.
+
+---
+
+# Step 7e — invites, members, handing over, and deleting a project
+
+Built 2026-11-14 to 2026-11-19 on branch `step-7e`, in six pieces, with no spec file: design section
+16 and [`step-7-prep.md`](./step-7-prep.md) were the plan. Stjepan typed every piece, from code
+Claude gave by place.
+
+## On the server
+
+| Function | What changed |
+|---|---|
+| `listInvitesForUser(userId)` | Each invite now comes with `project_name` and `invited_by_email`, joined from `projects` and `users`: the person invited is not in the project yet, so cannot look either up. Its type is `InviteForUser` |
+
+## The pages
+
+| File | What it holds |
+|---|---|
+| `projects/Invites.tsx` | Above the projects at `/`, the invites addressed to whoever is logged in: the project, who sent it, Accept and Decline. Each row has its own fetcher. Nothing shows when there are none |
+| `projects/InviteMember.tsx` | Under the members, for the Lead: an address and Invite. The field is keyed by the new invite's id, so it empties after a send and keeps what was typed after a refusal |
+| `tasks/Delete.tsx` | Now also takes `confirm`, the word on the button that goes ahead; `spoken`, the first button's name aloud; and `fields`, hidden fields sent along. Removing and leaving use it |
+| `projects/Transfer.tsx` | Under the members, for the Lead when anyone else is in the project: New Lead, then Stay on as an Associate or Leave the project, and Hand over…, which asks first |
+| `projects/DeleteProject.tsx` | At the foot of the page, for the Lead: Delete project, which asks, and offers Delete in 30 days, Delete now and Cancel. Each submit button sends its own `intent` |
+| `projects/BeingDeleted.tsx` | The whole page of a project being deleted: its name, the day it goes in the Lead's own timezone, and Undo |
+| `testing/standInApi.ts` | `unlessListed`: answers for requests a test does not list. `GET /invites` answers with no invites, so the tests written before `/` asked for invites still pass |
+
+The project page's action now reads these intents besides `move-task`: `remove-member` and `leave`,
+both `DELETE /projects/:projectId/members/:userId`, leaving then going to `/`; `transfer`,
+`POST …/transfer`, going to `/` when the old Lead leaves; `invite`; `delete-later`,
+`POST …/deletion`; `undo-deletion`, `DELETE …/deletion`; and `delete-now`,
+`DELETE /projects/:projectId`, then `/`. The action of `/` reads `accept-invite`, which goes to the
+project, and `decline-invite`.
+
+New words in `api/words.ts`: `invite-expired`, `no-account`, `already-a-member`,
+`new-lead-not-a-member`, `new-lead-being-deleted`, `already-lead`, `project-being-deleted`,
+`project-not-restorable`. An invite's `invalid-body` reads "That doesn't look like an email
+address.", and a `not-found` on an invite "That invite is no longer there." One hundred and
+eighty-six tests in `web/`.
+
+**Closed:** `deleting-project-opens-as-empty`. **Open:** `project-list-hides-deletion`, from
+building it.
 
 ---
 

@@ -1380,3 +1380,26 @@ made while building, for Stjepan's review:
 - **The lifted row is drawn above the others** with a shadow, `position: relative` and a `z-index`;
   the handle is a grey grip with a hand for a cursor and a focus ring for the keyboard, in
   `tasks/style/SortableRow.module.scss`.
+
+**Built in slice 7e**, 2026-11-14 to 2026-11-19, on branch `step-7e`: invites, accepting and
+declining them, removing a member and leaving, handing a project over, and deleting a project with
+its banner. Choices made while building:
+
+- **"Delete now" is in the question, not the banner.** `delete-mode-screen` above says the banner
+  offers it, but `DELETE /projects/:projectId` refuses a project already in delete mode, and Delete
+  mode in section 6 puts it in the confirmation. When asked, the Lead chooses Delete in 30 days,
+  Delete now, or Cancel; the banner offers Undo alone. *Rejected — the banner's Delete now:* a
+  change to `deleteProjectNow`, for a second way to reach what the question already offers.
+- **Invites show above the projects, on `/`**, not on a page of their own: they are few, and
+  short-lived.
+- **Removing and leaving are one request and one component, `Delete`**, which gained three optional
+  props rather than being copied. The Lead sees Remove beside everyone but themselves; anyone else
+  sees Leave project beside their own name alone.
+- **Handing over asks first**, naming who leads next and what becomes of the old Lead, since only
+  the new Lead could hand it back. It is hidden when nobody else is in the project.
+- **A project being deleted asks the API for nothing** beyond what `GET /projects` already says: its
+  page is the banner, built from `deletion_scheduled_at`, with the day in the Lead's own timezone.
+- **The invite field is labelled "Invite by email", not "Email"**: older tests find the login page
+  by a field called Email.
+- **Tests written before invites still pass** through `unlessListed` in `standInApi`, instead of six
+  test files each gaining an answer for `GET /invites`.

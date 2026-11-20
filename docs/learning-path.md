@@ -26,8 +26,11 @@ keyboard. Stjepan typed its two firsts and C8. Every flow was checked in a brows
 **Merged into `main`** on 2026-11-14, at Stjepan's word, with no review written: a merge commit,
 since Docker part 1 had reached `main` first, and both had changed the docs. **From 2026-11-14, by
 Stjepan:** slices get no review and no going over the commits. For every step, Claude gives the
-code and the exact place for it, and Stjepan types, runs and commits it. **Next:** slice 7e —
-invites, members, transfer, and a project being deleted.
+code and the exact place for it, and Stjepan types, runs and commits it. **From 2026-11-19, by
+Stjepan:** Claude edits the `.md` docs itself; Stjepan still runs every git command. Slice 7e —
+invites, members, handing over, and a project being deleted — is **built**, on branch `step-7e`,
+2026-11-14 to 2026-11-19, in six pieces with no spec file; Stjepan typed every one. **Next:** check
+7e in a browser, merge it into `main`, then slice 7f, routines.
 
 **Alongside step 7: Docker, part 1** — Postgres in a container — is **built**, on branch
 `step-docker`, 2026-11-12 to 2026-11-14, as specified in [`step-docker.md`](./step-docker.md).
