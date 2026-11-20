@@ -1,4 +1,5 @@
-// Around every page for someone logged in: who they are and Log out on one line, the page under it
+// Around every page for someone logged in: where to go, who they are and Log out on one line, the
+// page under it
 $gap: 1rem;
 
 .header {
@@ -12,6 +13,21 @@ $gap: 1rem;
     form {
         margin: 0;
     }
+}
+
+// Projects and Routines, the one shown in bold
+.nav {
+    display: flex;
+    gap: $gap;
+
+    a[aria-current="page"] {
+        font-weight: 600;
+    }
+}
+
+// The email takes the room between the places and Log out, so Log out stays at the right
+.who {
+    margin-left: auto;
 }
 
 .main {

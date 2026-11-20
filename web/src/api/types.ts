@@ -74,6 +74,19 @@ export type Invite = {
     invited_by_email: string;
 };
 
+// A routine as GET /api/routines lists it, the asker's own. weekdays are 1 to 7, Monday first; whether
+// it is due and done today is worked out on the server, on the owner's own calendar
+export type Routine = {
+    id: string;
+    user_id: string;
+    name: string;
+    weekdays: number[];
+    created_at: string;
+    due_today: boolean;
+    done_today: boolean;
+};
+
+
 
 // Every refusal's body. issues comes only with invalid-body, in Zod's English
 export type ErrorBody = {
