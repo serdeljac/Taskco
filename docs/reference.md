@@ -2682,8 +2682,15 @@ New words in `api/words.ts`: `invite-expired`, `no-account`, `already-a-member`,
 address.", and a `not-found` on an invite "That invite is no longer there." One hundred and
 eighty-six tests in `web/`.
 
+Checked in a browser on 2026-11-19 with the seed's two accounts and a project made for it, Garden
+check: an invite refused for an address with no account, then sent; declined; accepted, landing on
+the project; left; accepted again; handed over, the old Lead staying on as an Associate; the old Lead
+removed by the new one; deleted in 30 days, showing the banner with 20 December 2026; undone; and
+deleted now, back to the projects.
+
 **Closed:** `deleting-project-opens-as-empty`. **Open:** `project-list-hides-deletion`, from
-building it.
+building it; `lead-not-first-after-transfer` and `member-questions-sit-beside-the-name`, from the
+browser check.
 
 ---
 
