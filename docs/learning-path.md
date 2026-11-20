@@ -37,8 +37,8 @@ checked in a browser on 2026-11-20, and merged into `main` the same day. Slice 7
 page, handing over what the person leads, and deleting the account — is **built**, on branch
 `step-7g`, 2026-11-20, in two pieces; Stjepan typed both, and every flow was checked in a browser
 the same day. With it, step 7 is done: every flow the design has an endpoint for has a screen.
-**Next:** merge 7g into `main`; then deployment — choosing a host, Docker part 2, the purge on a
-schedule — and pushing `main`.
+7g was merged into `main` the same day, and `main` pushed to GitHub. **Next:** deployment —
+choosing a host, Docker part 2, the purge on a schedule.
 
 **Alongside step 7: Docker, part 1** — Postgres in a container — is **built**, on branch
 `step-docker`, 2026-11-12 to 2026-11-14, as specified in [`step-docker.md`](./step-docker.md).
