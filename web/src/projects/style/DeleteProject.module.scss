@@ -1,0 +1,21 @@
+// Deleting the project: the button, or its question and three answers, set apart at the page's foot
+$gap: 0.5rem;
+$refusal: #b00020;
+
+.deleteProject {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $gap;
+    margin: $gap * 4 0 $gap * 2;
+
+    p {
+        flex-basis: 100%;
+        margin: 0;
+    }
+}
+
+// Beside the button, an alert is a refusal; in the form, it is the question
+div.deleteProject p[role="alert"] {
+    color: $refusal;
+}

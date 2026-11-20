@@ -35,6 +35,32 @@ export async function projectAction({ request, params }: ActionFunctionArgs) {
             return form.get("intent") === "leave" ? redirect("/") : null;
         }
 
+        // Handing over: who leads next, and whether the old Lead stays or leaves. One who leaves has
+        // no page here any more, so they go to their projects
+        if (form.get("intent") === "transfer") {
+            await api<void>("POST", `${project}/transfer`, {
+                toUserId: form.get("toUserId"),
+                outgoing: form.get("outgoing"),
+            });
+            return form.get("outgoing") === "leave" ? redirect("/") : null;
+        }
+
+        // Deleting: into delete mode for thirty days, which the banner's Undo takes it out of; or at
+        // once, after which there is no page here, so the Lead goes to their projects
+        if (form.get("intent") === "delete-later") {
+            await api<void>("POST", `${project}/deletion`);
+            return null;
+        }
+        if (form.get("intent") === "undo-deletion") {
+            await api<void>("DELETE", `${project}/deletion`);
+            return null;
+        }
+        if (form.get("intent") === "delete-now") {
+            await api<void>("DELETE", project);
+            return redirect("/");
+        }
+
+
 
         if (form.get("intent") === "invite") {
             // What comes back is the invite as stored, without the project's name: only its id and address are used

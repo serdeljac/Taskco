@@ -2,7 +2,7 @@ import type { RouteObject } from "react-router";
 import { AccountLayout, accountLoader } from "./account/AccountLayout";
 import { logoutAction, logoutLoader } from "./account/logout";
 import { LoginPage, loginAction, loginLoader } from "./login/LoginPage";
-import { createProjectAction } from "./projects/createProject";
+import { createProjectAction } from "./projects/CreateProject";
 import { ProjectsPage, projectsLoader } from "./projects/ProjectsPage";
 import { ProjectPage, projectLoader } from "./projects/ProjectPage";
 import { RegisterPage, registerAction } from "./register/RegisterPage";

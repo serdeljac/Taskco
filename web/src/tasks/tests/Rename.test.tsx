@@ -75,7 +75,7 @@ describe("renaming", () => {
         await userEvent.type(screen.getByLabelText("Name"), " patch");
         await userEvent.click(screen.getByRole("button", { name: "Save name" }));
 
-        await waitFor(() => expect(screen.getByText("Something went wrong. Try again.")).toBeDefined());
+        await waitFor(() => expect(screen.getByText("This project is being deleted, so it can't be changed.")).toBeDefined());
     });
 
     it("is not there for an Associate", async () => {

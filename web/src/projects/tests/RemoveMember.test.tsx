@@ -91,7 +91,7 @@ describe("removing a member, and leaving a project", () => {
         await userEvent.click(screen.getByRole("button", { name: "Remove ana@example.com" }));
         await userEvent.click(screen.getByRole("button", { name: "Remove" }));
 
-        expect(await screen.findByText("Something went wrong. Try again.")).toBeDefined();
+        expect(await screen.findByText("This project is being deleted, so it can't be changed.")).toBeDefined();
         expect(membersShown()).toContain("ana@example.com, Associate");
     });
 });

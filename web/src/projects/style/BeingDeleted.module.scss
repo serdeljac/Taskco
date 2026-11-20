@@ -1,0 +1,25 @@
+// The banner of a project being deleted: a warning box, its words and Undo on one line
+$gap: 0.5rem;
+$warning: #fff4e5;
+$edge: #e0a050;
+$refusal: #b00020;
+
+.banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $gap;
+    padding: $gap * 2;
+    background: $warning;
+    border: 1px solid $edge;
+    border-radius: 4px;
+
+    p {
+        margin: 0;
+    }
+
+    p[role="alert"] {
+        flex-basis: 100%;
+        color: $refusal;
+    }
+}

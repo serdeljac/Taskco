@@ -13,6 +13,11 @@ const words = new Map<string, string>([
     ["invite-expired", "That invite has expired. Ask for a new one."],
     ["no-account", "No Taskco account uses that email."],
     ["already-a-member", "They are already a member of this project."],
+    ["new-lead-not-a-member", "They are no longer a member of this project."],
+    ["new-lead-being-deleted", "Their account is being deleted, so they can't lead."],
+    ["already-lead", "They already lead this project."],
+    ["project-being-deleted", "This project is being deleted, so it can't be changed."],
+    ["project-not-restorable", "This project can no longer be brought back."],
 ]);
 
 export function wordsFor(code: string): string {

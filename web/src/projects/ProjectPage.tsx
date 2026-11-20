@@ -12,6 +12,9 @@ import { TaskCells, TaskRow } from "./TaskRow";
 import { inOrderSent, neighboursAfterDrop } from "../tasks/order";
 import { dragInstructions, dragWords, roleWords } from "../tasks/words";
 import { InviteMember } from "./InviteMember";
+import { Transfer } from "./Transfer";
+import { BeingDeleted } from "./BeingDeleted";
+import { DeleteProject } from "./DeleteProject";
 
 export async function projectLoader({ params }: LoaderFunctionArgs) {
     const { projects } = await api<{ projects: Project[] }>("GET", "/projects");
@@ -19,6 +22,13 @@ export async function projectLoader({ params }: LoaderFunctionArgs) {
     if (!project) {
         throw data(null, { status: 404 });
     }
+
+    // Only its Lead sees a project being deleted, and the API would answer its tasks with none: so
+    // nothing more is asked, and the page shows its banner
+    if (project.deletion_scheduled_at) {
+        return { project, tasks: [], members: [] };
+    }
+
 
     // Both at once: neither needs the other's answer
     const [{ tasks }, { members }] = await Promise.all([
@@ -57,6 +67,11 @@ export function ProjectPage() {
             { method: "put" }
         );
     }
+
+    if (project.deletion_scheduled_at) {
+        return <BeingDeleted projectName={project.name} scheduledFor={project.deletion_scheduled_at} />;
+    }
+
 
     return (
         <>
@@ -124,6 +139,12 @@ export function ProjectPage() {
             </ul>
             {/* Only the Lead invites: the API refuses anyone else */}
             {project.role === "lead" && <InviteMember />}
+            {/* Only the Lead hands over, and only to someone already in the project */}
+            {project.role === "lead" && members.some((member) => member.role !== "lead") && (
+                <Transfer projectName={project.name} associates={members.filter((member) => member.role !== "lead")} />
+            )}
+            {/* Only the Lead deletes: the API refuses anyone else */}
+            {project.role === "lead" && <DeleteProject projectName={project.name} />}
         </>
     );
 }

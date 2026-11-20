@@ -1,6 +1,6 @@
 import {useState, type SubmitEvent} from 'react'
 import {Form, useActionData} from 'react-router';
-import type { createProjectAction } from "./createProject";
+import type { createProjectAction } from "./CreateProject";
 import styles from "./style/NewProject.module.scss";
 
 type Props = {
