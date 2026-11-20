@@ -1982,6 +1982,7 @@ The frontend, with its own `package.json`, run from `web\`. Vite serves it on po
 | `/login` | `LoginPage` | `loginLoader`: someone logged in goes on to `/` | `loginAction`: `POST /sessions`, then `/` |
 | `/register` | `RegisterPage` | `loginLoader`, the same | `registerAction`: `POST /users`, then `/` |
 | `/logout` | — | `logoutLoader`: a visit goes on to `/`, changing nothing | `logoutAction`: `DELETE /sessions/current`, then `/login` |
+| `/routines` | `RoutinesPage`, inside `AccountLayout` — *slice 7f* | `routinesLoader`: `GET /routines`, then every routine's streak at once | `routinesAction`: Done or Undo today, by its `intent`; or create a routine |
 | `/projects/:projectId` | `ProjectPage`, inside `AccountLayout` — *slice 7b* | `projectLoader`: `GET /projects`, then its tasks and members at once; for a project being deleted, neither, *slice 7e* | `projectAction`: move a task, *slice 7d*; invite, remove, leave, hand over, delete or undo, by its `intent`, *slice 7e*; rename the project; or create a task |
 | `/projects/:projectId/tasks/:taskId` | `TaskPage`, through the project page's `Outlet` — *slice 7b* | `taskLoader`: `GET /tasks/:taskId/subtasks`, *since 7c*; the task itself is the project's data | `updateTaskAction`: one field, by its name; a new subtask, or a subtask's move, by its `intent`; a delete, by the method — *the new subtask and the delete 7c's, the move 7d's* |
 | `/projects/:projectId/tasks/:taskId/subtasks/:subtaskId` | `SubtaskPage`, through the task page's `Outlet` — *slice 7c* | — it reads the task's, the project's and the account's data | `updateSubtaskAction`: one field, by its name; a delete, by the method |
@@ -2691,6 +2692,38 @@ deleted now, back to the projects.
 **Closed:** `deleting-project-opens-as-empty`. **Open:** `project-list-hides-deletion`, from
 building it; `lead-not-first-after-transfer` and `member-questions-sit-beside-the-name`, from the
 browser check.
+
+---
+
+# Step 7f — routines
+
+Built 2026-11-19 to 2026-11-20 on branch `step-7f`, in three pieces, with no spec file. Stjepan
+typed every piece, from code Claude gave by place. No change on the server: the routes were all
+there since step 5.
+
+## The pages
+
+| File | What it holds |
+|---|---|
+| `account/AccountLayout.tsx` | The header now starts with **Projects** and **Routines**, as `NavLink`s: the one shown is marked `aria-current="page"` and drawn bold. `end` on `/` keeps it from counting as current on every page under it |
+| `routines/RoutinesPage.tsx` | `/routines`. `routinesLoader` asks `GET /routines`, then each routine's `GET /routines/:routineId/streak`, all at once. Each routine is a line: its name, its days, today, its streak, and Done or Undo. "No routines yet" when there are none, with no streak asked for |
+| `routines/words.ts` | `daysWords`: Every day, Weekdays, Weekends, or the days, "Mon, Wed, Fri". `todayWords`: Done today, Due today, Not due today. `streakWords`: No streak yet, 1 day in a row, 12 days in a row |
+| `routines/NewRoutine.tsx` | Under the list: a name and seven day boxes, all ticked to start with, and Create routine. A blank name or no day stops in the browser. The form's key is the new routine's id, so it starts afresh once one is made |
+| `routines/DoneToday.tsx` | The end of a routine's line, with its own fetcher: Done when it is due and not done, Undo once done, nothing on a day it is not for |
+| `routines/RoutinesAction.tsx` | `/routines`' action: `done-today`, `PUT /routines/:routineId/completions/today`; `undo-today`, the same path with `DELETE`; anything else a new routine, `POST /routines` with the days from `form.getAll("weekdays")` as numbers |
+
+New words in `api/words.ts`: `not-completed-today`, "It wasn't marked done today." `Routine` in
+`api/types.ts` is the list's row: the routine, with `due_today` and `done_today`.
+
+`projects/createProject.ts` is now `projects/CreateProject.ts`, renamed with `git mv` so git
+records the capital letter: the imports already spelled it so, which Windows did not mind and a
+Linux build would. One hundred and ninety-eight tests in `web/`.
+
+Checked in a browser on 2026-11-20, a Friday: Create routine with a blank name refused; Stretch,
+every day, created and due today, Done, then Done today and 1 day in a row, then Undo, and back to
+Due today and No streak yet; Long run, Saturdays only, Not due today with no button.
+
+**Decided:** `streaks-are-one-query-per-routine`, kept as one request per routine.
 
 ---
 

@@ -30,7 +30,11 @@ code and the exact place for it, and Stjepan types, runs and commits it. **From 
 Stjepan:** Claude edits the `.md` docs itself; Stjepan still runs every git command. Slice 7e —
 invites, members, handing over, and a project being deleted — is **built**, on branch `step-7e`,
 2026-11-14 to 2026-11-19, in six pieces with no spec file; Stjepan typed every one. Every flow was
-checked in a browser on 2026-11-19. **Next:** merge 7e into `main`, then slice 7f, routines.
+checked in a browser on 2026-11-19, and 7e was merged into `main` the same day, a fast-forward.
+Slice 7f — routines: the page, creating one, Done and Undo, with streaks — is **built**, on branch
+`step-7f`, 2026-11-19 to 2026-11-20, in three pieces; Stjepan typed every one, and every flow was
+checked in a browser on 2026-11-20. **Next:** merge 7f into `main`, then slice 7g, deleting an
+account.
 
 **Alongside step 7: Docker, part 1** — Postgres in a container — is **built**, on branch
 `step-docker`, 2026-11-12 to 2026-11-14, as specified in [`step-docker.md`](./step-docker.md).

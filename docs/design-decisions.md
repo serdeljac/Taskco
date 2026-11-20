@@ -1403,3 +1403,19 @@ its banner. Choices made while building:
   by a field called Email.
 - **Tests written before invites still pass** through `unlessListed` in `standInApi`, instead of six
   test files each gaining an answer for `GET /invites`.
+
+**Built in slice 7f**, 2026-11-19 to 2026-11-20, on branch `step-7f`: the routines page, creating a
+routine, and marking one done today or undoing it. Choices made while building:
+
+- **A streak is one request per routine, all sent at once.** `GET /routines` carries no streak, and
+  the page asks `GET /routines/:routineId/streak` for each. A person keeps a handful, and nothing
+  on the server changed. *Rejected — the streak inside `GET /routines`:* one request, but a change
+  to `listRoutines` and its tests, for a saving nobody would see yet.
+- **Routines have their own page, `/routines`, reached from the header**, where Projects is now a
+  link too. *Rejected — routines on `/`, beside the projects:* section 9 calls them a separate
+  surface, and `/` already holds invites and projects.
+- **Done is offered only on a day the routine is for.** The API takes a completion on any day, and
+  keeps it, but the streak does not count it; a button there would promise something it does not
+  do. Undo shows whenever today is done.
+- **A new routine starts ticked for every day**, so the shortest way through is a name and Create.
+- **No editing or deleting** a routine: the API has neither, `routines-cannot-be-edited-or-deleted`.
