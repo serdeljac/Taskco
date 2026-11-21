@@ -4,7 +4,8 @@
 and steps 5 and 6, the HTTP layer and authentication — each with its review done, and merged.
 Step 7, the frontend, prepared in [`step-7-prep.md`](./step-7-prep.md) with its ten questions
 decided on 2026-10-24, is built in seven slices, 7a to 7g, from 2026-10-24 to 2026-11-20, and
-merged — section 16. Hosting is still open — section 11. Last updated 2026-11-20.
+merged — section 16. Step 8, deployment, is prepared in [`step-8-prep.md`](./step-8-prep.md), and
+its ten questions were decided on 2026-11-20 and 2026-11-21 — section 17. Last updated 2026-11-21.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -763,7 +764,9 @@ onto anything, completions included.
 
 ## 10. Notifications
 
-- In-app floating popup only. **No email.** Deferred deliberately.
+- In-app floating popup only. **No email.** Deferred deliberately. *Revised 2026-11-21, by
+  Stjepan:* Taskco will send email for two things, resetting a forgotten password and checking an
+  address is its owner's — section 17. Notifications stay in-app.
 - The project-deletion banner is **derived** from the project's scheduled deletion date. No stored
   notification records are needed, because the fact is already recorded.
 - The durable signal that an invite was accepted is the new member appearing in the members list.
@@ -845,7 +848,8 @@ typed query builder that still reads like SQL.
 ### Still open
 Hosting — which now carries one constraint, from section 16: the built frontend and the API are
 served from one origin. *Prepared 2026-11-20*, in [`step-8-prep.md`](./step-8-prep.md), question 1,
-with its reasoning and the prices looked up; not yet decided.
+with its reasoning and the prices looked up. *Decided 2026-11-20:* a rented Linux server, running
+Compose — section 17.
 
 *Resolved 2026-10-22:* authentication — session cookies, and Argon2id from Node's own `node:crypto`,
 with no package. Section 15.
@@ -1062,6 +1066,37 @@ client the day it is migrated. Worth revisiting when step 7 shows what the front
 
 Every body is a `z.strictObject`. A body naming something the server derives — `userId`,
 `invitedByUserId`, a `projectId` beside a path that already names one — is a 400, and tests say so.
+
+### `hypermedia` — answers carry data, not links
+
+*Recorded 2026-11-21, after the fact.* This choice was made by default in step 5 and never
+discussed: no preparation, review or decision mentioned REST, hypermedia or links in answers.
+
+Taskco's API is a REST API at level 2 of the Richardson Maturity Model. Every thing has an address,
+`/tasks/7`, and every request uses the method that matches what it does: `GET` shows, `POST`
+creates, `PUT` changes, `DELETE` deletes. It is not fully RESTful in Roy Fielding's strict sense,
+level 3: its answers carry data only. They carry no links saying what the asker may do next, or
+where to send it.
+
+So the web pages hold their own copy of what the server already knows. Two examples:
+
+- **The rules:** the task page shows Delete when the asker's role is `"lead"`.
+- **The addresses:** the page builds `/tasks/` and the task's id itself.
+
+A fully RESTful answer would carry a delete link only for the Lead, and the page would show Delete
+because the link is there.
+
+*Why data-only stays the choice, had it been weighed:*
+
+- Links pay off when many different clients share one API and cannot all change at once. Taskco has
+  one client, its own pages, in the same repository, so a rule changed in both places is one commit.
+- Links cost work on every answer: what this asker may do with each task in a list.
+- React Router, Express and their guides all assume data-only answers.
+
+*Accepted cost:* a rule such as "only the Lead deletes" is written twice — `requireLead` in `app.ts`,
+and the role check in the page — and nothing keeps the two in step. If they disagree, the page shows
+a button the server refuses. That is a confusing screen, not a hole: the server checks every
+request whatever the page showed.
 
 ---
 
@@ -1442,3 +1477,293 @@ endpoint has a screen. Choices made while building:
 - **After deleting, the person lands on `/login`**, since every session has ended. Nothing there
   says the account was deleted: the page they just left said what would happen, and logging in
   within thirty days is the way back.
+
+---
+
+## 17. Deployment
+
+Step 8. Prepared 2026-11-20 in [`step-8-prep.md`](./step-8-prep.md), which raised ten questions and
+holds the reasoning, the alternatives, and the rehearsal behind each. Each answer is recorded here
+as it is made.
+
+### `hosting` — a rented Linux server
+
+Decided 2026-11-20, by Stjepan, as recommended. Taskco runs on a small rented Linux server (a VPS)
+under Docker Compose, as the database does on this machine. There are three containers: Postgres,
+the API, and Caddy in front for HTTPS.
+
+*Why:* step 8 is Docker part 2 by the learning path's own plan, and real-world use is optional, so
+the choice that teaches most wins, at about the price of the others. Production also runs the same
+`postgres:18.6-trixie` image as this machine, with the same 487 timezone names.
+
+*Accepted cost:* the server's upkeep is Stjepan's — system updates, the firewall, backups, and a
+restore that works.
+
+*Retreat clause:* if setting the server up fights back for more than an evening, Render takes the
+same image, with its own Postgres.
+
+*Rejected — a container platform* such as Render, Railway or Fly.io: about twice the monthly cost,
+and nothing learned about servers, production Compose or backups. Its Postgres version and timezone
+names would be the platform's.
+
+*Rejected — Vercel:* Express would run as functions, so `server.ts` would change shape, and Docker
+part 2 would disappear.
+
+The provider is chosen when the server is rented, in slice 8c. The preparation priced Hetzner's
+smallest server.
+
+### `address` — a new domain, for Taskco alone
+
+Decided 2026-11-20, by Stjepan. The preparation recommended a subdomain of a domain he already owns.
+Taskco gets a domain of its own, which Stjepan buys. One DNS record points it at the server, and
+Caddy fetches the certificate for that name.
+
+*Accepted cost:* a yearly fee, and one more account to keep, at the registrar.
+
+*Rejected — a subdomain of a domain already owned:* free, and one record at a provider already in
+use.
+
+The name and the registrar are chosen when it is bought, before slice 8c. The cookie needs no change
+for it: it names no domain, so it belongs to whichever address set it.
+
+### `who-serves-the-frontend` — Express
+
+Decided 2026-11-21, by Stjepan, as recommended. Express serves the built frontend from `web/dist`,
+and Caddy only does HTTPS and passes every request on. A request goes:
+
+1. to the API, for anything under `/api`, as today;
+2. then to a file in `web/dist`, if one has that path;
+3. then, for an address with no file extension, such as `/projects/7`, to `index.html`, so React
+   Router draws the page.
+
+Anything else is a 404. That is the cure for a trap the preparation ran: a catch-all answered a
+missing `/assets/…` file with the page, which breaks a browser still holding the last version.
+
+*Why:* one image is the whole app. It runs the same behind Caddy, on Render if the retreat clause is
+used, and in a Supertest test.
+
+*Accepted cost:* Node hands out files more slowly than Caddy. That is invisible at this size.
+
+*Rejected — Caddy serves the files:* the built files would have to reach Caddy's container, through
+a second image or a volume both share.
+
+### `the-image` — only what runs Taskco
+
+Decided 2026-11-21, by Stjepan, as recommended. One image, built by a Dockerfile in three stages:
+
+1. **The API is compiled.** `tsc` uses a `tsconfig.build.json` that leaves out `src/**/*.test.ts`
+   and `src/testing`.
+2. **`web/` is built** with `vite build`.
+3. **A clean stage** installs only the runtime packages — Express, `pg`, Zod and `dotenv`. Then it
+   takes the compiled `dist/`, `migrations/` and `web/dist` from the stages before.
+
+The image runs as its `node` user, not as root, with `node dist/server.js`.
+
+- **Node is pinned to `node:24.15.0-trixie-slim`.** A dependency of `jsdom` asks for Node 24.15,
+  and `trixie` is the Debian release the Postgres image uses. This machine moves to 24.15 as well.
+- **`package.json` gains `build` and `start`**, so the same commands work outside a container.
+- **A `.dockerignore` keeps out** every `node_modules` and `dist`, the `.env` files, `.git` and
+  `docs`.
+
+The preparation's trial built this shape, on Node 24.14.1, at 352 MB.
+
+*Rejected — one stage holding everything:* TypeScript, `tsx`, Vite and the test libraries would ship
+to production, making a larger image with more to keep updated, for nothing that runs.
+
+### `deploying-a-version` — automatically, when `main` is pushed
+
+Decided 2026-11-21, by Stjepan: "I want any changes and updates to be made when GitHub is updated.
+I don't want to import files manually." The preparation had recommended building on the server by
+hand, three commands at a time.
+
+A GitHub Actions workflow, in `.github/workflows/`, runs on every push to **any branch**:
+
+1. **It tests.** On a fresh machine, with a Postgres service container of the same image, it runs
+   both test suites, both type checks, and `web/`'s build. A branch shows passed or failed on
+   GitHub before it is merged. *Added the same day, by Stjepan:* "test every branch".
+2. **It stops if anything fails.** On `main`, the server keeps the version it has, and GitHub
+   reports the failure.
+3. **On `main` only, if everything passes, it deploys.** It logs in to the server over SSH and runs
+   the same three steps a person would: `git pull`, then `docker compose build`, then
+   `docker compose up -d`. The one-shot `migrate` service applies any new migration before the new
+   API starts.
+
+*What follows:*
+
+- **Pushing to `main` is releasing.** The way of working is: build on a slice's branch, push it, see
+  it pass on GitHub, merge it into `main`, push. Everyone using Taskco has the new version on their
+  next page load. A branch deploys nothing until it is merged into `main` and pushed.
+- **CI is no longer optional.** It is the gate in front of every deploy, so the preparation's
+  optional slice 8e moves into step 8 proper. Question 10 still asks about the check after a
+  deploy.
+- **The image is built on the server**, from the pulled code, so no registry is needed.
+
+*Accepted cost:* GitHub holds a key that can log in to the server. It is a separate `deploy` user's
+key, kept in the repository's secrets, and that user can do nothing but run Compose in Taskco's
+folder. The server's `.env`, with the production passwords, never goes to GitHub.
+
+*Rejected — building on the server by hand:* the preparation's recommendation, and what Stjepan
+ruled out.
+
+*Rejected — building the image in GitHub Actions and pushing it to a registry for the server to
+pull:* the server would download a finished image instead of building one, at the price of a
+registry and its login on both sides. Worth it if building on the server ever proves too slow.
+
+### `secrets-on-the-host` — new passwords, on the server only
+
+Decided 2026-11-21, by Stjepan, as recommended.
+
+- **New passwords for production**, generated, of letters and digits only. Docker part 1 found that
+  `$` breaks Compose, and `@`, `:` and `/` would break `DATABASE_URL`.
+- **They live in a `.env` beside `compose.yaml` on the server**, readable only by its owner. They
+  are never in git, and never on this machine. GitHub holds only what deploying needs: the `deploy`
+  user's key and the server's address.
+- **The production database is called `taskco`.** Its name ends in neither `_test` nor `_dev`, so
+  the tests' guard refuses it, and so will the seed's, once slice 8a gives the seed one.
+- **`taskco_app`'s password is written once on the server.** `compose.yaml` builds `DATABASE_URL`
+  from `TASKCO_APP_PASSWORD`, which closes `app-password-written-three-times` for production. This
+  machine keeps its three copies.
+
+### `before-it-is-reachable` — what changes in the code first
+
+Decided 2026-11-21, by Stjepan, in parts.
+
+**Ten changes, all in slice 8a**, made and tested on this machine before any server exists. Taken
+as recommended:
+
+| Item | The change |
+|---|---|
+| `server-listens-on-localhost-only` | `HOST` and `PORT` from the environment, with today's values as the defaults |
+| `no-health-check` | `GET /api/health`, above the mount, answering 200 once `select 1` does |
+| `server-dies-when-the-database-goes` | a listener on the pool's `error` that logs it |
+| `no-shutdown-on-sigterm` | on `SIGTERM`: stop taking requests, finish the open ones, close the pool, exit |
+| `seed-has-no-guard` | the seed refuses a database whose name does not end in `_dev` |
+| `nothing-serves-the-built-frontend` | `who-serves-the-frontend`, above |
+| `no-production-start` | `the-image`, above |
+| `dependency-advisories` | `zod` 4.6.7 and `body-parser` 2.4.0 through the lock file; `vite` 8.3.8, pinned in `web/` |
+| `session-cookie-has-no-host-prefix` | the cookie becomes `__Host-taskco_session` |
+| `trust proxy` | set from the environment: `1` behind Caddy, off on this machine |
+
+**A password may not be the email.** Added by Stjepan the same day. Registering refuses a password
+equal to the account's email, compared ignoring case, with a code of its own. The server checks it,
+and the register page checks it too, in its own words. Registering is the only place a password is
+set today. A future password change gets the same check.
+
+**The login limit**, decided by Stjepan the same day:
+
+- Each wrong password adds one to a count, kept on the server.
+- The eighth wrong password starts a fifteen-minute lock.
+- During the lock, every login is refused, the right password too, or the lock would protect
+  nothing. The answer is 429, with the code `too-many-attempts` and a `Retry-After` header.
+- After the fifteen minutes, the count starts again from zero.
+- A successful login clears the count.
+
+**Two counts**, decided by Stjepan the same day, as recommended:
+
+- **By visitor and email together:** the eight-in-fifteen-minutes limit above. One connection
+  guessing at one account is stopped, and the account's owner, on their own connection, is not
+  locked out by it.
+- **By the email alone:** fifty wrong passwords for one email within an hour, from any number of
+  visitors, lock that email for fifteen minutes for everyone. Only a large attack, from many
+  connections at once, reaches it. A stranger cannot lock someone out casually: they would have to
+  get through eight-at-a-time from many addresses.
+
+*Rejected — the email alone, at eight:* anyone who knows an address could lock its owner out at
+will.
+
+*Rejected — visitor and email alone:* an attacker with many connections gets eight tries from each.
+
+**Hand-written**, decided by Stjepan the same day, as recommended. The two counts are kept in the
+server's memory, in a `Map` each, and cleared as their windows pass, as passwords and cookies were
+done without a package. A restart, every deploy included, forgets them. With one server process,
+that is harmless.
+
+*Rejected — `express-rate-limit`:* the usual choice, but two counts and a lock that refuses even the
+right password need more configuration than its examples show, and it hides the idea.
+
+**New accounts: five per visitor per hour**, decided by Stjepan the same day, as recommended.
+`POST /users` counts by the visitor's address, in the same hand-written way, and the sixth within an
+hour is refused with `too-many-attempts`. It stops a program filling the database, and slows anyone
+using registering to find which emails have an account — the defence that
+`registration-reveals-accounts` was accepted on.
+
+**Four missing features are built before Taskco goes online**, decided by Stjepan the same day. The
+preparation had recommended going online without them, since use is optional. Stjepan: "All four
+should be built."
+
+| Item | What it needs |
+|---|---|
+| `no-timezone-change` | one function, one endpoint, and a field on the Account page. No migration |
+| `export-not-built` | design section 12's first question, how a CSV flattens tasks and subtasks, answered first. Then an endpoint and a button for the Lead, meeting `lead-cannot-read-tasks-in-delete-mode` on the way |
+| `no-password-change-or-reset` | changing a password while logged in, which needs the old one and no email. Resetting a forgotten one, which needs email: a one-time code, stored hashed like a session token, in a table of its own — a migration |
+| `email-not-verified` | a code sent to the address, and a date on `users` once it is used — a migration. What an unverified account may do is decided with it |
+
+*What follows:*
+
+- **Taskco sends email**, which section 10 deferred. That means an email-sending service, and
+  records on the new domain proving its mail is genuine. Which service is chosen when that slice is
+  prepared.
+- **Revised the same day, by Stjepan: online in two stages.** The ten changes are about safety, and
+  must come before Taskco is reachable. The four features are about completeness for real users.
+  1. **Online, for Stjepan only.** Slice 8c puts Taskco on the server, with the ten changes in.
+     That is where Docker part 2, the server, HTTPS and the automatic deploys are proven.
+  2. **The four are built while it runs**, as slices of their own, each prepared and typed as step
+     7's were. Each goes live by itself once merged into `main`. The two that send email need the
+     domain and the server anyway.
+
+  Taskco opens to other people only once all four are live.
+
+- **Stage 1 is locked**, decided by Stjepan the same day, as recommended. Caddy asks for a username
+  and password, the browser's own basic-auth box, before anything is shown. Only Stjepan has it,
+  and Caddy keeps it hashed. Keeping the address private would not be enough: every certificate is
+  published in public logs, and programs visit new sites within hours. The check after a deploy
+  sends the same credentials, from GitHub's secrets. Opening Taskco means deleting the lock from
+  the Caddyfile.
+
+### `purge-schedule` — a timer inside the API
+
+Decided 2026-11-21, by Stjepan, as recommended. The API runs `purgeDeletedProjects`,
+`purgeDeletedAccounts` and `purgeExpiredSessions` once when it starts, then every twenty-four hours,
+and logs what each removed. That is section 6's "a timer … calls the same function". `npm run purge`
+stays, for running it by hand. Built in slice 8a.
+
+- **Every deploy purges**, since it restarts the API. That also makes up for a restart that cut a
+  day short.
+- **With one process, two purges never overlap.**
+- **`gone-account-still-holds-its-address` is accepted.** An account past its date keeps its email
+  reserved for at most a day longer, until the next purge. Nobody can register that email
+  meanwhile; nothing else follows from it.
+- **Expired invites,** which section 12 says the same purge should take, still wait.
+
+*Rejected — the server's cron, running the purge in a one-off container every night:* one more thing
+to set up and look after on the server, outside the image, for the same result.
+
+### `backups` — a nightly dump, kept off the server, and a restore rehearsed
+
+Decided 2026-11-21, by Stjepan, as recommended. Built in slice 8d.
+
+1. **Every night, `pg_dump`** copies the `taskco` database from the `db` container into one file
+   on the server. A dump is consistent while Taskco runs. The last fourteen nights are kept.
+2. **Each night's file is copied off the server automatically**, to a separate storage service. A
+   copy that stays on the server dies with it. The service is chosen when 8d is built.
+3. **The restore is rehearsed once:** a night's file is loaded into a throwaway container, and
+   logged in to. A backup is not proven until it has been restored.
+
+*Rejected — the provider's whole-server backups instead:* they copy the disk, so a database caught
+mid-write may need repair after a restore. They may still be added beside the dump.
+
+### `checks` — the live site checked after every deploy
+
+Decided 2026-11-21, by Stjepan, as recommended. CI was settled by `deploying-a-version`: every branch
+is tested, and nothing deploys unless its tests pass. What is added here is the moment after a
+deploy.
+
+- **The deploy job checks the live site.** Through Caddy's password prompt, it asks
+  `/api/health`, logs in as an account kept for this check, asks `GET /api/account`, and logs out.
+  A failure is reported by GitHub. The account's password and the prompt's are in GitHub's secrets.
+- **No automatic rollback.** A failed check means the new version is already live. It is fixed
+  forward: a fix pushed to `main` deploys over it.
+- **No Playwright yet.** Section 16 put end-to-end testing off to 7g, and it is put off again: a new
+  tool with browsers of its own, for a project whose flows are checked by hand at each slice's end.
+
+With this, all ten of the preparation's questions are decided.

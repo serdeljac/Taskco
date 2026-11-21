@@ -1,7 +1,7 @@
 # Taskco — Learning path
 
 **Current step:** 8 — deployment, prepared on 2026-11-20 in [`step-8-prep.md`](./step-8-prep.md),
-its ten questions not yet decided: see step 8 below. **Step 7, the frontend, is
+its ten questions decided on 2026-11-20 and 2026-11-21: see step 8 below. **Step 7, the frontend, is
 done**, and how it went follows. Slice 7a — registering, logging in, projects — is **built**, on
 branch `step-7a`, 2026-10-24 to 2026-11-03, as specified in [`step-7a.md`](./step-7a.md): the first
 thing that shows a person any of the backend. Stjepan typed its six firsts; every flow in its "done
@@ -509,7 +509,29 @@ API and Caddy in containers, serving HTTPS on `localhost`. It raises ten questio
 where Taskco runs, and recommends a rented Linux server with Compose and Caddy, with Render as the
 retreat. It proposes five slices — 8a, the code, and 8b, Docker part 2, both on this machine; 8c,
 the server; 8d, backups and the purge; 8e, CI, optional — and lists the traps the rehearsal met.
-None of the questions is decided. What was already known before it:
+
+**Decided 2026-11-20 and 2026-11-21**, one question at a time, in design section 17. Seven were
+taken as recommended. Questions 2, 5 and 7 went another way:
+- **A new domain** for Taskco, not a subdomain of one already owned.
+- **Every push deploys itself.** GitHub tests every branch, and `main` deploys once its tests pass,
+  so CI is part of step 8, not optional.
+- **Four missing features are built before Taskco opens:** changing the timezone, export, changing
+  and resetting a password, and checking an email address. The last two make Taskco send email.
+- **Logins are limited by Stjepan's own rules:** a password may not be the email; eight wrong
+  passwords lock for fifteen minutes; and new accounts are limited too.
+
+**The order that follows**, each slice specified when it is reached:
+
+| Slice | What |
+|---|---|
+| 8a | the code changes, on this machine: the ten in section 17, the password rule, the login and account limits, and the purge timer |
+| 8b | Docker part 2, on this machine: the image, and Compose with Caddy and its password prompt |
+| 8c | the server: the domain, SSH, the firewall, Docker, its `.env`, CI on every branch, and automatic deploys with the check after them. Taskco is online, for Stjepan only, behind Caddy's prompt |
+| 8d | backups: the nightly dump, copied off the server, and a restore rehearsed |
+| then | the four features, as slices of their own, each going live as it is merged |
+| last | Taskco opens: the prompt is removed |
+
+What was already known before the preparation:
 
 - **Hosting is open**, in design section 11, and carries one constraint from section 16: the built
   frontend and the API are served from one origin.
@@ -541,7 +563,7 @@ elsewhere. Roughly 30 hours a week at the top end.
 | 6. Authentication | 10–15 h | |
 | **Backend total** | **60–95 h** | |
 | 7. Frontend | 60–100+ h | Learning React, TypeScript and SASS while building every screen |
-| 8. Deployment | 20–34 h | From its preparation: 8c, the server, is the widest — a server, DNS and certificates each work in minutes or eat an evening |
+| 8. Deployment | 20–34 h | From its preparation: 8c, the server, is the widest — a server, DNS and certificates each work in minutes or eat an evening. The four features decided on 2026-11-21 are on top, estimated when each is prepared |
 
 **These estimates are a stuck-detector, not a deadline.** Their only job is to signal when something
 has gone wrong. If step 1 is at hour twenty-five, the problem is not speed — it is that something
