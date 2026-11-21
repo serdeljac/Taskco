@@ -9,7 +9,9 @@ Companion to [`design-decisions.md`](./design-decisions.md) (what is being built
 (what each file is). The checkpoint reviews — [`slice-a-review.md`](./slice-a-review.md),
 [`slice-b-review.md`](./slice-b-review.md), [`slice-c-review.md`](./slice-c-review.md),
 [`step-4b-review.md`](./step-4b-review.md), [`step-4c-review.md`](./step-4c-review.md),
-[`step-5-review.md`](./step-5-review.md) — are dated snapshots and no longer carry status.
+[`step-5-review.md`](./step-5-review.md), [`step-7a-review.md`](./step-7a-review.md),
+[`step-7b-review.md`](./step-7b-review.md), [`step-7c-review.md`](./step-7c-review.md) — are dated
+snapshots and no longer carry status.
 Neither do [`step-5-prep.md`](./step-5-prep.md) and [`step-7-prep.md`](./step-7-prep.md), which
 say what their steps will do to each item they meet.
 
@@ -48,7 +50,7 @@ becomes a decision; an item here becomes a commit.
 | `empty-migration-recorded-as-applied` | An empty file is applied and recorded, so SQL written into it later never runs | [reference, `src/migrate.ts`](./reference.md) | Open |
 | `migrate-leaves-pool-open-on-failure` | `pool.end()` is never reached when a migration throws. Untidy rather than broken | [reference, `src/migrate.ts`](./reference.md) | Open |
 | `no-command-lists-applied-migrations` | Nothing answers "what has been applied" except querying `schema_migrations` by hand | [reference, `src/migrate.ts`](./reference.md) | Open |
-| `server-dies-when-the-database-goes` | `db.ts`'s pool has no `error` listener, so when the database goes away under a running server, an idle connection's error ends the process. Since Docker part 1 that is any `docker compose stop` or `down` while `npm run dev` runs | [reference, `src/db.ts`](./reference.md) | Open — reasoned, not run. `tsx watch` starts the server again on the next save; the reference says to stop it before starting clean |
+| `server-dies-when-the-database-goes` | `db.ts`'s pool has no `error` listener, so when the database goes away under a running server, an idle connection's error ends the process. Since Docker part 1 that is any `docker compose stop` or `down` while `npm run dev` runs | [reference, `src/db.ts`](./reference.md) | Open — reasoned, not run. `tsx watch` starts the server again on the next save; the reference says to stop it before starting clean. Hosted, nothing but the host's restart policy would, after any restart of the database |
 
 ### `users` — migration 002
 
@@ -109,7 +111,7 @@ becomes a decision; an item here becomes a commit.
 | `tests-only-exercise-queries-ts` | Every test goes through the functions that hold the signs, which is exactly what makes a sign look like a lock from inside the suite | [B §6](./slice-b-review.md) | Open |
 | `env-config-result-discarded` | A missing `.env.test` surfaces as a different complaint than the one that actually happened | [reference, `src/testing/env.ts`](./reference.md) | Open |
 | `truncate-misses-unreferenced-tables` | `cascade` follows foreign keys only, so a table referencing none of the three would survive. Nothing in the design is shaped that way | [reference, `src/testing/setup.ts`](./reference.md) | Open |
-| `pool-close-depends-on-file-isolation` | Setting `isolate: false` for speed would let the first file to finish close the pool underneath the others — and there are seven files now, not two | [reference, `src/testing/setup.ts`](./reference.md) | Open |
+| `pool-close-depends-on-file-isolation` | Setting `isolate: false` for speed would let the first file to finish close the pool underneath the others — and there are twenty-two files at the root now, not two. Vitest itself suggests `isolate: false` at the end of every run | [reference, `src/testing/setup.ts`](./reference.md) | Open |
 | `guard-throws-on-invalid-url` | A malformed address stops the run with "Invalid URL" rather than the guard's own message. It still refuses to run | [reference, `src/testing/guard.ts`](./reference.md) | Open |
 | `assignee-tests-set-what-is-already-there` | "assigns a task to a member of its own project" and "shows the assignee through visible_tasks" write the Lead's membership as the assignee, which `createTask` has set by default since `7acc1a3`, so their `update` changes nothing. Both still prove something — the first because `createTask`'s insert already passed the key, the second because the view must carry the column — but neither exercises the step it sets up. Assigning another member would | Code review, 2026-10-03 — no review file; this row is the record | Open |
 
@@ -137,6 +139,7 @@ becomes a decision; an item here becomes a commit.
 | `secure-cookie-needs-a-secure-origin` | The session cookie is `Secure`, so a browser keeps it only from HTTPS, or from `localhost` and `127.0.0.1`. The step 7 frontend must be served from one of those in development, and the server from HTTPS once hosted | [design §15](./design-decisions.md) | Open — for hosting. For development, run for step 7's preparation: through Vite's proxy, a browser kept the cookie on plain `http://localhost` and sent it back |
 | `sessions-end-after-thirty-days` | A session lasts thirty days from login whether it is used or not, so someone active every day is logged out once a month | [design §15](./design-decisions.md) | Open — a product decision |
 | `reopen-and-session-are-two-steps` | Logging in to an account being deleted reopens it, then creates the session, in two transactions. If the second fails the account is reopened with no session — logging in again works | [reference, step 6](./reference.md) | Open — reasoned, not run; harmless |
+| `session-cookie-has-no-host-prefix` | The cookie is named `taskco_session`. Named `__Host-taskco_session`, the browser would refuse it unless it is `Secure`, has `path=/` and names no domain, so a sibling subdomain could not set one in its place | [5 §8](./step-5-review.md), [step 7 prep, question 3](./step-7-prep.md) | Waits for hosting — both said so, and neither gave it a row. The options it needs are the ones `sessionCookieOptions` already has |
 | `gone-account-still-holds-its-address` | Past its date and before the purge, an account cannot log in, but registering its address is 409, "an account already uses that email", and a Lead can still invite it. For accounts the purge changes answers, which section 6 says a purge never does | [5 §4](./step-5-review.md) | Open — a decision: treat an account past its date as absent, or accept the window until the purge runs on a timer |
 
 ### Routines — migration 019
@@ -169,6 +172,22 @@ becomes a decision; an item here becomes a commit.
 | `app-password-written-three-times` | `taskco_app`'s password is in `TASKCO_APP_PASSWORD` and `DATABASE_URL` in `.env`, and in `DATABASE_URL` in `.env.test`. Nothing checks they agree, and a mismatch reads as "password authentication failed for user taskco_app". `TASKCO_APP_PASSWORD` is read only on a first start, so changing it later changes nothing until `down -v` | [reference, `compose.yaml`](./reference.md) | Open — met while building F3: `.env.test` had the superuser's password, and only `migrate:test` failed |
 | `windows-postgres-still-running` | The Windows Postgres still runs on 5432, as a Windows service, with the data it had when F3 moved the project off it on 2026-11-14, and nothing uses it. `taskco_app`'s password there is no longer kept in `.env` | [`step-docker.md`, decisions](./step-docker.md) | Waits — stopping it is its own decision, after the container has been used for a slice. Going back to it means setting `taskco_app` a new password there, as its `postgres` |
 
+### Deployment — what the code still assumes about this machine
+
+Found by the doc pass on 2026-11-20, before step 8 is prepared. Each was true of `main` at
+`9f6d1e7`.
+
+| Name | What | Explained in | Status |
+|---|---|---|---|
+| `server-listens-on-localhost-only` | `src/server.ts` fixes the port at 3000 and listens on `127.0.0.1`, so in a container, or on a host, nothing outside can reach it | [reference, `src/server.ts`](./reference.md) | Waits for hosting — read both from the environment |
+| `nothing-serves-the-built-frontend` | Design sections 11 and 16 want the built frontend and the API on one origin. `server.ts` answers 404 for everything outside `/api`, and nothing serves `web/dist`, or answers a page's address, such as `/projects/7`, with its `index.html` | [design §11](./design-decisions.md) | Waits for hosting — Express or a proxy in front of it, which the hosting decision chooses |
+| `no-production-start` | The API runs only through `tsx watch`, and `tsx` is a dev dependency, which `npm ci --omit=dev` leaves out. There is no `build` or `start` script. `tsc --outDir` compiles it, tried in a scratch folder, but `tsconfig.json` includes all of `src`, so the tests and `src/testing` are compiled too | Doc pass, 2026-11-20 — this row is the record | Open |
+| `no-health-check` | Every route under `/api` but `POST /users` and `POST /sessions` answers 401 without a session, and everything outside `/api` is 404, so a host's health check has nothing to ask that answers 200 | Doc pass, 2026-11-20 — this row is the record | Waits for hosting |
+| `seed-has-no-guard` | `npm run seed` truncates `users` and everything that cascades from it in whatever database `DATABASE_URL` names. The tests refuse any database whose name does not end in `_test`; the seed checks nothing. Run where `DATABASE_URL` names production, it empties every account | [reference, `src/seed.ts`](./reference.md) | Open — before a production `DATABASE_URL` exists anywhere the seed can run |
+| `no-shutdown-on-sigterm` | Nothing handles `SIGTERM`. Node running as a container's first process ignores it without a handler, so a container stop waits its ten seconds and then kills the server, mid-request | Doc pass, 2026-11-20 — this row is the record | Open — reasoned, not run. Docker part 2 meets it |
+| `dependency-advisories` | `npm audit`, 2026-11-20. In the API's runtime dependencies: `zod` below 4.6.6, high, memory exhausted validating oversized collections; `body-parser` 2.0 to 2.3, through Express 5.2.1, high, a compressed body's trailing bytes; `qs`, moderate. In `web/`: `vite` 8.3.2, high, the dev server only, not the built files | Doc pass, 2026-11-20 — this row is the record | Open — each fixed without a major version: `zod` 4.6.7; `body-parser` 2.4.0 and a newer `qs`, inside the ranges Express 5.2.1 already allows, so only the lock file changes; `vite` 8.3.8. `web/` pins exact versions, so its fix is an edit to `package.json` |
+| `no-database-backups` | Nothing backs up a database. Locally the volume is all there is, and `down -v` is the documented way to start clean. Hosted, the data is someone's | Doc pass, 2026-11-20 — this row is the record | Waits for hosting |
+
 ### Across files
 
 | Name | What | Explained in | Status |
@@ -179,6 +198,7 @@ becomes a decision; an item here becomes a commit.
 
 | Name | What | Explained in | Status |
 |---|---|---|---|
+| `export-not-built` | Design section 6: the Lead can export a project's tasks to CSV at any time, during delete mode too, and the delete question mentions it. No function, endpoint or screen exists, and the question does not mention it. How the CSV flattens tasks and subtasks is design section 12's first question | [design §6](./design-decisions.md) | Open — not started. It meets `lead-cannot-read-tasks-in-delete-mode` first |
 | `purge-runs-only-by-hand` | `purgeDeletedProjects`, `purgeDeletedAccounts` and, since step 6, `purgeExpiredSessions` run only when someone types `npm run purge`. Until something calls them on a schedule, a project or account past its date is gone from every answer but still on disk | [design §6](./design-decisions.md) | Waits for hosting — step 5 added no timer, because the server only runs while someone runs it. Not every answer, for accounts: see `gone-account-still-holds-its-address` |
 
 ---
@@ -249,5 +269,6 @@ Kept so a settled question is not reopened. The reasoning is in the review that 
 | `clears-words-say-1-subtasks` | [7c §7](./step-7c-review.md) | `clearsWords` in `tasks/words.ts`: the due date of 1 subtask, or the due dates of several — `7b88805`, typed by Stjepan. One test, seen failing first |
 | `no-subtask-moves` | [design §7](./design-decisions.md) | `moveSubtask` and `PUT /subtasks/:subtaskId/position`, the Lead's, a copy of `moveTask` scoped to the subtask's task, with `renumberSubtasks` when there is no room and `neighbour-in-another-task` for a neighbour under another task — `a8190d5`. On screen the Lead drags a subtask by its handle, by mouse or keyboard — `2051843`, `af53cdd`. Run in a browser on 2026-11-08: Choose a hero image moved above Write the headline, and stayed there after a reload |
 | `subtask-positions-unguarded` | [step 7d, traps](./step-7d.md) | `createSubtask` renumbers the task's subtasks first when the next position would not fit an `integer`, in the same transaction as the insert, as `createTask` does — `30c5f14`. One test, which failed first with "integer out of range": a subtask at the ceiling, and a new one after it, with all four back at clean spacing |
+| `one-project-go-with-it` | [reference, step 7g](./reference.md) | Delete account's question read "The project you still lead go with it" for one project, seen in 7g's browser check. It says "goes" for one — `8d5c403`, `web/src/account/DeleteAccount.tsx` |
 | `account-deletion-list-not-built` | [design §6](./design-decisions.md) | The Account page, slice 7g: `GET /projects` for the projects the asker leads, then each one's members, at once; each handed over with `transferLeadership`, the asker staying on, and the account deleted after — `8a56013`, `05a98a8`. Run in a browser on 2026-11-20 with a throwaway account |
 | `deleting-project-opens-as-empty` | [7b §2](./step-7b-review.md) | A project being deleted shows its Lead the banner alone: the day it goes, and Undo; its tasks and members are not asked for — `3ca51c1`. `project-being-deleted` and `project-not-restorable` have words of their own. Eight tests, seen failing first |

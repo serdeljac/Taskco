@@ -1,6 +1,7 @@
 # Taskco — Learning path
 
-**Current step:** 7 — the frontend. Slice 7a — registering, logging in, projects — is **built**, on
+**Current step:** 8 — deployment, not yet prepared: see step 8 below. **Step 7, the frontend, is
+done**, and how it went follows. Slice 7a — registering, logging in, projects — is **built**, on
 branch `step-7a`, 2026-10-24 to 2026-11-03, as specified in [`step-7a.md`](./step-7a.md): the first
 thing that shows a person any of the backend. Stjepan typed its six firsts; every flow in its "done
 looks like" was checked in a browser. Stjepan went over the commits on 2026-11-03, and the review
@@ -11,7 +12,7 @@ Slice 7b — a project's tasks — is **built**, on branch `step-7b`, 2026-11-05
 page, rename. Stjepan typed its two firsts. Stjepan went over the commits the same day, and the
 review followed, in [`step-7b-review.md`](./step-7b-review.md): three items. The two on a task's
 page were fixed the same day; the third waits for 7e. **Merged into `main`** on 2026-11-05, as a
-fast-forward of twenty commits. `main` is not pushed: `origin/main` ends at 7a's specification.
+fast-forward of twenty commits. `main` was not pushed then: `origin/main` ended at 7a's specification.
 Slice 7c — a task's subtasks — is **built**, on branch `step-7c`, 2026-11-05 to 2026-11-06, as
 specified in [`step-7c.md`](./step-7c.md): a task's subtasks, New subtask, a subtask's page, asking
 before a task's date clears subtask dates, and deleting. Stjepan typed its first, F1. Every flow was
@@ -38,14 +39,16 @@ page, handing over what the person leads, and deleting the account — is **buil
 `step-7g`, 2026-11-20, in two pieces; Stjepan typed both, and every flow was checked in a browser
 the same day. With it, step 7 is done: every flow the design has an endpoint for has a screen.
 7g was merged into `main` the same day, and `main` pushed to GitHub. **Next:** deployment —
-choosing a host, Docker part 2, the purge on a schedule.
+choosing a host, Docker part 2, the purge on a schedule — as step 8 below, prepared before its first
+line, as steps 5 and 7 were. A doc pass on 2026-11-20 found what the code still assumes about this
+machine; [`open-items.md`](./open-items.md), under Deployment.
 
 **Alongside step 7: Docker, part 1** — Postgres in a container — is **built**, on branch
 `step-docker`, 2026-11-12 to 2026-11-14, as specified in [`step-docker.md`](./step-docker.md).
 Stjepan typed all four pieces, after six practice lessons outside the repo. The API, the tests, the
 migrations and the seed use the container, on port 5433; the Windows Postgres stays on 5432, unused.
 **Merged into `main`** on 2026-11-14, at Stjepan's word, as a fast-forward of seven commits, with no
-review written; not pushed.
+review written; not pushed then.
 
 Steps 5 and 6 — the HTTP layer and authentication — are complete: built on branch `step-5` from
 2026-10-10 to 2026-10-22, reviewed and fixed on 2026-10-24 in [`step-5-review.md`](./step-5-review.md),
@@ -86,12 +89,14 @@ does. Stjepan types it, reviews what was built, and decides. *Changed 2026-10-22
    involved, and what usually goes wrong.
 2. **Claude gives the code; Stjepan types it in**, test-first: each test is seen failing for the
    expected reason, then the code makes it pass, then the whole suite and the type check run. One
-   commit per endpoint, or per idea, on the step's branch — never pushed. *Since 2026-11-08*, below.
+   commit per endpoint, or per idea, on the step's branch, pushed only when Stjepan chooses.
+   *Since 2026-11-08*, below.
 3. **Claude stops at the next new migration.** A migration is forward-only and lands in two
    databases, so it is where Stjepan decides before anything is written.
 4. **Stjepan goes over the commits**, one at a time, and asks about anything he cannot explain.
+   *Not for slices since 2026-11-14*, below.
 5. **The step gets its review** — for correctness, for structure, against the standards below, and
-   against `design-decisions.md`.
+   against `design-decisions.md`. *Not for slices since 2026-11-14*, below.
 6. **Anything learned gets recorded** — in that document if it changes a decision, in the progress
    log here otherwise.
 
@@ -110,6 +115,13 @@ number, or the whole file when a change touches several places — tried first i
 `web/` outside the project; **Stjepan types it**, runs the tests and the type check, and commits.
 C4 to C7 of slice 7d, written by Claude that day before the change, were kept for Stjepan to go
 over. The docs are drafted by Claude only when Stjepan asks, and left uncommitted for him to read.
+
+*Changed 2026-11-14, by Stjepan:* slices get no review and no going over the commits, so steps 4
+and 5 above are skipped. For every step Claude gives the code and the exact place for it, and
+Stjepan types, runs and commits it.
+
+*Changed 2026-11-19, by Stjepan:* Claude edits the `.md` docs itself, which replaces the last
+sentence of the 2026-11-08 change above. Stjepan still runs every git command.
 
 ### Rules
 
@@ -476,8 +488,32 @@ dragged into a new order. Stjepan decided four questions the same day: classic d
 each row, the new order shown at once, and trying it first. Five traps, found by trying dnd-kit in
 a throwaway copy of `web/` and the server in a throwaway test.
 
-**Slice 7d built 2026-11-06 to 2026-11-08**, on branch `step-7d`, and checked in a browser; not yet
-reviewed. See the progress log.
+**Slice 7d built 2026-11-06 to 2026-11-08**, on branch `step-7d`, and checked in a browser.
+Merged into `main` on 2026-11-14 with no review, by that day's rule. See the progress log.
+
+**Slices 7e, 7f and 7g built 2026-11-14 to 2026-11-20**, with no spec files: design section 16 and
+the preparation were the plan, and Stjepan typed every piece. Each was checked in a browser and
+merged into `main` the day it was finished. See the progress log. **Step 7 is done.**
+
+---
+
+### Step 8 — Deployment
+
+**Goal:** Taskco running somewhere other than this machine — a host chosen, the API and the
+frontend in containers as Docker part 2, and the purge on a schedule.
+
+**Not prepared yet.** Like steps 5 and 7, it gets a preparation document before its first line,
+with its questions put to Stjepan. What is already known:
+
+- **Hosting is open**, in design section 11, and carries one constraint from section 16: the built
+  frontend and the API are served from one origin.
+- **HTTPS is needed**, because the session cookie is `Secure`: `secure-cookie-needs-a-secure-origin`.
+- **What the code still assumes about this machine** was found by a doc pass on 2026-11-20 and is
+  listed in [`open-items.md`](./open-items.md), under Deployment. Among the older items,
+  `login-not-rate-limited` says it must be fixed before the server is reachable by anyone else, and
+  `purge-runs-only-by-hand`, `session-cookie-has-no-host-prefix`,
+  `browser-offers-zones-postgres-lacks` and `app-password-written-three-times` all wait for hosting.
+- **End-to-end tests**, which section 16 put off to 7g, and 7g did not take up.
 
 ---
 
@@ -499,6 +535,7 @@ elsewhere. Roughly 30 hours a week at the top end.
 | 6. Authentication | 10–15 h | |
 | **Backend total** | **60–95 h** | |
 | 7. Frontend | 60–100+ h | Learning React, TypeScript and SASS while building every screen |
+| 8. Deployment | — | Estimated once it is prepared |
 
 **These estimates are a stuck-detector, not a deadline.** Their only job is to signal when something
 has gone wrong. If step 1 is at hour twenty-five, the problem is not speed — it is that something
@@ -1155,3 +1192,75 @@ on an empty volume, so trying it again means `down -v`. That one password writte
 can disagree: `.env.test` got the superuser's, and `migrate:test` failed while `migrate` worked.
 And that the container trusts anyone already inside it, so `docker compose exec` needs no password,
 while the app, coming in through the port, is asked for one.
+
+**Step 7, slice 7e — invites, members, handing over, and deleting a project.** Built 2026-11-14 to
+2026-11-19 on branch `step-7e`, in six pieces with no spec file: design section 16 and
+[`step-7-prep.md`](./step-7-prep.md) were the plan. The first slice under the 2026-11-14 rule:
+Claude gave the code and its place, Stjepan typed every piece, and there was no going over the
+commits and no review. One change on the server came first: `listInvitesForUser` now names each
+invite's project and who sent it, since the person invited cannot look either up. Four hundred and
+sixty-four tests at the root. Then the pages:
+- the invites above the projects at `/`, to accept or decline;
+- Invite by email, under the members, for the Lead;
+- removing a member, and leaving a project, through `Delete`, which gained three optional props;
+- handing a project over, which asks first;
+- deleting a project, in 30 days or now, from a question at the foot of its page;
+- the banner a project being deleted shows its Lead, with Undo.
+
+One hundred and eighty-six tests in `web/`. Every flow was checked in a browser on 2026-11-19 with
+the seed's two accounts and a project made for it, and 7e was merged into `main` the same day, as a
+fast-forward. One item closed, `deleting-project-opens-as-empty`. Three opened:
+`project-list-hides-deletion` from building it, and `lead-not-first-after-transfer` and
+`member-questions-sit-beside-the-name` from the browser check.
+
+*Changed decisions:* Delete now is offered in the question, not on the banner, which offers Undo
+alone. That and the other choices made while building are in design section 16.
+
+**Step 7, slice 7f — routines.** Built 2026-11-19 to 2026-11-20 on branch `step-7f`, in three pieces
+with no spec file, each typed by Stjepan. No change on the server: every routine endpoint had been
+there since step 5. `/routines`, reached from the header, where Projects became a link too, shows
+each routine with its days, today and its streak. Creating one starts with every day ticked. Done
+and Undo work for today, and the streak follows. `createProject.ts` was renamed `CreateProject.ts`
+with `git mv`: the imports already spelled it so, which Windows did not mind and a Linux build
+would. One hundred and ninety-eight tests in `web/`. Checked in a browser on 2026-11-20, and merged
+into `main` the same day.
+
+*Changed decisions:* `streaks-are-one-query-per-routine` was accepted, so the page asks for each
+routine's streak, all at once. Done is offered only on a day the routine is for. Both are in design
+section 16.
+
+**Step 7, slice 7g — deleting an account.** Built 2026-11-20 on branch `step-7g`, in two pieces with
+no spec file, both typed by Stjepan. No change on the server. `/account` is reached from the email
+in the header. It lists every project the person leads, and each can be handed to a member, with the
+person staying on as an Associate, or reads "No members" when there is nobody to hand it to. Delete
+account asks first, then lands on `/login`. Two hundred and seven tests in `web/`. Checked in a
+browser on 2026-11-20 with a throwaway account, which found "The project you still lead go with it",
+fixed the same day as `one-project-go-with-it`. Merged into `main` the same day, and `main` pushed
+to GitHub. One item closed, `account-deletion-list-not-built`. With 7g, step 7 is done: every flow
+in the design that has an endpoint has a screen.
+
+*Changed decisions:* handing over from the Account page keeps the person on, and its list has no
+"delete this project". Both are in design section 16.
+
+**Before step 8 — a doc pass.** 2026-11-20, after `main` was pushed. Every doc was read against the
+code, and everything was run:
+- the root's suite against the container, 464 tests in file order and shuffled;
+- the 207 tests in `web/`;
+- both type checks;
+- `web/`'s build.
+
+All passed. Ten items were opened:
+- eight under Deployment in [`open-items.md`](./open-items.md), for what the code still assumes
+  about this machine — the address the server listens on, nothing serving the built frontend, no
+  way to start it without `tsx`, and a seed that empties whatever database it is pointed at among
+  them;
+- `session-cookie-has-no-host-prefix` and `export-not-built`, both written down before but never
+  given a row.
+
+`one-project-go-with-it` was recorded as closed. Stale passages were corrected here, in the design,
+in the open items and in the reference.
+
+*Learned:* that a red run can be the machine and not the code. On the Desktop, `web/`'s tests and
+type check failed because `web/node_modules` had no dnd-kit, though the lock file names it, while a
+clean install of the same commit passed. `npm ci` in `web/` is the cure. It is slice 7d's laptop
+lesson from the other side.

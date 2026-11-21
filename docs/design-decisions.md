@@ -2,8 +2,9 @@
 
 **Status:** design complete, stack chosen, the backend built — slices A, B and C, steps 4b and 4c,
 and steps 5 and 6, the HTTP layer and authentication — each with its review done, and merged.
-Step 7, the frontend, is prepared in [`step-7-prep.md`](./step-7-prep.md), and its ten questions
-were decided on 2026-10-24 — section 16. Nothing of it is built. Last updated 2026-10-24.
+Step 7, the frontend, prepared in [`step-7-prep.md`](./step-7-prep.md) with its ten questions
+decided on 2026-10-24, is built in seven slices, 7a to 7g, from 2026-10-24 to 2026-11-20, and
+merged — section 16. Hosting is still open — section 11. Last updated 2026-11-20.
 
 A running record of what has been decided, what is still open, and why. Decisions are added
 here as they are made, not reconstructed afterwards. When an open question gets answered, it
@@ -782,7 +783,9 @@ guidance should assume the *concepts* are new and explain them; syntax can be lo
 "done" looks like, what to watch for. *Changed 2026-10-22:* Claude writes the tests and the code
 into the files, test-first, one commit per endpoint on the step's branch, and stops at the next new
 migration; Stjepan reviews the commits. Until then Claude gave the code and Stjepan typed it in.
-Nothing is built without explicit confirmation first.
+*Changed back 2026-11-08, by Stjepan:* Claude gives the code and its exact place, and Stjepan types
+it; since 2026-11-14 slices get no review — [`learning-path.md`](./learning-path.md), "How each step
+works". Nothing is built without explicit confirmation first.
 
 ### Frontend
 | Piece | Role |
@@ -1080,7 +1083,8 @@ steal it; **Secure**, so it travels only over HTTPS — which browsers, and `cur
 carries it, which is this app's defence against cross-site request forgery. Bodies are JSON as well,
 which a form on another site cannot send. *Corrected 2026-10-24, after the step 5 review:* three
 `POST`s have no body, and `SameSite` counts another app on `localhost`, or a sibling subdomain, as the
-same site. A Fetch Metadata check is decided for them — section 16 — and not yet built.
+same site. A Fetch Metadata check was decided for them — section 16 — and built in slice 7a,
+`1a9703d`.
 
 *Rejected — a signed token (JWT):* nothing stored, so logging out cannot end it before it expires;
 ending it early takes a list of revoked tokens, which is a sessions table again. And the client must
@@ -1222,7 +1226,8 @@ the alternatives, and the runs behind them. What was decided:
   export, which is what reading is for.
 - **`frontend-tests` — component tests**, in Vitest with `jsdom` and Testing Library, written first,
   for anything with behaviour, with `fetch` replaced by a stand-in. Each slice ends with its flows
-  checked by hand in a browser. End-to-end is reconsidered at 7g.
+  checked by hand in a browser. End-to-end is reconsidered at 7g. *Not taken up at 7g, 2026-11-20:*
+  nothing was decided, and the question is carried into deployment's preparation.
 
 **Built in slice 7a**, 2026-10-24 to 2026-11-03, on branch `step-7a`: `api-origin`,
 `request-origin-check`, `frontend-layout`, `routing-and-loading`, `wire-types`, `refusal-words` and

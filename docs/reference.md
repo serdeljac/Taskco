@@ -42,7 +42,7 @@ so Docker Desktop must be running, and the container started.
 | `docker compose exec db psql -U taskco_app -d taskco_dev` | Interactive session, inside the container. `\q` to leave. No password: the container trusts connections made from inside it |
 | `docker compose exec db psql -U taskco_app -d taskco_dev -c "\d memberships"` | Describe one table without a session |
 | `docker compose exec db psql -U taskco_app -d taskco_test -c "select * from memberships"` | What the last test left behind |
-| `npm run seed` | Empties **taskco_dev** and fills it with a demo project, tasks and subtasks |
+| `npm run seed` | Empties **taskco_dev** and fills it with a demo project, tasks and subtasks. It empties whatever database `DATABASE_URL` names, and checks nothing — `seed-has-no-guard` |
 | `npm run purge` | Deletes every project in **taskco_dev** past its deletion date, with everything under it, then every account past its date that no longer leads a project |
 | `npm run dev` | Starts the server on `http://127.0.0.1:3000/api` against **taskco_dev**, and restarts it whenever a file changes. `Ctrl+C` stops it |
 | `curl.exe -c cookies.txt --json '{"email":"lead@example.com","password":"taskco-demo"}' http://127.0.0.1:3000/api/sessions` | Logs in to the running server as the seeded Lead, and saves the session cookie in `cookies.txt`. Run it in a second terminal |
@@ -1095,7 +1095,11 @@ frontend showed a project's tasks.
 
 **Open**
 
-- `seed.ts` sets status and priority with raw SQL, because no function does it yet.
+- `seed.ts` empties whatever database `DATABASE_URL` names. The tests refuse anything whose name
+  does not end in `_test`; the seed refuses nothing, so run where `DATABASE_URL` names a hosted
+  database, it empties every account — `seed-has-no-guard`.
+- *Fixed in step 5:* this note said the seed set status and priority with raw SQL. It calls
+  `setTaskStatus` and `setTaskPriority` now — `no-status-or-priority-functions`.
 
 ## `src/purge.ts`
 
@@ -1484,6 +1488,11 @@ app.listen(port, "127.0.0.1", () => {
 **What it does.** Loads `.env`, then starts the app. `dotenv/config` is the first import for step 1's
 reason: `db.ts` reads `DATABASE_URL` the moment it is imported. `127.0.0.1` means only this machine
 can reach it — which matters while anyone can claim to be anyone with a header.
+
+**Open** — for hosting, in [`open-items.md`](./open-items.md) under Deployment:
+`server-listens-on-localhost-only`, since the port and the address are fixed in the file;
+`nothing-serves-the-built-frontend` and `no-health-check`, since everything outside `/api` is 404
+(since 7a, below); `no-production-start`; and `no-shutdown-on-sigterm`.
 
 ## The HTTP tests — `src/test_http`
 
@@ -2658,6 +2667,9 @@ Claude gave by place.
 | Function | What changed |
 |---|---|
 | `listInvitesForUser(userId)` | Each invite now comes with `project_name` and `invited_by_email`, joined from `projects` and `users`: the person invited is not in the project yet, so cannot look either up. Its type is `InviteForUser` |
+
+One test more in `6_invites.test.ts` — `c7980a9`. Four hundred and sixty-four tests at the root,
+unchanged by 7f and 7g, which touched only `web/`.
 
 ## The pages
 
