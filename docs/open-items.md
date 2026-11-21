@@ -12,8 +12,8 @@ Companion to [`design-decisions.md`](./design-decisions.md) (what is being built
 [`step-5-review.md`](./step-5-review.md), [`step-7a-review.md`](./step-7a-review.md),
 [`step-7b-review.md`](./step-7b-review.md), [`step-7c-review.md`](./step-7c-review.md) — are dated
 snapshots and no longer carry status.
-Neither do [`step-5-prep.md`](./step-5-prep.md) and [`step-7-prep.md`](./step-7-prep.md), which
-say what their steps will do to each item they meet.
+Neither do [`step-5-prep.md`](./step-5-prep.md), [`step-7-prep.md`](./step-7-prep.md) and
+[`step-8-prep.md`](./step-8-prep.md), which say what their steps will do to each item they meet.
 
 ## How this file works
 

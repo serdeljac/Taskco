@@ -844,7 +844,8 @@ typed query builder that still reads like SQL.
 
 ### Still open
 Hosting — which now carries one constraint, from section 16: the built frontend and the API are
-served from one origin.
+served from one origin. *Prepared 2026-11-20*, in [`step-8-prep.md`](./step-8-prep.md), question 1,
+with its reasoning and the prices looked up; not yet decided.
 
 *Resolved 2026-10-22:* authentication — session cookies, and Argon2id from Node's own `node:crypto`,
 with no package. Section 15.

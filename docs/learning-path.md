@@ -1,6 +1,7 @@
 # Taskco — Learning path
 
-**Current step:** 8 — deployment, not yet prepared: see step 8 below. **Step 7, the frontend, is
+**Current step:** 8 — deployment, prepared on 2026-11-20 in [`step-8-prep.md`](./step-8-prep.md),
+its ten questions not yet decided: see step 8 below. **Step 7, the frontend, is
 done**, and how it went follows. Slice 7a — registering, logging in, projects — is **built**, on
 branch `step-7a`, 2026-10-24 to 2026-11-03, as specified in [`step-7a.md`](./step-7a.md): the first
 thing that shows a person any of the backend. Stjepan typed its six firsts; every flow in its "done
@@ -502,8 +503,13 @@ merged into `main` the day it was finished. See the progress log. **Step 7 is do
 **Goal:** Taskco running somewhere other than this machine — a host chosen, the API and the
 frontend in containers as Docker part 2, and the purge on a schedule.
 
-**Not prepared yet.** Like steps 5 and 7, it gets a preparation document before its first line,
-with its questions put to Stjepan. What is already known:
+**Prepared 2026-11-20**, in [`step-8-prep.md`](./step-8-prep.md), like steps 5 and 7. Its rehearsal
+ran in a throwaway copy outside the repo: a production image, and Postgres, a one-shot migrate, the
+API and Caddy in containers, serving HTTPS on `localhost`. It raises ten questions, the first being
+where Taskco runs, and recommends a rented Linux server with Compose and Caddy, with Render as the
+retreat. It proposes five slices — 8a, the code, and 8b, Docker part 2, both on this machine; 8c,
+the server; 8d, backups and the purge; 8e, CI, optional — and lists the traps the rehearsal met.
+None of the questions is decided. What was already known before it:
 
 - **Hosting is open**, in design section 11, and carries one constraint from section 16: the built
   frontend and the API are served from one origin.
@@ -535,7 +541,7 @@ elsewhere. Roughly 30 hours a week at the top end.
 | 6. Authentication | 10–15 h | |
 | **Backend total** | **60–95 h** | |
 | 7. Frontend | 60–100+ h | Learning React, TypeScript and SASS while building every screen |
-| 8. Deployment | — | Estimated once it is prepared |
+| 8. Deployment | 20–34 h | From its preparation: 8c, the server, is the widest — a server, DNS and certificates each work in minutes or eat an evening |
 
 **These estimates are a stuck-detector, not a deadline.** Their only job is to signal when something
 has gone wrong. If step 1 is at hour twenty-five, the problem is not speed — it is that something
