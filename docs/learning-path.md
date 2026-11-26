@@ -531,6 +531,15 @@ taken as recommended. Questions 2, 5 and 7 went another way:
 | then | the four features, as slices of their own, each going live as it is merged |
 | last | Taskco opens: the prompt is removed |
 
+**Slice 8a specified 2026-11-21**, in [`step-8a.md`](./step-8a.md): fourteen pieces, all typed by
+Stjepan. It opens with three pieces of housekeeping: the security fixes, the test guard moved out
+of `src/testing`, and the seed's guard. Then the cookie renamed, the password rule, the health
+check, the outer server as `site.ts`, settings from the environment, build and start, the purge
+timer, and the two limits. Twelve choices made while specifying are listed for Stjepan's review,
+among them the health check in `app.ts` rather than on the outer server. Five traps were run in a
+throwaway copy first; the worst, counts that outlive a test, is why every limit is cleared before
+each test.
+
 What was already known before the preparation:
 
 - **Hosting is open**, in design section 11, and carries one constraint from section 16: the built
